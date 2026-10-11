@@ -117,7 +117,7 @@ const recordedPids = async (directory: string): Promise<number[]> =>
 
 export const createLaunchSandbox = async (onTestFinished: TestContext['onTestFinished']): Promise<LaunchSandbox> => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-launch-')))
-  const directory = join(root, 'Имя Фамилия')
+  const directory = join(root, 'Όνομα Επώνυμο')
   await mkdir(directory)
   const launches: Launch[] = []
   onTestFinished(async () => {

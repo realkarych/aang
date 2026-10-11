@@ -12,7 +12,7 @@ import { agentRoleLabel, serviceAgentLabel } from './labels.js'
 
 export const shortSession = ({ key }: Pick<Session, 'key'>): string => key.session.slice(0, 8)
 
-export const sessionTitle = (session: Pick<Session, 'key'>): string => `Сессия ${shortSession(session)}`
+export const sessionTitle = (session: Pick<Session, 'key'>): string => `Session ${shortSession(session)}`
 
 const named = (text: string | null): string | null => (text === null || text.trim() === '' ? null : text)
 
@@ -20,25 +20,25 @@ export const agentTitle = (agent: Agent): string => {
   const ref = agent.key.agent
   switch (ref.kind) {
     case 'main':
-      return 'Основной агент'
+      return 'Main agent'
     case 'teammate':
       return `${ref.name}@${ref.team}`
     case 'service':
       return serviceAgentLabel[ref.service]
     case 'subagent':
-      return named(agent.agent_type) ?? named(agent.name) ?? 'Субагент без типа'
+      return named(agent.agent_type) ?? named(agent.name) ?? 'Untyped subagent'
     case 'thread':
-      return named(agent.name) ?? named(agent.agent_type) ?? 'Субагент без типа'
+      return named(agent.name) ?? named(agent.agent_type) ?? 'Untyped subagent'
   }
 }
 
 export const agentRole = (agent: Agent): string => {
   const kind = agentRoleLabel[agent.role]
   const type = named(agent.agent_type)
-  return type === null || type === agentTitle(agent) ? kind : `${kind}, тип ${type}`
+  return type === null || type === agentTitle(agent) ? kind : `${kind}, type ${type}`
 }
 
-const agentPhrase = (agent: Agent): string => (agent.role === 'main' ? 'основной агент' : agentTitle(agent))
+const agentPhrase = (agent: Agent): string => (agent.role === 'main' ? 'main agent' : agentTitle(agent))
 
 export const placeOf = (
   objects: ObservationObjects,

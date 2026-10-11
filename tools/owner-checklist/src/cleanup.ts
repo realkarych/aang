@@ -63,13 +63,13 @@ const createdSessions = async ({ layout, roots, events, files }: Collected): Pro
 const removeWorkDir = async (layout: ChecklistLayout, keepResults: boolean): Promise<string> => {
   if (!keepResults) {
     await remove(layout.dir)
-    return `- удалён рабочий каталог ${layout.dir}`
+    return `- removed the working directory ${layout.dir}`
   }
   const entries = await readdir(layout.dir)
   await Promise.all(
     entries.filter((name) => join(layout.dir, name) !== layout.results).map((name) => remove(join(layout.dir, name))),
   )
-  return `- рабочий каталог очищен, оставлен ${layout.results}`
+  return `- working directory cleaned, kept ${layout.results}`
 }
 
 const revertClaude = async (layout: ChecklistLayout, state: ChecklistState): Promise<ChecklistState> => {
@@ -91,47 +91,47 @@ export const cleanup = async ({ dir, keepResults, roots }: CleanupOptions): Prom
   const notes: string[] = []
   if (state.claude.registered) {
     state = await revertClaude(layout, state)
-    done.push(`- плагин ${claudePluginId} и маркетплейс aang удалены из пользовательского scope Claude`)
+    done.push(`- plugin ${claudePluginId} and the aang marketplace removed from the Claude user scope`)
   }
   if (state.codex !== null) {
     const codex = state.codex
     const removal = await removeCodexHooks(codex)
     done.push(
       removal.missingFile
-        ? `- ${codex.hooksFile} не найден, записи aang удалять не из чего`
+        ? `- ${codex.hooksFile} not found, no aang entries to remove`
         : removal.deletedFile
-          ? `- ${codex.hooksFile} создавался подготовкой и удалён`
-          : `- из ${codex.hooksFile} удалено записей aang: ${String(removal.removed)}, нейтрализовано на месте: ${String(removal.neutralized)}`,
+          ? `- ${codex.hooksFile} was created by prepare and has been removed`
+          : `- aang entries removed from ${codex.hooksFile}: ${String(removal.removed)}, neutralized in place: ${String(removal.neutralized)}`,
     )
     if (codex.backup !== null) {
-      notes.push(`- резервная копия hooks.json до подготовки: ${codex.backup} (удалите после проверки)`)
+      notes.push(`- backup of hooks.json before prepare: ${codex.backup} (delete it after checking)`)
     }
     notes.push(
-      `- записи доверия hooks aang в ${join(codex.codexHome, 'config.toml')} (hooks.state."${codex.hooksFile}:<событие>:i:j") Codex не удаляет; уберите их вручную, если они не нужны`,
+      `- Codex does not remove aang hook trust entries in ${join(codex.codexHome, 'config.toml')} (hooks.state."${codex.hooksFile}:<event>:i:j"); remove them by hand if you do not need them`,
     )
     state = { ...state, codex: null }
     await writeState(layout, state)
   }
   if (state.outsideDir !== null) {
     await remove(state.outsideDir)
-    done.push(`- удалён ${state.outsideDir}`)
+    done.push(`- removed ${state.outsideDir}`)
     state = { ...state, outsideDir: null }
     await writeState(layout, state)
   }
   done.push(await removeWorkDir(layout, keepResults))
   notes.push(
-    `- запись проекта ${layout.probeRepo} в ~/.claude.json или $CLAUDE_CONFIG_DIR/.claude.json после диалога доверия TUI`,
+    `- the project entry ${layout.probeRepo} in ~/.claude.json or $CLAUDE_CONFIG_DIR/.claude.json after the TUI trust dialog`,
   )
   return [
-    'Откат выполнен:',
+    'Rolled back:',
     ...done,
     '',
-    'Не откатывается автоматически:',
+    'Not rolled back automatically:',
     ...notes,
     '',
     sessions.length === 0
-      ? 'Сессий чек-листа в корнях рантаймов не найдено.'
-      : 'Сессии и файлы, созданные во время чек-листа (удалите вручную, если они не нужны):',
+      ? 'No checklist sessions found in the runtime roots.'
+      : 'Sessions and files created during the checklist (delete them by hand if you do not need them):',
     ...sessions.map((path) => `- ${path}`),
   ]
 }

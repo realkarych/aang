@@ -29,7 +29,7 @@ const RefName = ({ artifact }: { readonly artifact: ArtifactRef }): ReactElement
     case 'commit':
       return (
         <span className="artifact-path">
-          коммит <code>{shortSha(artifact.sha)}</code> в <code>{artifact.repository}</code>
+          commit <code>{shortSha(artifact.sha)}</code> in <code>{artifact.repository}</code>
         </span>
       )
   }
@@ -54,29 +54,29 @@ const RetentionNote = ({ version }: { readonly version: ArtifactVersion }): Reac
   const { retention } = version
   switch (retention.kind) {
     case 'action_payload':
-      return <span className="retention" data-stored="true">сохранена: содержимое, которое записало действие</span>
+      return <span className="retention" data-stored="true">saved: content written by the action</span>
     case 'file_read':
       return (
         <span className="retention" data-stored="true">
-          сохранена: состояние файла на момент чтения {absoluteTime(retention.read_at)}
+          saved: file state as read at {absoluteTime(retention.read_at)}
         </span>
       )
     case 'commit':
       return (
         <span className="retention" data-stored="true">
-          сохранена: коммит <code>{shortSha(retention.sha)}</code>
+          saved: commit <code>{shortSha(retention.sha)}</code>
         </span>
       )
     case 'hash_only':
       return (
         <span className="retention" data-stored="false">
-          только хеш: файл {bytes(retention.size_bytes)} больше предела хранения
+          hash only: the {bytes(retention.size_bytes)} file exceeds the storage limit
         </span>
       )
     case 'reference':
       return (
         <span className="retention" data-stored="false">
-          только ссылка: содержимое не сохранено
+          reference only: content not saved
         </span>
       )
   }
@@ -86,27 +86,27 @@ const ProducerNote = ({ version, producer }: { readonly version: ArtifactVersion
   const tool = <code>{producer.tool}</code>
   switch (version.retention.kind) {
     case 'action_payload':
-      return <span>записана действием {tool}</span>
+      return <span>written by action {tool}</span>
     case 'file_read':
-      return <span>в файл писало действие {tool}; что копия — записанное им содержимое, не доказано</span>
+      return <span>action {tool} wrote to the file; it is not proven that this copy is what it wrote</span>
     case 'commit':
     case 'hash_only':
     case 'reference':
-      return <span>в файл писало действие {tool}</span>
+      return <span>action {tool} wrote to the file</span>
   }
 }
 
 const unavailableLabel: Readonly<Record<Extract<ArtifactContent, { kind: 'unavailable' }>['reason'], string>> = {
-  reference_only: 'Известна только ссылка, содержимое aang не сохранял.',
-  hash_only: 'Сохранён только хеш содержимого.',
-  commit_missing: 'Коммита этой версии больше нет в репозитории.',
-  blob_missing: 'Содержимое пропало из хранилища aang.',
+  reference_only: 'Only the reference is known; aang did not save the content.',
+  hash_only: 'Only the content hash is saved.',
+  commit_missing: 'This version’s commit is no longer in the repository.',
+  blob_missing: 'The content is missing from aang storage.',
 }
 
 const sourceLabel: Readonly<Record<Extract<ArtifactContent, { kind: 'stored' }>['source'], string>> = {
-  action_payload: 'содержимое из действия',
-  file_read: 'состояние файла на момент чтения',
-  commit: 'содержимое коммита',
+  action_payload: 'content from the action',
+  file_read: 'file state at the time of reading',
+  commit: 'commit content',
 }
 
 const SavedBody = ({ response }: { readonly response: ArtifactVersionResponse }): ReactElement => {
@@ -128,7 +128,7 @@ const SavedBody = ({ response }: { readonly response: ArtifactVersionResponse })
       {content.encoding === 'utf8' ? (
         <Clipped text={content.data} className="saved-content" />
       ) : (
-        <p className="read-note">Содержимое двоичное, текстом его не показать.</p>
+        <p className="read-note">The content is binary and cannot be shown as text.</p>
       )}
     </>
   )
@@ -144,9 +144,9 @@ const SavedVersion = ({ version, label }: { readonly version: ArtifactVersion; r
       ) : (
         <ReadNote
           read={read}
-          loading="Загрузка сохранённой версии…"
-          missing="Версии больше нет в хранилище aang."
-          failed="Не удалось загрузить сохранённую версию."
+          loading="Loading saved version…"
+          missing="The version is no longer in aang storage."
+          failed="Could not load the saved version."
         />
       )}
     </div>
@@ -173,7 +173,7 @@ const ArtifactItem = ({
       <p className="artifact-meta">
         <RetentionNote version={version} />
         {producer === undefined ? null : <ProducerNote version={version} producer={producer} />}
-        <span>замечена {absoluteTime(version.observed_at)}</span>
+        <span>seen {absoluteTime(version.observed_at)}</span>
       </p>
       {isStored(version) ? (
         <>
@@ -186,12 +186,12 @@ const ArtifactItem = ({
               setOpen(!open)
             }}
           >
-            {open ? 'Скрыть сохранённую версию' : 'Открыть сохранённую версию'}
+            {open ? 'Hide saved version' : 'Open saved version'}
           </button>
-          <div id={saved}>{open ? <SavedVersion version={version} label={`Сохранённая версия: ${name}`} /> : null}</div>
+          <div id={saved}>{open ? <SavedVersion version={version} label={`Saved version: ${name}`} /> : null}</div>
         </>
       ) : null}
-      <Grounds basis={link.basis} evidence={link.evidence} label={`Связь с ${name}`} />
+      <Grounds basis={link.basis} evidence={link.evidence} label={`Link to ${name}`} />
     </li>
   )
 }
@@ -234,12 +234,12 @@ export const StageArtifacts = ({
 }): ReactElement => {
   const producers = new Map(actions.map((action) => [action.id, action]))
   if (inputs.length === 0 && outputs.length === 0) {
-    return <p className="section-empty">Наблюдатель не привязал к этапу версий артефактов.</p>
+    return <p className="section-empty">The observer has not linked artifact versions to the stage.</p>
   }
   return (
     <>
-      <ArtifactGroup title="Выходы" artifacts={outputs} producers={producers} />
-      <ArtifactGroup title="Входы" artifacts={inputs} producers={producers} />
+      <ArtifactGroup title="Outputs" artifacts={outputs} producers={producers} />
+      <ArtifactGroup title="Inputs" artifacts={inputs} producers={producers} />
     </>
   )
 }

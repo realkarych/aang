@@ -17,7 +17,7 @@ const output = { base_version: 7, ops: [], needs: [] }
 const sandbox = async ({ onTestFinished }: TestContext) => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-admission-')))
   onTestFinished(() => rm(root, { recursive: true, force: true, maxRetries: 10 }))
-  const home = join(root, 'Имя Фамилия')
+  const home = join(root, 'Όνομα Επώνυμο')
   await mkdir(home)
   return {
     root,
@@ -41,7 +41,7 @@ for (const runtime of ['claude', 'codex'] as const) {
     expect(cli.calls()).toEqual([])
     const admitted = await backend.admit()
     expect(admitted).toMatchObject({ admitted: true, runtime })
-    expect(admitted.warning).toBe(runtime === 'claude' ? 'изоляция от сообщений других сессий на этой версии не проверена' : null)
+    expect(admitted.warning).toBe(runtime === 'claude' ? "isolation from other sessions' messages is not verified on this version" : null)
     expect(JSON.parse(await readFile(options.admissionStatusPath, 'utf8'))).toEqual(admitted)
     const probes = cli.calls().filter((call) => call.prompt !== null)
     expect(probes).toHaveLength(2)

@@ -158,8 +158,8 @@ export const waitFor = async <T>(
 
 export const createLab = async (options: LabOptions): Promise<Lab> => {
   const { clis, aangEntry, journal } = options
-  const profile = await createProfile({ homeName: 'Имя Фамилия' })
-  const project = join(profile.home, 'проект q4')
+  const profile = await createProfile({ homeName: 'Όνομα Επώνυμο' })
+  const project = join(profile.home, 'έργο q4')
   const work = join(profile.root, 'work')
   const gates = join(work, 'gates')
   await mkdir(project, { recursive: true })

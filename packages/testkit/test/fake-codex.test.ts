@@ -226,7 +226,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
   test('a successful exec streams the events of the real CLI, writes -o and cites the input', async ({
     onTestFinished,
   }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Тесты зелёные')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('Tests are green')] })
     const recorded = readSampleLines('codex-events-4-tools-off.jsonl')
 
     const exit = await observer.call()
@@ -238,7 +238,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
     expect(readFileSync(observer.files.lastMessage, 'utf8')).toBe(text)
     expect(ObserverOutput.parse(JSON.parse(text))).toEqual({
       base_version: modelVersion,
-      ops: [{ op: 'brief.update', text: 'Тесты зелёные', evidence: factIds, rationale: 'Сводка по фактам порции' }],
+      ops: [{ op: 'brief.update', text: 'Tests are green', evidence: factIds, rationale: 'Summary of the batch facts' }],
       needs: [],
     })
   })
@@ -246,7 +246,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
   test('every call is recorded with argv, working directory, environment, prompt, instructions and schema', async ({
     onTestFinished,
   }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Готово')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('Done')] })
     const prompt = observerPrompt()
 
     await observer.call(observer.profile, prompt)
@@ -276,7 +276,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
   test.for(isolationProfile(observerFiles('observer')).map((part) => part.id))(
     'without %s the call fails before reaching the model',
     async (id, { expect, onTestFinished }) => {
-      const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })
+      const observer = await setUp(onTestFinished, { replies: [answer('Must not appear')] })
 
       const exit = await observer.call(observer.profile.filter((part) => part.id !== id))
 
@@ -288,7 +288,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
   )
 
   test('a weakened profile is a violation too', async ({ onTestFinished }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('Must not appear')] })
     const emptyInstructions = join(observer.workspace.root, 'observer', 'empty-system.md')
     writeFileSync(emptyInstructions, '')
     const weakened: readonly (ProfilePart & { readonly replaces?: string })[] = [
@@ -327,7 +327,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
   })
 
   test('an unreadable instructions file fails like the real CLI without taking a reply', async ({ onTestFinished }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('После исправления')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('After the fix')] })
     const missingFile = join(observer.workspace.root, 'observer', 'missing-system.md')
 
     const missing = await observer.call(
@@ -357,7 +357,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
 
   test('replies follow the call order and the last one repeats', async ({ onTestFinished }) => {
     const observer = await setUp(onTestFinished, {
-      replies: [{ kind: 'auth' }, answer('Первый'), answer('Второй')],
+      replies: [{ kind: 'auth' }, answer('First'), answer('Second')],
     })
 
     const exits = []
@@ -367,7 +367,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
 
     expect(exits.map((exit) => exit.code)).toEqual([1, 0, 0, 0])
     expect(exits.slice(1).map((exit) => ObserverOutput.parse(JSON.parse(agentText(exit.events))).ops[0])).toEqual(
-      ['Первый', 'Второй', 'Второй'].map((text) => expect.objectContaining({ text }) as unknown),
+      ['First', 'Second', 'Second'].map((text) => expect.objectContaining({ text }) as unknown),
     )
   })
 })
@@ -405,7 +405,7 @@ describe('fake codex injects observer failures (F.4)', () => {
   test('tool attempts are logged as unsupported by the tool router while the turn completes', async ({
     onTestFinished,
   }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('С попытками', ['exec', 'spawn_agent'])] })
+    const observer = await setUp(onTestFinished, { replies: [answer('With attempts', ['exec', 'spawn_agent'])] })
 
     const exit = await observer.call()
 
@@ -438,13 +438,13 @@ describe('fake codex injects observer failures (F.4)', () => {
   })
 
   test('a logged-out CLI fails login status and every call until it is logged in again', async ({ onTestFinished }) => {
-    const observer = await setUp(onTestFinished, { loggedIn: false, replies: [answer('После входа')] })
+    const observer = await setUp(onTestFinished, { loggedIn: false, replies: [answer('After login')] })
     const loginStatus = () =>
       runFake(observer.fake, ['login', 'status'], { env: observer.env(), cwd: observer.workspace.cwd })
 
     const loggedOut = await loginStatus()
     const refused = await observer.call()
-    observer.fake.setScenario({ replies: [answer('После входа')] })
+    observer.fake.setScenario({ replies: [answer('After login')] })
     const loggedIn = await loginStatus()
     const answered = await observer.call()
 

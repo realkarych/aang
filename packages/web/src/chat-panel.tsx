@@ -140,7 +140,7 @@ const QuestionCite = ({ item }: { readonly item: AttentionItem }): ReactElement 
     <span className="chat-cite" data-closed="true">
       <CiteKind label={attentionKindLabel[item.kind]} />
       <span className="cite-text">{item.text}</span>
-      <span className="cite-note"> закрыт</span>
+      <span className="cite-note"> closed</span>
     </span>
   )
 
@@ -184,7 +184,7 @@ const FactCite = ({ id, context }: { readonly id: FactId; readonly context: Cite
     return (
       <span className="chat-cite" data-closed="true">
         <CiteKind label={citationKindLabel.fact} />
-        <span className="cite-note">не прочитан, повтор через несколько секунд</span>
+        <span className="cite-note">not read, retrying in a few seconds</span>
       </span>
     )
   }
@@ -202,7 +202,7 @@ const FactCite = ({ id, context }: { readonly id: FactId; readonly context: Cite
     >
       <span>{speakerLabel[fact.speaker]}</span>
       {place === null ? null : <span>{place}</span>}
-      <span>сырая запись № {fact.seq}</span>
+      <span>raw record #{fact.seq}</span>
       {gist === null ? null : <span className="cite-gist">{gist}</span>}
     </Disclosure>
   )
@@ -213,7 +213,7 @@ const refName = (ref: ArtifactRef): string =>
 
 const VersionContent = ({ content }: { readonly content: ArtifactContent }): ReactElement =>
   content.kind === 'unavailable' ? (
-    <span>{`Содержимое недоступно: ${contentMissingLabel[content.reason]}`}</span>
+    <span>{`Content unavailable: ${contentMissingLabel[content.reason]}`}</span>
   ) : (
     <>
       <span>{contentSourceLabel[content.source]}</span>
@@ -222,7 +222,7 @@ const VersionContent = ({ content }: { readonly content: ArtifactContent }): Rea
       {content.encoding === 'utf8' ? (
         <pre className="cite-content">{content.data}</pre>
       ) : (
-        <span className="cite-gist">Содержимое двоичное, текстом его не показать.</span>
+        <span className="cite-gist">The content is binary and cannot be shown as text.</span>
       )}
     </>
   )
@@ -232,7 +232,7 @@ const VersionCite = ({ id, now }: { readonly id: ArtifactVersionId; readonly now
   return read === null ? (
     <span className="chat-cite" data-closed="true">
       <CiteKind label={citationKindLabel.artifact_version} />
-      <span className="cite-note">не прочитана, повтор через несколько секунд</span>
+      <span className="cite-note">not read, retrying in a few seconds</span>
     </span>
   ) : (
     <Disclosure
@@ -258,7 +258,7 @@ const Reading = ({ kind }: { readonly kind: ChatCitation['kind'] }): ReactElemen
 const Missing = ({ citation }: { readonly citation: ChatCitation }): ReactElement => (
   <span className="chat-cite" data-closed="true">
     <CiteKind label={citationKindLabel[citation.kind]} />
-    <span className="cite-note">нет в текущем снимке прогона</span>
+    <span className="cite-note">not in the current run snapshot</span>
   </span>
 )
 
@@ -308,7 +308,7 @@ const Citations = ({
   readonly context: CiteContext
 }): ReactElement | null =>
   citations.length === 0 ? null : (
-    <ul className="chat-citations" aria-label="Ссылки ответа">
+    <ul className="chat-citations" aria-label="Answer citations">
       {citations.map((citation) => (
         <li key={`${citation.kind}:${citation.id}`}>
           <Cite citation={citation} context={context} />
@@ -333,7 +333,7 @@ const RuleNote = ({
 }): ReactElement | null => {
   const agents = useKnownAgents()
   if (message.view_rule_error !== null) {
-    return <p className="chat-rule" data-applied="false">{`Правило вида не применено: ${message.view_rule_error}`}</p>
+    return <p className="chat-rule" data-applied="false">{`View rule not applied: ${message.view_rule_error}`}</p>
   }
   if (message.view_rule === null) {
     return null
@@ -342,23 +342,23 @@ const RuleNote = ({
   if (applied === undefined) {
     return (
       <p className="chat-rule" data-applied="false">
-        Правило вида из этого ответа отменено.
+        The view rule from this answer was undone.
       </p>
     )
   }
   const text = ruleText(applied.rule, snapshot.model.stages)
   return (
     <p className="chat-rule" data-applied="true" title={fullHint(text, agents)}>
-      {`Правило вида применено: ${shortIds(text, agents)}. Отменить его можно в списке правил.`}
+      {`View rule applied: ${shortIds(text, agents)}. You can undo it in the rule list.`}
     </p>
   )
 }
 
 const VersionNote = ({ version, current }: { readonly version: number; readonly current: number }): ReactElement => (
   <p className="chat-version">
-    {`по версии карты ${String(version)}`}
+    {`as of map version ${String(version)}`}
     {current > version ? (
-      <span className="chat-stale">{`, карта с тех пор обновилась до версии ${String(current)}`}</span>
+      <span className="chat-stale">{`, the map has since been updated to version ${String(current)}`}</span>
     ) : null}
   </p>
 )
@@ -368,21 +368,21 @@ const Reply = ({ message, context }: { readonly message: ChatMessage; readonly c
     case 'pending':
       return (
         <p className="chat-pending" role="status">
-          Наблюдатель готовит ответ…
+          The observer is preparing an answer…
         </p>
       )
     case 'failed':
-      return <p className="chat-failed">{`Ответа нет: ${message.error ?? 'вызов наблюдателя не удался'}`}</p>
+      return <p className="chat-failed">{`No answer: ${message.error ?? 'the observer call failed'}`}</p>
     case 'answered':
       return (
         <div className="chat-reply">
           <p className="chat-answer">
-            {message.answer === null ? 'Наблюдатель не нашёл ответа в данных прогона.' : <ShortIds text={message.answer} />}
+            {message.answer === null ? 'The observer found no answer in the run data.' : <ShortIds text={message.answer} />}
           </p>
           {message.insufficient_data || message.unconfirmed_citations ? (
             <ul className="chat-flags">
-              {message.insufficient_data ? <Flag>недостаточно данных</Flag> : null}
-              {message.unconfirmed_citations ? <Flag>часть ссылок не подтверждена и убрана</Flag> : null}
+              {message.insufficient_data ? <Flag>not enough data</Flag> : null}
+              {message.unconfirmed_citations ? <Flag>some citations were unconfirmed and removed</Flag> : null}
             </ul>
           ) : null}
           <Citations citations={message.citations} context={context} />
@@ -400,10 +400,10 @@ const Entry = ({ message, context }: { readonly message: ChatMessage; readonly c
       <p className="chat-meta">
         <span>
           {message.stage === null ? (
-            'по всему прогону'
+            'about the whole run'
           ) : (
             <>
-              {'по этапу '}
+              {'about stage '}
               <StageName title={stageTitle(context.snapshot.model.stages, message.stage)} />
             </>
           )}
@@ -460,14 +460,14 @@ const AskForm = ({
       }}
     >
       <label htmlFor={field} className="chat-label">
-        Вопрос
+        Question
       </label>
       <textarea
         id={field}
         className="chat-input"
         rows={3}
         value={question}
-        placeholder="Например: почему этап ждёт решения? Или: сверни ревьюеров"
+        placeholder="For example: why is the stage awaiting a decision? Or: collapse the reviewers"
         onChange={(event) => {
           setQuestion(event.target.value)
         }}
@@ -481,10 +481,10 @@ const AskForm = ({
       <div className="chat-actions">
         <p className="chat-scope">
           {stage === null ? (
-            'Вопрос по всему прогону. Выберите этап на карте, чтобы сузить вопрос до него.'
+            'Question about the whole run. Select a stage on the map to narrow the question to it.'
           ) : (
             <>
-              {'Вопрос по этапу '}
+              {'Question about stage '}
               <StageName title={stage.title} />
               {'. '}
               <button
@@ -494,18 +494,18 @@ const AskForm = ({
                   choice.choose(null)
                 }}
               >
-                Спросить по всему прогону
+                Ask about the whole run
               </button>
             </>
           )}
         </p>
         <button type="submit" className="chat-send" disabled={sending || question.trim() === ''}>
-          {sending ? 'Отправка…' : 'Спросить'}
+          {sending ? 'Sending…' : 'Ask'}
         </button>
       </div>
       {failure === null ? null : (
         <p className="chat-error" role="alert">
-          {`Вопрос не отправлен: ${failure}`}
+          {`Question not sent: ${failure}`}
         </p>
       )}
     </form>
@@ -523,13 +523,13 @@ const HistoryNote = ({
     case 'failed':
       return (
         <p className="chat-trouble" role="status">
-          {`История чата не загружена: ${history.reason}. aang повторяет запрос.`}
+          {`Chat history not loaded: ${history.reason}. aang keeps retrying.`}
         </p>
       )
     case 'loading':
-      return empty ? <p className="chat-empty">История чата загружается…</p> : null
+      return empty ? <p className="chat-empty">Loading chat history…</p> : null
     case 'ready':
-      return empty ? <p className="chat-empty">Вопросов по этому прогону ещё не было.</p> : null
+      return empty ? <p className="chat-empty">No questions about this run yet.</p> : null
   }
 }
 
@@ -547,15 +547,15 @@ export const ChatPanel = ({
   return (
     <section className="chat" aria-labelledby={heading}>
       <h2 id={heading} className="section-title">
-        Чат
+        Chat
       </h2>
       <p className="chat-note">
-        Отвечает наблюдатель по снимку карты и ссылается на этапы, факты и действия. Чат не меняет карту и ничего не
-        отправляет решателю; правило вида из ответа применяется сразу, отменить его можно в списке правил.
+        The observer answers from a map snapshot and cites stages, facts and actions. Chat does not change the map and sends
+        nothing to the solver; a view rule from an answer applies immediately, and you can undo it in the rule list.
       </p>
       <HistoryNote history={history} empty={messages.length === 0} />
       {messages.length === 0 ? null : (
-        <ol className="chat-log" aria-label="Вопросы и ответы">
+        <ol className="chat-log" aria-label="Questions and answers">
           {messages.map((message) => (
             <Entry key={message.id} message={message} context={context} />
           ))}

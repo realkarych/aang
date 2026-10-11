@@ -67,7 +67,7 @@ const HandoverNote = ({
       </p>
       {handover === null ? null : (
         <button type="button" className="map-dismiss" onClick={onDismiss}>
-          Скрыть
+          Hide
         </button>
       )}
     </div>
@@ -90,19 +90,19 @@ export const MapSection = ({
     <section className="map" aria-labelledby={mapHeading}>
       <header className="map-head">
         <h2 id={mapHeading} className="map-title">
-          Карта этапов
+          Stage map
         </h2>
         {stages === 0 ? null : <p className="map-count">{plural(stages, stageForms)}</p>}
-        {hidden === 0 ? null : <p className="map-count">{`скрыто правилами вида: ${plural(hidden, stageForms)}`}</p>}
+        {hidden === 0 ? null : <p className="map-count">{`hidden by view rules: ${plural(hidden, stageForms)}`}</p>}
       </header>
       <HandoverNote
         handover={selection?.handover ?? null}
         onDismiss={dismissHandover}
       />
       {stages === 0 ? (
-        <p className="map-note">Этапы строит наблюдатель. Карта появится после его первого ответа по этому прогону.</p>
+        <p className="map-note">The observer builds the stages. The map will appear after its first response for this run.</p>
       ) : (
-        <Suspense fallback={<p className="map-note">Загрузка карты…</p>}>
+        <Suspense fallback={<p className="map-note">Loading map…</p>}>
           <StageMap snapshot={snapshot} selection={selection} onSelect={choose} />
         </Suspense>
       )}

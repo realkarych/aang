@@ -186,7 +186,7 @@ New session: Code → Local, folder `/tmp/aang-d7/probe-repo` (in the picker, Cm
    cp /tmp/aang-d7/results/files.json /tmp/aang-d7/results/files-before-step6.json
    ```
 
-   Then archive the step 1 session and delete it. Run `collect` again. Check the `deleted_<uuid>` marker (the summary section «Маркеры удаления» ("Deletion markers")) and whether the transcript remained (the table «Транскрипты Claude» ("Claude transcripts")).
+   Then archive the step 1 session and delete it. Run `collect` again. Check the `deleted_<uuid>` marker (the summary section "Deletion markers") and whether the transcript remained (the table "Claude transcripts").
 
 ## 5. Section C — Codex in ChatGPT Desktop, steps 7–10
 
@@ -195,7 +195,7 @@ New session: Code → Local, folder `/tmp/aang-d7/probe-repo` (in the picker, Cm
 7. Open ChatGPT (Codex) and confirm trust in the aang hooks. If the app does not offer this by itself, use `/hooks` in terminal Codex (`codex` in any directory, without a prompt): trust is stored in the shared `~/.codex/config.toml`. Check `trustStatus` in the `hooks/list` responses in the logs `~/Library/Logs/com.openai.codex/<YYYY>/<MM>/<DD>/codex-desktop-*.log`. Codex silently does not run new hooks without trust, so the absence of Codex events in the summary means there is no trust.
 8. A new Local chat in `/tmp/aang-d7/probe-repo` with on-request approval. Prompt: "Run `echo hi`, then reply OK". A safe command in the sandbox may pass without a prompt, so the step checks only SessionStart, UserPromptSubmit, PreToolUse, PostToolUse and Stop. The `originator` and `source` of the new rollout are visible in the summary.
    - 8a. **Deterministic approval request.** Run `collect` and check in the summary's Codex section that `~/aang-desktop-probe-outside` is not among the writable roots. Prompt: "Run `touch ~/aang-desktop-probe-outside/allow.txt` and request escalated permissions for it (`sandbox_permissions: require_escalated`)". Approve. Expected: PermissionRequest and PostToolUse, the file is created (`ls ~/aang-desktop-probe-outside`). Repeat with `deny.txt` and deny: PermissionRequest present, no PostToolUse and no file. If OTel export is enabled, match `codex.tool_decision` by `call_id` against the PreToolUse `tool_use_id`. If the approval request did not appear, the step failed; this is not confirmation of working hooks.
-9. Repeat step 8 in a Worktree chat: `cwd` must lie in `~/.codex/worktrees/…`. Then ask to spawn a subagent: "Spawn a subagent that runs `echo sub` and reports back". Expected: SubagentStart, SubagentStop and a subagent rollout with `parent_thread_id`: the summary shows it as a «Субагент» ("Subagent") line in the session section and matches `parent_thread_id` against the parent's `session_id`. Close and reopen the app, continue the chat. Expected: `SessionStart.source=resume`.
+9. Repeat step 8 in a Worktree chat: `cwd` must lie in `~/.codex/worktrees/…`. Then ask to spawn a subagent: "Spawn a subagent that runs `echo sub` and reports back". Expected: SubagentStart, SubagentStop and a subagent rollout with `parent_thread_id`: the summary shows it as a "Subagent" line in the session section and matches `parent_thread_id` against the parent's `session_id`. Close and reopen the app, continue the chat. Expected: `SessionStart.source=resume`.
 10. A Cloud chat, if available, prompt "reply OK". Expected: neither a new rollout nor events in the spool. Write down the chat time: the summary must not have a Codex session with this time.
 
 ## 6. Collecting results
@@ -212,7 +212,7 @@ The command only reads: spool `new/`, Claude transcripts (`$CLAUDE_CONFIG_DIR` o
 | File | Contents |
 | --- | --- |
 | `events.jsonl` | one event per line: receive time (spool file mtime), runtime, tag, environment from the spool header, `hook_event_name`, `session_id` and only safe fields. For example, `tool_name`, `tool_use_id`, `notification_type`, `source`, `reason`, `cwd`, the number of AskUserQuestion questions, presence of `answers`, `plan` length, presence of `planFilePath`, PostToolBatch composition without the response text |
-| `summary.md` | sessions by time and checklist items. Notification latencies, AskUserQuestion and ExitPlanMode chains, `SessionEnd.reason`, hook environment, Notification types, Desktop and Codex sections. Items that only the owner's eye checks are marked «заполняет владелец» ("filled in by the owner") |
+| `summary.md` | sessions by time and checklist items. Notification latencies, AskUserQuestion and ExitPlanMode chains, `SessionEnd.reason`, hook environment, Notification types, Desktop and Codex sections. Items that only the owner's eye checks are marked "filled in by the owner" |
 | `files.json` | Claude transcripts (`entrypoint`, versions, `compact_boundary`, `subagents/` files), Codex rollouts and their subagents (`originator`, `source`, `parent_thread_id`, `approval_policy`, `sandbox_policy`) and Desktop metafiles |
 | `env-probe.jsonl` | environment probe records (item f) |
 
@@ -232,8 +232,8 @@ cp /tmp/aang-d7/results/* docs/research/samples/owner-checklist/macos/
 
 The outcome is written up in `docs/research/d7-owner-checklist-results.md`, following the example of `docs/research/windows-runtimes.md`:
 
-- versions of `claude`, Claude Desktop and its built-in engine (the «Версии» ("Versions") field of the transcripts table), ChatGPT and Codex (rollout `cli_version`);
-- for each item of A, B and C — the expectation, the observation from the summary and the owner's notes from the «Заполняет владелец» ("Filled in by the owner") section;
+- versions of `claude`, Claude Desktop and its built-in engine (the "Versions" field of the transcripts table), ChatGPT and Codex (rollout `cli_version`);
+- for each item of A, B and C — the expectation, the observation from the summary and the owner's notes from the "Filled in by the owner" section;
 - the format of `spawnSeed` and `lastSpawnRootDetected`. Confirmation of the format lifts the condition of decision 4 of ADR-0004; a discrepancy is recorded in ADR-0004;
 - Desktop limitations that are escalated to the owner before stage 2 (RFC §4).
 

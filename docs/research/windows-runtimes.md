@@ -18,7 +18,7 @@ The verification runs in GitHub Actions per the owner's decision of 2026-10-02 (
 **Method.** The `tools/runtime-check` tool (`node tools/runtime-check/dist/main.js --out <dir>`), the `.github/workflows/runtime-check.yml` workflow. The tool's report is `report.json` in the run artifact.
 
 - The model is stubs inside the tool process: the Messages API for Claude (`ANTHROPIC_BASE_URL`, a stub key in `ANTHROPIC_API_KEY`) and the Responses API for Codex (provider `aang_stub` without authorization, as in the spike). The stubs respond by script: N tool calls, then text. Claude calls `Read`, Codex calls `apply_patch`, so that the tool itself spawns no processes.
-- The profile is a directory `…\Users\Имя Фамилия` with a space and Cyrillic. Inside are `.claude`, `.codex`, `.aang` (a copy of `aang-hook.exe` and a spool with a lease) and the project `проект с пробелами`. `HOME` and `USERPROFILE` point to this directory, `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are set explicitly. No Windows user account with this name was created.
+- The profile is a directory `…\Users\Όνομα Επώνυμο` with a space and Greek letters. Inside are `.claude`, `.codex`, `.aang` (a copy of `aang-hook.exe` and a spool with a lease) and the project `έργο με κενά`. `HOME` and `USERPROFILE` point to this directory, `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are set explicitly. No Windows user account with this name was created. These runs used a Cyrillic profile name; the tools now use the Greek name shown here, which keeps the path non-ASCII and outside Latin-1.
 - Claude hooks — the aang plugin in exec form on all events except `Worktree*`, `MessageDisplay` and `PreModelSwitch`, `timeout: 2`. The plugin is installed via a local marketplace (`claude plugin marketplace add`, `claude plugin install`), as D.2 will do. The probes are attached as a separate plugin via `--plugin-dir`.
 - Codex hooks — `hooks.json` in a temporary `CODEX_HOME`; trust — via the test-only `--dangerously-bypass-hook-trust`.
 - The probe is a Node script instead of the handler. It records argv, stdin size and the chain of parent processes: name and command line from `Win32_Process`.
@@ -38,7 +38,7 @@ The verification runs in GitHub Actions per the owner's decision of 2026-10-02 (
 
 ## 1. Key findings
 
-1. **Claude: exec form works.** `claude.exe` launches `aang-hook.exe` directly; a path with a space and Cyrillic and the arguments arrive undistorted. The plugin is installed via a local marketplace and enabled.
+1. **Claude: exec form works.** `claude.exe` launches `aang-hook.exe` directly; a path with a space and Greek letters and the arguments arrive undistorted. The plugin is installed via a local marketplace and enabled.
 2. **Codex executes the hook command only via PowerShell** (`pwsh.exe -NoProfile -Command`). The working string is `& '<path>\aang-hook.exe' 'codex' 'user' '<spool>'`; plain quoted strings do not launch. Codex hooks have no shell-less form.
 3. **Latency above the 10 ms budget on Windows** (escalated to the owner; decisions of 2026-10-06 are in section 2):
    - direct launch of `aang-hook.exe` — p95 18–24 ms, almost all of it process creation;
@@ -66,7 +66,7 @@ Per ADR-0013, exceeding the hook budget is escalated to the owner. D.8 found no 
 
    Options:
    - a) install Codex hooks on Windows as on other OSes and show the cost in `aang install` and `status`;
-   - b) do not install Codex hooks on Windows by default. Codex sessions then run in «только файлы» ("files only") mode ("approval waits are not visible", ADR-0004), and hooks are enabled explicitly;
+   - b) do not install Codex hooks on Windows by default. Codex sessions then run in "files only" mode ("approval waits are not visible", ADR-0004), and hooks are enabled explicitly;
    - c) wait for a shell-less launch form from OpenAI. Until then Codex on Windows works per option a or b.
 
    Without a decision, D.3 is not enabled on Windows.
@@ -76,7 +76,7 @@ Per ADR-0013, exceeding the hook budget is escalated to the owner. D.8 found no 
 **Owner decisions 2026-10-06** (ADR-0013, decisions 6 and 7):
 
 - on item 2 — the `aang-hook.exe` budget for Claude on Windows is p95 up to 25 ms per event. On macOS and Linux the budget is still 10 ms;
-- on item 1 — option "b": `aang install` on Windows does not install Codex hooks by default, and Codex sessions run in «только файлы» ("files only") mode (ADR-0004), approval waits are not visible. The explicit flag `aang install --codex` installs the hooks, and `aang install` and `aang status` warn about a 0.25–0.4 s per-event slowdown.
+- on item 1 — option "b": `aang install` on Windows does not install Codex hooks by default, and Codex sessions run in "files only" mode (ADR-0004), approval waits are not visible. The explicit flag `aang install --codex` installs the hooks, and `aang install` and `aang status` warn about a 0.25–0.4 s per-event slowdown.
 
 Per these decisions, hook installation on Windows is enabled (D.3, section 14).
 
@@ -84,7 +84,7 @@ Per these decisions, hook installation on Windows is enabled (D.3, section 14).
 
 ### Claude
 
-- **Exec form works** (Obs(CI)). The aang plugin with `command` — the absolute path of `aang-hook.exe` — and `args` `["claude", "plugin", "<spool>"]` is installed via a local marketplace and enabled (`claude plugin list`: `enabled`). `claude.exe` launches `aang-hook.exe` directly, without a shell. The binary path and the spool path with a space and Cyrillic arrive undistorted: files appear in `spool\new` with the correct header.
+- **Exec form works** (Obs(CI)). The aang plugin with `command` — the absolute path of `aang-hook.exe` — and `args` `["claude", "plugin", "<spool>"]` is installed via a local marketplace and enabled (`claude plugin list`: `enabled`). `claude.exe` launches `aang-hook.exe` directly, without a shell. The binary path and the spool path with a space and Greek letters arrive undistorted: files appear in `spool\new` with the correct header.
 - In a session with two `Read` calls, 10 events were delivered: `SessionStart`, `UserPromptSubmit`, two each of `PreToolUse`, `PostToolUse`, `PostToolBatch`, then `Stop`, `SessionEnd` — as on macOS and Linux.
 - `CLAUDE_PLUGIN_ROOT` points to the plugin directory in the local marketplace (`<AANG_HOME>\claude-plugin\aang`); there is no copy in the plugin cache.
 - **Without exec form** (`command` as a string without `args`) Claude runs the command via Git Bash: `claude.exe` → `C:\Program Files\Git\bin\bash.exe -c "<command>"` → `Git\usr\bin\bash.exe -c "<command>"` → the command process. A string with Windows paths in double quotes works in this case. The cost is two extra processes per event (section 4).
@@ -92,7 +92,7 @@ Per these decisions, hook installation on Windows is enabled (D.3, section 14).
 ### Codex
 
 - **Codex executes the hook command via PowerShell** (Obs(CI)): `codex.exe` → `"C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -Command "<command>"`. Codex finds `pwsh` even without the PowerShell 7 directory in PATH. What Codex launches on a machine without PowerShell 7 was not checked (probably Windows PowerShell 5.1).
-- **Which string works.** Of six forms with paths in the `Имя Фамилия` profile, only two launch the binary — those with the call operator `&`:
+- **Which string works.** Of six forms with paths in the `Όνομα Επώνυμο` profile, only two launch the binary — those with the call operator `&`:
 
   | Form | Example | Windows | Linux |
   | --- | --- | --- | --- |
@@ -177,10 +177,10 @@ Conclusions:
 
 ## 6. File paths and formats
 
-- **Paths in hook payloads** (Obs(CI)) are native Windows paths with `\` and Cyrillic, undistorted: `cwd` — `D:\…\Users\Имя Фамилия\проект с пробелами`, `transcript_path` — an existing file.
+- **Paths in hook payloads** (Obs(CI)) are native Windows paths with `\` and Greek letters, undistorted: `cwd` — `D:\…\Users\Όνομα Επώνυμο\έργο με κενά`, `transcript_path` — an existing file.
   - Claude: `<CLAUDE_CONFIG_DIR>\projects\<project dir>\<sessionId>.jsonl`.
   - Codex: `<CODEX_HOME>\sessions\YYYY\MM\DD\rollout-<time>-<thread_id>.jsonl`.
-- **Claude project directory.** Every character of `cwd` other than Latin letters and digits is replaced with `-`: the drive colon, `\`, `_`, space and Cyrillic. Example: `D:\a\_temp\aang check 1790943995155\Users\Имя Фамилия\проект с пробелами` → `D--a--temp-aang-check-1790943995155-Users-------------------------------`. The rule is the same as on macOS. `cwd` cannot be recovered from the name; the adapter does not do that anyway (ADR-0013).
+- **Claude project directory.** Every character of `cwd` other than Latin letters and digits is replaced with `-`: the drive colon, `\`, `_`, space and Greek letters. Example: `D:\a\_temp\aang check 1790943995155\Users\Όνομα Επώνυμο\έργο με κενά` → `D--a--temp-aang-check-1790943995155-Users---------------------------`. The rule is the same as on macOS. `cwd` cannot be recovered from the name; the adapter does not do that anyway (ADR-0013).
 - **Line endings.** Both Claude transcripts and Codex rollouts on Windows are written with `\n`, without `\r\n` (0 of 80 and 0 of 25 lines). Parsing of `\r\n` in the collector remains in case files are edited by other means.
 - **Default roots** (without `CLAUDE_CONFIG_DIR` and `CODEX_HOME`; `HOME` and `USERPROFILE` point to different temporary directories):
   - Claude writes the transcript and `.claude.json` to `%USERPROFILE%\.claude`, ignoring `HOME`;

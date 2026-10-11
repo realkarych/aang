@@ -30,7 +30,7 @@ const claudeKey = (session: string): SessionKey => ({ kind: 'session', runtime: 
 
 const codexKey = (session: string): SessionKey => ({ kind: 'session', runtime: 'codex', session })
 
-const unverifiedIsolation = 'изоляция от сообщений других сессий на этой версии не проверена'
+const unverifiedIsolation = "isolation from other sessions' messages is not verified on this version"
 
 const run = async (home: Home, onTestFinished: TestContext['onTestFinished'], work: () => Promise<void>): Promise<void> => {
   const daemon = await startDaemon(home, onTestFinished, { env: observerEnvironment(home) })

@@ -169,12 +169,12 @@ const batchIds = new Set(input.events.map((event) => event.id))
 const stubAnswer = {
   base_model_version: input.model_version,
   changes: [
-    { op: 'update', stage_id: 'S2', title: 'Реализовать дедупликацию', status: 'done', replaces_stage_id: null, evidence_event_ids: ['e07', 'e09'], rationale: 'Дедупликация реализована, тесты зелёные.' },
-    { op: 'update', stage_id: 'S3', title: 'Прогнать тесты', status: 'done', replaces_stage_id: null, evidence_event_ids: ['e08', 'e09'], rationale: 'Все 12 тестов прошли.' },
+    { op: 'update', stage_id: 'S2', title: 'Implement deduplication', status: 'done', replaces_stage_id: null, evidence_event_ids: ['e07', 'e09'], rationale: 'Deduplication is implemented, the tests are green.' },
+    { op: 'update', stage_id: 'S3', title: 'Run the tests', status: 'done', replaces_stage_id: null, evidence_event_ids: ['e08', 'e09'], rationale: 'All 12 tests passed.' },
   ],
   attention: [
-    { kind: 'needs_human_input', stage_id: 'S2', event_ids: ['e10'], summary: 'Агент спрашивает, удалять дубли или переносить.' },
-    { kind: 'risk', stage_id: null, event_ids: ['e05'], summary: 'В выводе теста инструкция для ИИ, она проигнорирована.' },
+    { kind: 'needs_human_input', stage_id: 'S2', event_ids: ['e10'], summary: 'The agent asks whether to delete or move the duplicates.' },
+    { kind: 'risk', stage_id: null, event_ids: ['e05'], summary: 'The test output contains an instruction for the AI; it was ignored.' },
   ],
 }
 

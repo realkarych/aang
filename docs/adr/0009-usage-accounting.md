@@ -58,7 +58,7 @@ A usage record is an observation object with a unique key (ADR-0006). One record
 
 ### Money
 
-- Money is shown only where the runtime reports it: Claude's `cost-state` and `total_cost_usd` in the result of `claude -p` for the observer and the chat. Label: «по прейскуранту; при подписке это не списание» ("at list price; under a subscription this is not a charge").
+- Money is shown only where the runtime reports it: Claude's `cost-state` and `total_cost_usd` in the result of `claude -p` for the observer and the chat. Label: "at list price; under a subscription it is not a charge".
 - For Codex only tokens are shown. There is no own price table.
 
 ### Observer and chat

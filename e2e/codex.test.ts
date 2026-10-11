@@ -26,9 +26,9 @@ const observed = { timeout: 30_000 }
 
 const recovery = { timeout: 90_000 }
 
-const calmZone = 'Открытых пунктов нет.'
+const calmZone = 'No open items.'
 
-const earlyFacts = 'Ранние факты карта учитывает только по сводке, с пониженной детализацией.'
+const earlyFacts = 'The map counts early facts only through a summary, with less detail.'
 
 const codexRun = (session: string): RunId => runId({ kind: 'session', runtime: 'codex', session })
 
@@ -73,14 +73,14 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
     })
   ).play()
 
-  await expect(step(page, 'Основной агент', 'echo first')).toBeVisible()
-  await expect(lamp(page, 'Наблюдатель')).toHaveText('Наблюдатель недоступен: исчерпан лимит подписки', observed)
-  const unavailable = await lampDetails(page, 'Наблюдатель')
-  await expect(unavailable).toContainText(/Следующая проба наблюдателя — в \d{2}:\d{2}:\d{2}\./)
-  await expect(unavailable).toContainText('Факты и пункты внимания продолжают поступать')
-  await expect(unavailable).toContainText(/Догоняющий режим: \d+ ранн(?:ий факт|их факта|их фактов) наблюдатель видит только сводкой/)
-  await expect(lamp(page, 'Модель')).toHaveText('Модель не строилась')
-  await expect(await lampDetails(page, 'Модель')).toContainText(earlyFacts)
+  await expect(step(page, 'Main agent', 'echo first')).toBeVisible()
+  await expect(lamp(page, 'Observer')).toHaveText('Observer unavailable: subscription limit reached', observed)
+  const unavailable = await lampDetails(page, 'Observer')
+  await expect(unavailable).toContainText(/Next observer probe at \d{2}:\d{2}:\d{2}\s[AP]M\./)
+  await expect(unavailable).toContainText('Facts and attention items keep arriving')
+  await expect(unavailable).toContainText(/Catching up: the observer sees \d+ early facts? only as a summary/)
+  await expect(lamp(page, 'Model')).toHaveText('Model not built')
+  await expect(await lampDetails(page, 'Model')).toContainText(earlyFacts)
   const sent = observerInputs(fakeCodex.calls()).length
   fakeCodex.setScenario(recovered)
 
@@ -88,25 +88,25 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
     await player(after(reconnect, 'daemon-restart'), { timeScale: 0, recordTime: 'playback', otlp: await otelEndpoint() })
   ).play()
 
-  await expect(step(page, 'Основной агент', 'sleep 3')).toBeVisible()
-  await expect(sessionOf(page, session)).toContainText('продолжение')
-  await expect(sessionOf(page, session)).toContainText('режим полный')
-  await expect(lamp(page, 'Наблюдатель')).toHaveText('Наблюдатель недоступен: исчерпан лимит подписки')
-  const model = await lampDetails(page, 'Модель')
-  await expect(model).toContainText(/Ждут наблюдателя: \d+ факт/)
-  const waited = async (): Promise<number> => Number(/старейший — (\d+) с назад/.exec(await model.innerText())?.[1] ?? NaN)
+  await expect(step(page, 'Main agent', 'sleep 3')).toBeVisible()
+  await expect(sessionOf(page, session)).toContainText('resume')
+  await expect(sessionOf(page, session)).toContainText('mode full')
+  await expect(lamp(page, 'Observer')).toHaveText('Observer unavailable: subscription limit reached')
+  const model = await lampDetails(page, 'Model')
+  await expect(model).toContainText(/Waiting for the observer: \d+ fact/)
+  const waited = async (): Promise<number> => Number(/oldest (\d+) s ago/.exec(await model.innerText())?.[1] ?? NaN)
   const before = await waited()
   expect(before).toBeGreaterThanOrEqual(0)
   await expect.poll(waited, observed).toBeGreaterThan(before)
   expect(observerInputs(fakeCodex.calls())).toHaveLength(sent)
 
-  await expect(lamp(page, 'Наблюдатель')).toHaveText('Наблюдатель работает', recovery)
-  await expect(lamp(page, 'Модель')).toHaveText(/^Модель обновлена /)
-  const caughtUp = await lampDetails(page, 'Модель')
+  await expect(lamp(page, 'Observer')).toHaveText('Observer working', recovery)
+  await expect(lamp(page, 'Model')).toHaveText(/^Model updated /)
+  const caughtUp = await lampDetails(page, 'Model')
   await expect(caughtUp).toContainText(earlyFacts)
-  await expect(caughtUp).not.toContainText('Ждут наблюдателя')
-  await expect(fact(page, 'Версия карты')).not.toHaveText('1')
-  await expect(await lampDetails(page, 'Наблюдатель')).toContainText('Догоняющий режим')
+  await expect(caughtUp).not.toContainText('Waiting for the observer')
+  await expect(fact(page, 'Map version')).not.toHaveText('1')
+  await expect(await lampDetails(page, 'Observer')).toContainText('Catching up')
 
   const [catchUp] = observerInputs(fakeCodex.calls())
     .slice(sent)
@@ -133,82 +133,82 @@ test.describe('with the Codex observer drawing the map', () => {
     await (await player(approval, played)).play({ until: 'approval-granted' })
 
     const request = zoneItem(page, 'Bash: touch approved.txt')
-    await expect(request).toContainText('Запрос одобрения')
-    await expect(request).toContainText('ждёт ответа')
-    await expect(fact(page, 'Внимание')).toHaveText('ждут ответа: 1')
-    await expect(sessionOf(page, asking)).toContainText('ждёт человека')
-    await expect(sessionOf(page, asking)).toContainText('режим полный')
-    const permission = step(page, 'Основной агент', 'Запрос одобрения')
-    await expect(permission).toContainText('ждёт решения')
+    await expect(request).toContainText('Approval request')
+    await expect(request).toContainText('awaiting an answer')
+    await expect(fact(page, 'Attention')).toHaveText('awaiting an answer: 1')
+    await expect(sessionOf(page, asking)).toContainText('waiting for a human')
+    await expect(sessionOf(page, asking)).toContainText('mode full')
+    const permission = step(page, 'Main agent', 'Approval request')
+    await expect(permission).toContainText('awaiting decision')
 
     const granted = await player(startingAt(approval, 'approval-granted'), {
       ...played,
       recordTime: { startsAt: Date.now() + secondMs },
     })
     await granted.play()
-    await expect(permission).toContainText('одобрено')
-    await expect(permission).not.toContainText('интерпретация aang')
-    await expect(permission).not.toContainText('ждёт решения')
+    await expect(permission).toContainText('approved')
+    await expect(permission).not.toContainText('aang interpretation')
+    await expect(permission).not.toContainText('awaiting decision')
     await expect(zone(page)).toContainText(calmZone)
-    await expect(fact(page, 'Внимание')).toHaveText('нет')
-    await expect(step(page, 'Основной агент', 'touch approved.txt').first()).toBeVisible()
+    await expect(fact(page, 'Attention')).toHaveText('none')
+    await expect(step(page, 'Main agent', 'touch approved.txt').first()).toBeVisible()
 
     const subagents = await loadManifest(codexRecording('codex_exec', 'subagents'))
     const root = thread(subagents)
     await (await player(subagents, played)).play()
     await page.goto(`/?run=${codexRun(root)}`)
-    await expect(fact(page, 'Агенты')).toHaveText('3')
+    await expect(fact(page, 'Agents')).toHaveText('3')
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       '[aang:subagent] Spawn subagents scout and builder, wait for them, then reply done.',
     )
-    await expect(page.getByText('цель из первого запроса')).toBeVisible()
+    await expect(page.getByText('goal from the first prompt')).toBeVisible()
     await expect(page.getByRole('paragraph').filter({ hasText: /^Working towards: \[aang:subagent\]/ })).toContainText(
-      'интерпретация aang',
+      'aang interpretation',
       observed,
     )
-    const spawned = trace(page).getByRole('list', { name: 'Агенты, запущенные: Основной агент', exact: true })
+    const spawned = trace(page).getByRole('list', { name: 'Agents launched by: Main agent', exact: true })
     for (const task of ['builder', 'scout']) {
       const child = spawned.getByRole('listitem').filter({ hasText: `/root/${task}` })
-      await expect(child).toContainText('субагент, тип default')
-      await expect(child).toContainText('завершён')
+      await expect(child).toContainText('subagent, type default')
+      await expect(child).toContainText('done')
       await expect(child).toContainText(`echo ${task}`)
     }
     await expect(agentsOf(page, root).getByRole('listitem', { name: /./ })).toHaveCount(3)
-    await expect(stepsOf(page, 'Основной агент').getByRole('listitem').filter({ hasText: 'collaboration/spawn_agent' })).toHaveCount(2)
-    await expect(step(page, 'Основной агент', 'collaboration/wait_agent')).toBeVisible()
+    await expect(stepsOf(page, 'Main agent').getByRole('listitem').filter({ hasText: 'collaboration/spawn_agent' })).toHaveCount(2)
+    await expect(step(page, 'Main agent', 'collaboration/wait_agent')).toBeVisible()
 
     const forking = await loadManifest(codexRecording('codex_exec', 'fork'))
     const source = thread(forking)
     const fork = thread(forking, 1)
     await (await player(forking, played)).play()
-    await page.getByRole('navigation').getByRole('link', { name: 'Прогоны' }).click()
+    await page.getByRole('navigation').getByRole('link', { name: 'Runs' }).click()
     const forkRow = runRowOf(page, codexRun(fork))
     const sourceRow = runRowOf(page, codexRun(source))
     await expect(sourceRow).toBeVisible()
-    await expect(forkRow).toContainText('ответвление от «')
-    await expect(sourceRow).not.toContainText('ответвление')
+    await expect(forkRow).toContainText('fork of "')
+    await expect(sourceRow.getByText(/^fork(?: of ".*")?$/)).toHaveCount(0)
 
     await forkRow.getByRole('link').click()
     await expect(page).toHaveURL(new RegExp(`\\?run=${codexRun(fork)}$`))
-    await expect(sessionOf(page, fork)).toContainText('ответвление')
-    const origin = fact(page, 'Ответвление от').getByRole('link')
+    await expect(sessionOf(page, fork)).toContainText(/fork [A-Z][a-z]{2} \d+, /)
+    const origin = fact(page, 'Forked from').getByRole('link')
     await expect(origin).toHaveText('[aang:fork-source] Run `echo source`, then reply done.')
     const sourceTitle = await origin.innerText()
     await origin.click()
     await expect(page).toHaveURL(new RegExp(`\\?run=${codexRun(source)}$`))
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(sourceTitle)
-    const forks = fact(page, 'Ответвления').getByRole('link')
+    const forks = fact(page, 'Forks').getByRole('link')
     await expect(forks).toHaveCount(1)
     const runsRoute = `**${endpoints.runs.path}`
     const dropRuns = (route: Route): Promise<void> => route.abort('connectionfailed')
     await page.route(runsRoute, dropRuns)
-    await expect(lamp(page, 'Связь')).toHaveText('Связь ответвления не обновляются')
-    await expect(await lampDetails(page, 'Связь')).toContainText(
-      'ответвления и названия связанных прогонов могут устареть',
+    await expect(lamp(page, 'Link')).toHaveText('Link branches not updating')
+    await expect(await lampDetails(page, 'Link')).toContainText(
+      'branches and names of linked runs may be stale',
     )
     await expect(forks).toHaveCount(1)
     await page.unroute(runsRoute, dropRuns)
-    await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён')
+    await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
     await forks.click()
     await expect(page).toHaveURL(new RegExp(`\\?run=${codexRun(fork)}$`))
   })

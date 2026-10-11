@@ -10,21 +10,21 @@ import { runHref, useNavigate } from './route.js'
 export const runTitle = ({ goal, brief }: Pick<RunSummary, 'goal' | 'brief'>): string | null => goal ?? brief
 
 export const untitledRun = ({ runtime, created_at: created }: Pick<RunSummary, 'runtime' | 'created_at'>): string =>
-  `${runtimeLabel[runtime]}, начат ${dayTime(created)}`
+  `${runtimeLabel[runtime]}, started ${dayTime(created)}`
 
 const EmptyList = ({ watch }: { readonly watch: WatchState | null }): ReactElement => (
   <div className="empty">
-    <h2>Прогонов пока нет</h2>
+    <h2>No runs yet</h2>
     {watch === null ? null : watch.all ? (
-      <p>aang наблюдает все каталоги. Запустите Claude Code или Codex, и прогон появится здесь.</p>
+      <p>aang watches all directories. Start Claude Code or Codex, and the run will appear here.</p>
     ) : watch.roots.length === 0 ? (
       <p>
-        Ни один каталог не отслеживается. Добавьте проект командой <code>aang watch &lt;каталог&gt;</code> и запустите в
-        нём Claude Code или Codex.
+        No directory is being watched. Add a project with <code>aang watch &lt;directory&gt;</code> and start
+        Claude Code or Codex in it.
       </p>
     ) : (
       <>
-        <p>Запустите Claude Code или Codex в отслеживаемом каталоге, и прогон появится здесь.</p>
+        <p>Start Claude Code or Codex in a watched directory, and the run will appear here.</p>
         <ul className="roots">
           {watch.roots.map((root) => (
             <li key={root}>
@@ -38,7 +38,7 @@ const EmptyList = ({ watch }: { readonly watch: WatchState | null }): ReactEleme
 )
 
 const forkOrigin = (source: RunSummary | undefined): string =>
-  source === undefined ? 'ответвление' : `ответвление от «${runTitle(source) ?? untitledRun(source)}»`
+  source === undefined ? 'fork' : `fork of "${runTitle(source) ?? untitledRun(source)}"`
 
 interface RunRowProps {
   readonly run: RunSummary
@@ -51,7 +51,7 @@ const RunRow = ({ run, runs, now }: RunRowProps): ReactElement => {
   const title = runTitle(run)
   return (
     <tr>
-      <td data-label="Состояние">
+      <td data-label="State">
         <ExecutionBadge execution={run.execution} />
       </td>
       <td className="run-cell">
@@ -59,27 +59,27 @@ const RunRow = ({ run, runs, now }: RunRowProps): ReactElement => {
           <span className="run-name">{title ?? <span className="untitled">{untitledRun(run)}</span>}</span>
         </a>
         <span className="run-origin">
-          {title === null ? <span>цель не определена</span> : <span>{runtimeLabel[run.runtime]}</span>}
+          {title === null ? <span>goal unknown</span> : <span>{runtimeLabel[run.runtime]}</span>}
           {run.forked_from === null ? null : (
             <span>{forkOrigin(runs.find(({ id }) => id === run.forked_from))}</span>
           )}
-          {run.start_pruned ? <span>начало удалено</span> : null}
+          {run.start_pruned ? <span>start pruned</span> : null}
         </span>
       </td>
-      <td data-label="Внимание">
+      <td data-label="Attention">
         <AttentionBadge attention={run.attention} />
       </td>
-      <td data-label="Свежесть">
+      <td data-label="Freshness">
         <FreshnessBadge freshness={run.freshness} />
       </td>
-      <td data-label="Режим">{run.support_modes.map((mode) => supportModeLabel[mode]).join(', ')}</td>
-      <td data-label="Сессии" className="number">
+      <td data-label="Mode">{run.support_modes.map((mode) => supportModeLabel[mode]).join(', ')}</td>
+      <td data-label="Sessions" className="number">
         {run.sessions}
       </td>
-      <td data-label="Агенты" className="number">
+      <td data-label="Agents" className="number">
         {run.agents}
       </td>
-      <td data-label="Последнее событие">
+      <td data-label="Last event">
         <Moment at={run.last_event_at} now={now} />
       </td>
     </tr>
@@ -95,21 +95,21 @@ const ListTrouble = ({ children }: { readonly children: string }): ReactElement 
 
 const RunTable = ({ runs, now }: { readonly runs: readonly RunSummary[]; readonly now: bigint }): ReactElement => (
   <table className="runs">
-    <caption className="visually-hidden">Прогоны</caption>
+    <caption className="visually-hidden">Runs</caption>
     <thead>
       <tr>
-        <th scope="col">Состояние</th>
-        <th scope="col">Прогон</th>
-        <th scope="col">Внимание</th>
-        <th scope="col">Свежесть</th>
-        <th scope="col">Режим</th>
+        <th scope="col">State</th>
+        <th scope="col">Run</th>
+        <th scope="col">Attention</th>
+        <th scope="col">Freshness</th>
+        <th scope="col">Mode</th>
         <th scope="col" className="number">
-          Сессии
+          Sessions
         </th>
         <th scope="col" className="number">
-          Агенты
+          Agents
         </th>
-        <th scope="col">Последнее событие</th>
+        <th scope="col">Last event</th>
       </tr>
     </thead>
     <tbody>
@@ -130,15 +130,15 @@ export interface RunListProps {
 export const RunList = ({ runs, failing, watch, now }: RunListProps): ReactElement => {
   if (runs === null) {
     return failing ? (
-      <ListTrouble>Не удалось загрузить список прогонов. aang повторяет запрос.</ListTrouble>
+      <ListTrouble>Could not load the run list. aang keeps retrying.</ListTrouble>
     ) : (
-      <p className="loading">Загрузка прогонов…</p>
+      <p className="loading">Loading runs…</p>
     )
   }
   return (
     <>
       {failing ? (
-        <ListTrouble>Не удалось обновить список прогонов. Показаны прежние данные, они могут устареть.</ListTrouble>
+        <ListTrouble>Could not refresh the run list. Showing earlier data, which may be stale.</ListTrouble>
       ) : null}
       {runs.length === 0 ? <EmptyList watch={watch} /> : <RunTable runs={runs} now={now} />}
     </>

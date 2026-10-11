@@ -62,7 +62,7 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
     const { profile, manifest } = await createFixture(onTestFinished)
     const transcript = sampleBytes(transcriptSample)
     const awkward = Buffer.from(
-      '{"text":"первая строка ✓"}\r\n{"text":"🙂 вторая"}\r\n{"text":"без перевода строки"}',
+      '{"text":"αρχική γραμμή ✓"}\r\n{"text":"🙂 δεύτερη"}\r\n{"text":"χωρίς αλλαγή γραμμής"}',
       'utf8',
     )
     const awkwardTarget = { root: 'codex', path: 'sessions/2026/10/01/rollout-awkward.jsonl' }
@@ -244,7 +244,7 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
   }) => {
     const { profile, manifest } = await createFixture(onTestFinished)
     const head = '{"timestamp":"2026-10-01T11:49:30.942Z","at":"2026-10-01T11:49:31Z","started_at_ms":1790855370942,"text":"'
-    const source = Buffer.from(`${head}Привет"}\n`, 'utf8')
+    const source = Buffer.from(`${head}Χαίρετε"}\n`, 'utf8')
     const epoch = head.indexOf('1790855370942')
     const digit = epoch + 6
     const letter = Buffer.byteLength(head)
@@ -276,7 +276,7 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
     const cut = await readFile(path)
     expect(cut).toHaveLength(letter + 1)
     expect(cut.subarray(0, digit)).toEqual(numbered)
-    expect(cut.subarray(letter)).toEqual(Buffer.from('П').subarray(0, 1))
+    expect(cut.subarray(letter)).toEqual(Buffer.from('Χ').subarray(0, 1))
     await player.play()
 
     const whole = await readFile(path)
@@ -289,7 +289,7 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
       started_at_ms: number
       text: string
     }
-    expect(record.text).toBe('Привет')
+    expect(record.text).toBe('Χαίρετε')
     expect(record.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.942Z$/)
     expect(record.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/)
     const start = Date.parse(record.timestamp)

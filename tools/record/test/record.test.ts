@@ -72,7 +72,7 @@ test.each(['claude', 'codex'] as const)('records %s files and hook timestamps, a
     expect(playback.steps[event.step]?.label).toBe(event.label)
   }
   const serialized = [await readFile(join(directory, 'manifest.json'), 'utf8'), await readFile(join(directory, 'playback.json'), 'utf8'), ...await Promise.all(manifest.artifacts.map((artifact) => readFile(join(directory, artifact.source), 'utf8')))].join('\n')
-  expect(serialized).not.toMatch(/someone\.personal|real-person|another-person|Имя Фамилия|acct-private|acct-nested|acct-otel|71c972de|installation-private|user-private|never-copy-authorization|%USERPROFILE%/i)
+  expect(serialized).not.toMatch(/someone\.personal|real-person|another-person|Όνομα Επώνυμο|acct-private|acct-nested|acct-otel|71c972de|installation-private|user-private|never-copy-authorization|%USERPROFILE%/i)
   expect(serialized).not.toContain(context?.home)
   expect(serialized).toContain('session-public-1')
   expect(serialized).toContain('event-public-2')
@@ -405,7 +405,7 @@ test('verification detects every private input class independently of the record
     { path: '/Users/real-owner/project' },
     { path: '/home/real-owner/project' },
     { path: '/root/.codex/sessions' },
-    { path: 'C:\\Users\\Имя Фамилия\\project' },
+    { path: 'C:\\Users\\Όνομα Επώνυμο\\project' },
     { path: '%USERPROFILE%\\project' },
     { value: 'me.person@example.org' },
     { organizationUuid: 'c6c0d15b-e7f2-4012-bb9e-04fd09eebc9b' },
@@ -488,7 +488,7 @@ test('masks credentials, short identities and escaped home paths while keeping e
         String.raw`Raw JSON: {"cwd":"\/Users\/PrivatePerson\/work"}`,
         String.raw`Raw JSON: {"cwd":"\u002fhome\u002fPrivatePerson\u002fwork"}`,
         String.raw`Raw JSON: {"cwd":"C:\\Users\\Private Person\\work","alt":"C:\u005cUsers\u005cPrivatePerson\u005cwork"}`,
-        String.raw`Raw JSON: {"cwd":"\/Users\/\u0418\u043c\u044f\/work"}`,
+        String.raw`Raw JSON: {"cwd":"\/Users\/\u039f\u03bd\u03bf\/work"}`,
       ],
       config: '/root/.codex/config.toml',
     }))
@@ -503,7 +503,7 @@ test('masks credentials, short identities and escaped home paths while keeping e
   }
   const content = (path: string): string => playback.sources.get(source(path))?.toString() ?? ''
   expect(manifest.artifacts.find((artifact) => artifact.source === source('project/private.json'))?.mtime_ns).toBe(mtime)
-  expect(content('project/private.json')).not.toMatch(/synthetic-review-token|sk-ant-synthetic|syntheticBearer|Private ?Person|u0418|987654|"(?:abc|xy)"/)
+  expect(content('project/private.json')).not.toMatch(/synthetic-review-token|sk-ant-synthetic|syntheticBearer|Private ?Person|u039f|987654|"(?:abc|xy)"/)
   const value = JSON.parse(content('project/private.json')) as {
     access_token: string
     Authorization: string

@@ -16,7 +16,7 @@ The check is local: macOS on the owner's machine and Linux in a Docker container
 
 **Method.** The `tools/runtime-check` tool, `delivery` suite (`node tools/runtime-check/dist/main.js --suite delivery`). Run reports — [`samples/plugin-delivery/macos/report.json`](samples/plugin-delivery/macos/report.json) and [`samples/plugin-delivery/linux/report.json`](samples/plugin-delivery/linux/report.json); temporary paths are replaced with `<work>`, the home directory with `~`.
 
-- Profile — the directory `<work>/Users/Имя Фамилия` with a space and Cyrillic: inside are `.claude`, `.codex`, `.aang` (binary and spool with a lease) and the project `проект с пробелами`. `HOME`, `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are set explicitly; the parent environment's `ANTHROPIC_*`, `CLAUDE*`, `CODEX_*`, `OPENAI_*` and `AANG_*` variables are removed.
+- Profile — the directory `<work>/Users/Όνομα Επώνυμο` with a space and Greek letters: inside are `.claude`, `.codex`, `.aang` (binary and spool with a lease) and the project `έργο με κενά`. `HOME`, `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are set explicitly; the parent environment's `ANTHROPIC_*`, `CLAUDE*`, `CODEX_*`, `OPENAI_*` and `AANG_*` variables are removed. These runs used a Cyrillic profile name; the tools now use the Greek name shown here, which keeps the path non-ASCII and outside Latin-1.
 - Installation — by the product code of `@aang/hook` (D.2–D.4), not by a copy of the configuration: `installClaudePlugin`, `claudePluginState`, `uninstallClaudePlugin`, `installCodexHooks`, `codexHooksState`. The fallback directory is built by the same `writeClaudePlugin` that generates the marketplace plugin.
 - Model: Claude — a Messages API stub (`ANTHROPIC_BASE_URL`, stub key), Codex — a Responses API stub (provider without authorization). The scenario is N `Read` calls for Claude and `apply_patch` for Codex, then text.
 - Codex hook trust was not confirmed: the aang installer does not write `hooks.state`, so Codex sessions run with the test flag `--dangerously-bypass-hook-trust`, as in D.8.
@@ -35,7 +35,7 @@ The check is local: macOS on the owner's machine and Linux in a Docker container
 
 1. **ADR-0004 decision 1 is confirmed.** The plugin installed by the product's `installClaudePlugin` via a local marketplace loads both in CLI 2.1.288 and in Agent SDK 0.3.288 with default `settingSources`; events reach the spool. Uninstalling and repeated installation and uninstallation work on the real CLI. There is no need to switch delivery to the fallback method.
 2. **The fallback directory `<claude>/skills/aang/` also works** in the CLI and the SDK: the plugin loads without installation as `aang@skills-dir`.
-3. **Exec form works on the installed version 2.1.288:** the binary and spool paths with a space and Cyrillic arrive undistorted, `claude` launches `aang-hook` itself, without a shell.
+3. **Exec form works on the installed version 2.1.288:** the binary and spool paths with a space and Greek letters arrive undistorted, `claude` launches `aang-hook` itself, without a shell.
 4. **Latency is within the 10 ms budget on both OSes:**
    - macOS — p95 2.5–3.6 ms for Claude (exec form) and 5.2–6.2 ms for Codex (via the account shell); series increment — 3.7–5.6 ms per event for Claude and 4–6.4 ms for Codex;
    - Linux container — p95 1.4 and 1.7 ms; series increment — 2.1 ms per event for Claude, about 1 ms for Codex, at noise level.
@@ -74,7 +74,7 @@ Conclusion: ADR-0004 decision 1 is confirmed, there is no need to switch deliver
 
 ## 4. Exec form
 
-The aang plugin writes the hook as `command` — the absolute path of `aang-hook` — and `args`: `["claude", "plugin", "<spool>"]`, `timeout: 2`. The binary and spool paths lie in the `Имя Фамилия` profile, i.e. they contain a space and Cyrillic.
+The aang plugin writes the hook as `command` — the absolute path of `aang-hook` — and `args`: `["claude", "plugin", "<spool>"]`, `timeout: 2`. The binary and spool paths lie in the `Όνομα Επώνυμο` profile, i.e. they contain a space and Greek letters.
 
 - Without exec form such a command would produce no events: `command` would go to `sh -c` and split at the space, and without `args` `aang-hook` exits without writing. All sessions from section 3 delivered events with the correct tag and spool (Obs, both OSes).
 - A probe in exec form (`command` — `node`, the log path with a space in `args`) receives its arguments without word splitting; its parent is the `claude` process itself (`~/.local/bin/claude` on macOS, `claude.exe` from the npm package on Linux).

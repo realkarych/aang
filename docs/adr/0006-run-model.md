@@ -57,7 +57,7 @@ Run and object ids are the hash of the key; they do not change when projections 
   - **known only by reference** (path, URL, hash without content) — shown as such and not passed off as stored (RFC §6).
 - **Retention of basis versions.** When an artifact version becomes a basis (stage output, card, criterion, check), the daemon stores the content in the content-addressed blob store (ADR-0005):
   - from the action payload, if it contains the full content or a patch to an already stored version. Only such a copy counts as the version produced by the action;
-  - otherwise by reading the file. Such a copy is marked «состояние файла на момент чтения» ("file state at read time") T and is not passed off as the version produced by the action: the link to the action is not proven;
+  - otherwise by reading the file. Such a copy is marked "file state at the time of reading" T and is not passed off as the version produced by the action: the link to the action is not proven;
   - files over the limit (5 MB by default, decision 2) are stored as a hash only, with a mark.
 - **Working tree snapshot** — a record of the `snapshot` channel. The daemon takes it read-only, with `GIT_OPTIONAL_LOCKS=0`, by the contract's path masks:
   - `git rev-parse HEAD`;
@@ -139,13 +139,13 @@ Each link stores a basis.
     - the commit exists in the repository.
 
     The version is this commit. The contract is responsible for the check actually reading this commit: for example, the check runs in an isolated copy of the committed commit (`git worktree`, a clean checkout) and prints its hash, or the check system itself reports the checked version. The link is given by the check's own output, so `confirmed` is possible also for a check read by backfill.
-  - In all other cases a successful check gets `passed_unversioned` — «проверка прошла, версия не установлена» ("check passed, version not established"). This does not count as confirmation. This includes:
-    - the tree under the masks was clean at the same `HEAD` before and after the check. Such an observation is shown as a reference note «дерево было чистым на коммите X в обоих снимках» ("the tree was clean at commit X in both snapshots"), but it does not prove the version: the input could have been changed and restored between snapshots, and the daemon processes `PreToolUse` asynchronously, without an exact boundary of the check start;
+  - In all other cases a successful check gets `passed_unversioned` — "check passed, version not established". This does not count as confirmation. This includes:
+    - the tree under the masks was clean at the same `HEAD` before and after the check. Such an observation is shown as a reference note "For reference: the tree was clean at commit X in both snapshots.", but it does not prove the version: the input could have been changed and restored between snapshots, and the daemon processes `PreToolUse` asynchronously, without an exact boundary of the check start;
     - uncommitted or ignored changes, work outside a git repository.
   - fs watch is only a change signal for recomputing `stale`, not proof of the absence of changes.
   - After `confirmed` for commit X, the daemon takes a snapshot on an fs watch signal, at the end of each turn and after a restart. If `HEAD` differs from X or the tree under the masks is not clean, the current state is no longer the version that was checked, and the criterion moves to `stale` ("checked on a different version"). A missed notification is caught by the next snapshot.
   - An adequacy assessment made by an LLM remains an interpretation.
-  - Without bases, `reported_done` is kept — «агент сообщил о завершении» ("the agent reported completion").
+  - Without bases, `reported_done` is kept — "agent reported done".
 - **Check contract** is set in `~/.aang/config.json` for a tracked root: name, a regular expression over the command line, the success condition (exit code), path masks of the check input, a regular expression for the checked commit in the output. Without it the contract recognizes checks and their outcome but gives no confirmation. It applies to runs whose root `cwd` lies in this root.
 - **Check** — an action that matched the contract (observed basis) or was marked by the observer (interpretation). A failed check without a subsequent success of the same check:
   - creates an item in the attention zone, which is closed by a successful retry or dismissal by the user (ADR-0008);

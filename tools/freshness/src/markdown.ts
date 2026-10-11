@@ -2,43 +2,43 @@ import type { ChangeAuthor } from '@aang/contract'
 import type { BackendReport, BackendSpending, EventStatus, Percentile, Rate, Report, ReportedEvent, Spending } from './report.js'
 
 const statusText: Readonly<Record<EventStatus, string>> = {
-  met: 'выполнено',
-  late: 'после окна, нарушение',
-  missed: 'не выполнено, нарушение',
-  unmatched: 'событие не найдено, нарушение',
-  held_before: 'выполнено до события, разметка некорректна',
-  mismatched: 'описание не соответствует записи, разметка некорректна',
-  unassessed: 'ждёт оценки разметчика',
+  met: 'met',
+  late: 'after the window, violation',
+  missed: 'missed, violation',
+  unmatched: 'event not found, violation',
+  held_before: 'met before the event, annotation invalid',
+  mismatched: 'description does not match the recording, annotation invalid',
+  unassessed: 'awaiting the annotator',
 }
 
 const authorText: Readonly<Record<ChangeAuthor, string>> = {
-  rule: 'правило',
-  observer: 'наблюдатель',
-  user: 'пользователь',
+  rule: 'rule',
+  observer: 'observer',
+  user: 'user',
 }
 
 const none = '—'
 
-const seconds = (ms: number | null): string => (ms === null ? none : (ms / 1000).toFixed(1).replace('.', ','))
+const seconds = (ms: number | null): string => (ms === null ? none : (ms / 1000).toFixed(1))
 
-const percent = (share: number | null): string => (share === null ? none : `${String(Math.round(share * 100))} %`)
+const percent = (share: number | null): string => (share === null ? none : `${String(Math.round(share * 100))}%`)
 
 const percentile = (p95: Percentile | null): string =>
-  p95 === null ? none : p95.kind === 'latency' ? `${seconds(p95.ms)} с` : 'за окном (нарушение)'
+  p95 === null ? none : p95.kind === 'latency' ? `${seconds(p95.ms)} s` : 'beyond the window (violation)'
 
-const verdict = (met: boolean | null): string => (met === null ? none : met ? 'да' : 'нет')
+const verdict = (met: boolean | null): string => (met === null ? none : met ? 'yes' : 'no')
 
 const row = (cells: readonly string[]): string => `| ${cells.map((cell) => cell.replaceAll('|', '\\|')).join(' | ')} |`
 
-const amount = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
+const amount = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
 
 const tokens = (value: number): string => amount.format(value)
 
-const dollars = (value: number | null): string => (value === null ? none : `$${value.toFixed(2).replace('.', ',')}`)
+const dollars = (value: number | null): string => (value === null ? none : `$${value.toFixed(2)}`)
 
-const hours = (ms: number): string => (ms / 3_600_000).toFixed(2).replace('.', ',')
+const hours = (ms: number): string => (ms / 3_600_000).toFixed(2)
 
-const journalText = { observer: 'наблюдатель', chat: 'чат', checks: 'пробы и auth status' } as const
+const journalText = { observer: 'observer', chat: 'chat', checks: 'probes and auth status' } as const
 
 const spendingRow = (runtime: string, journal: keyof typeof journalText, spending: Spending): string[] => [
   runtime,
@@ -54,7 +54,7 @@ const spendingRow = (runtime: string, journal: keyof typeof journalText, spendin
 ]
 
 const rateCells = (rate: Rate | null): string[] =>
-  rate === null ? [none, none, none] : [rate.calls.toFixed(1).replace('.', ','), tokens(rate.tokens), dollars(rate.cost_usd)]
+  rate === null ? [none, none, none] : [rate.calls.toFixed(1), tokens(rate.tokens), dollars(rate.cost_usd)]
 
 const rateRows = (spending: BackendSpending): string[][] =>
   (['observer', 'chat'] as const).map((journal) => [
@@ -87,24 +87,24 @@ const backendRow = (backend: BackendReport): string[] => [
   backend.runtime,
   backend.cli_version ?? none,
   backend.model,
-  backend.effort ?? 'умолчание CLI',
-  `${seconds(backend.target_p95_ms)} с`,
+  backend.effort ?? 'CLI default',
+  `${seconds(backend.target_p95_ms)} s`,
   percentile(backend.p95),
   verdict(backend.target_met),
   percent(backend.within_target),
-  `${String(backend.met)} из ${String(backend.assessed)}`,
+  `${String(backend.met)} of ${String(backend.assessed)}`,
   String(backend.violations),
   String(backend.unassessed),
   String(backend.held_before),
   String(backend.mismatched),
-  backend.full_latency.p95_ms === null ? none : `${seconds(backend.full_latency.p95_ms)} с (${String(backend.full_latency.events)})`,
+  backend.full_latency.p95_ms === null ? none : `${seconds(backend.full_latency.p95_ms)} s (${String(backend.full_latency.events)})`,
   `${percent(backend.needs.share)} (${String(backend.needs.events)})`,
 ]
 
 const eventRow = (event: ReportedEvent): string[] => [
   event.recording,
   event.label,
-  event.method === 'predicate' ? 'предикат' : 'разметчик',
+  event.method === 'predicate' ? 'predicate' : 'annotator',
   statusText[event.status],
   seconds(event.latency_ms),
   seconds(event.full_latency_ms),
@@ -115,55 +115,55 @@ const eventRow = (event: ReportedEvent): string[] => [
 
 export const renderReport = (report: Report): string =>
   [
-    `# Замер свежести: ${report.profile}`,
+    `# Freshness measurement: ${report.profile}`,
     '',
-    `- Профиль нагрузки зафиксирован ${report.fixed_at}, замер начат ${report.measured_at} и длился ${seconds(report.duration_ms)} с.`,
-    `- Окно замера ${seconds(report.window_ms)} с, масштаб времени записей ${String(report.time_scale)}.`,
-    `- Демон ${report.daemon_version}.`,
+    `- Workload profile fixed at ${report.fixed_at}; the measurement started at ${report.measured_at} and lasted ${seconds(report.duration_ms)} s.`,
+    `- Measurement window ${seconds(report.window_ms)} s, recording time scale ${String(report.time_scale)}.`,
+    `- Daemon ${report.daemon_version}.`,
     '',
-    '## Записи',
+    '## Recordings',
     '',
     ...table(
-      ['Запись', 'Рантайм', 'Старт, с'],
+      ['Recording', 'Runtime', 'Start, s'],
       report.recordings.map(({ recording, runtime, start_ms: start }) => [recording, runtime, seconds(start)]),
     ),
     '',
-    '## Итог по backend',
+    '## Backend summary',
     '',
-    'Нарушение — ожидание не выполнено в окне замера. p95 считается по оценённым событиям, невыполненные события стоят в нём за окном. Выполненные до события и не соответствующие записи события — дефекты разметки, в p95 они не входят. Полная задержка идёт от времени самого события; в скобках — число событий с известным временем. Доля дозапросов — доля времени `needs` в задержке выполненных событий; в скобках — число событий с дозапросом.',
+    'A violation is an expectation not met within the measurement window. p95 is computed over assessed events, with missed events counted as beyond the window. Events met before the event or not matching the recording are annotation defects and are excluded from p95. Full latency runs from the time of the event itself; the number in parentheses is the count of events with a known time. Follow-up share is the share of `needs` time in the latency of met events; the number in parentheses is the count of events with a follow-up.',
     '',
     ...table(
       [
         'Backend',
         'CLI',
-        'Модель',
+        'Model',
         'Effort',
-        'Ориентир p95',
+        'Target p95',
         'p95',
-        'Ориентир выполнен',
-        'В пределах ориентира',
-        'Выполнено',
-        'Нарушения',
-        'Без оценки',
-        'Выполнено до события',
-        'Не соответствует записи',
-        'Полная задержка p95',
-        'Доля дозапросов',
+        'Target met',
+        'Within target',
+        'Met',
+        'Violations',
+        'Unassessed',
+        'Met before the event',
+        'Does not match the recording',
+        'Full latency p95',
+        'Follow-up share',
       ],
       report.backends.map(backendRow),
     ),
     '',
-    '## Контрольные события',
+    '## Control events',
     '',
     ...table(
-      ['Запись', 'Событие', 'Способ', 'Итог', 'Задержка, с', 'Полная, с', 'Дозапросы, с', 'Версия', 'Автор'],
+      ['Recording', 'Event', 'Method', 'Outcome', 'Latency, s', 'Full, s', 'Follow-ups, s', 'Version', 'Author'],
       report.events.map(eventRow),
     ),
     '',
-    '## Наблюдатель',
+    '## Observer',
     '',
     ...table(
-      ['Backend', 'Вызовы', 'Приняты', 'Отклонены', 'Ошибки', 'С дозапросом'],
+      ['Backend', 'Calls', 'Accepted', 'Rejected', 'Failed', 'With follow-up'],
       report.backends.map(({ runtime, calls }) => [
         runtime,
         String(calls.total),
@@ -175,38 +175,38 @@ export const renderReport = (report: Report): string =>
     ),
     '',
     ...table(
-      ['Backend', 'Состояние', 'Время, с', 'Доля'],
+      ['Backend', 'State', 'Time, s', 'Share'],
       report.backends.flatMap(({ runtime, states }) =>
         states.map(({ state, ms, share }) => [runtime, state, seconds(ms), percent(share)]),
       ),
     ),
     '',
-    '## Расход',
+    '## Spending',
     '',
-    'Расход вызовов — по данным CLI в журнале вызовов демона. Час прогона — сумма длительностей проигранных прогонов backend, активный час — время, когда шёл хотя бы один его прогон. Деньги — только у Claude, по прейскуранту; при подписке это не списание.',
+    'Call spending comes from CLI data in the daemon call journal. A run hour is the sum of the durations of the played runs of the backend; an active hour is the time when at least one of its runs was in progress. Money is shown only for Claude, at list prices; under a subscription it is not a charge.',
     '',
     ...table(
-      ['Backend', 'Прогоны', 'Часы прогонов', 'Активные часы'],
+      ['Backend', 'Runs', 'Run hours', 'Active hours'],
       report.spending.map(({ runtime, runs, run_ms: runMs, active_ms: activeMs }) => [runtime, String(runs), hours(runMs), hours(activeMs)]),
     ),
     '',
     ...table(
-      ['Backend', 'Журнал', 'Вызовы', 'Вход без кэша', 'Чтение кэша', 'Запись кэша', 'Вывод', 'Рассуждения', 'Всего токенов', 'Стоимость'],
+      ['Backend', 'Journal', 'Calls', 'Uncached input', 'Cache read', 'Cache write', 'Output', 'Reasoning', 'Total tokens', 'Cost'],
       report.spending.flatMap((spending) =>
         (['observer', 'chat', 'checks'] as const).map((journal) => spendingRow(spending.runtime, journal, spending[journal])),
       ),
     ),
     '',
     ...table(
-      ['Backend', 'Журнал', 'Вызовов на час прогона', 'Токенов на час прогона', 'Стоимость часа прогона', 'Вызовов на активный час', 'Токенов на активный час', 'Стоимость активного часа'],
+      ['Backend', 'Journal', 'Calls per run hour', 'Tokens per run hour', 'Cost per run hour', 'Calls per active hour', 'Tokens per active hour', 'Cost per active hour'],
       report.spending.flatMap(rateRows),
     ),
     '',
     ...table(
-      ['Backend', 'Вопросы', 'Ответы', 'Ошибки', 'Не заданы', 'Недостаточно данных', 'p50 ответа, с', 'p95 ответа, с', 'Токенов на ответ', 'Стоимость ответа'],
+      ['Backend', 'Questions', 'Answers', 'Failed', 'Not asked', 'Insufficient data', 'Answer p50, s', 'Answer p95, s', 'Tokens per answer', 'Cost per answer'],
       report.spending.map(questionRow),
     ),
     '',
-    `По учёту расхода демона (U.1) активных часов — ${String(report.active_hours.hours)}: это календарные часы, в которых была активность решателя.`,
+    `Per the daemon spending accounting (U.1), active hours: ${String(report.active_hours.hours)}; these are calendar hours with solver activity.`,
     '',
   ].join('\n')

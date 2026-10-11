@@ -18,7 +18,7 @@ const isolatedPath = process.platform === 'win32' ? [join(systemRoot, 'System32'
 const sandbox = async ({ onTestFinished }: TestContext) => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-observer-test-')))
   onTestFinished(() => rm(root, { recursive: true, force: true, maxRetries: 10 }))
-  const home = join(root, 'Имя Фамилия')
+  const home = join(root, 'Όνομα Επώνυμο')
   await mkdir(home)
   return {
     root,

@@ -177,7 +177,7 @@ const inspectClaudeTranscript = async (
   const records = await jsonLines(path)
   const entrypoints: Record<string, number> = {}
   for (const record of records) {
-    const entrypoint = typeof record.entrypoint === 'string' ? record.entrypoint : '(нет поля)'
+    const entrypoint = typeof record.entrypoint === 'string' ? record.entrypoint : '(no field)'
     entrypoints[entrypoint] = (entrypoints[entrypoint] ?? 0) + 1
   }
   return {

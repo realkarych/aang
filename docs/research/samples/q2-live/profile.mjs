@@ -24,9 +24,9 @@ if (runtime === undefined || fixtures === undefined || surface === undefined || 
 }
 const lanes = (values.lanes ?? 'ledger,kvstore;logstats,mdlinks').split(';').map((lane) => lane.split(','))
 const questions = [
-  [0.3, 'Что сейчас делает прогон и что осталось сделать по плану?'],
-  [0.6, 'Какие тесты падали за прогон и чем это закончилось?'],
-  [0.95, 'Нужно ли сейчас моё вмешательство? Если да, то где.'],
+  [0.3, 'What is the run doing now and what remains to be done per the plan?'],
+  [0.6, 'Which tests failed during the run and how did it end?'],
+  [0.95, 'Is my intervention needed now? If so, where.'],
 ]
 const versions = await readdir(join(fixtures, runtime))
 const recordingOf = async (task) => {

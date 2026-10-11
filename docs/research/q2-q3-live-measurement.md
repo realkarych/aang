@@ -41,9 +41,9 @@ The recordings were anonymized by the recorder and checked by its verifier. The 
 
 **Load profiles** were fixed before the measurements (`tools/freshness fix`), measurement window — 120 s, time scale — 1. Each recording has three chat questions at 30, 60 and 95 % of its duration:
 
-1. «Что сейчас делает прогон и что осталось сделать по плану?» ("What is the run doing now and what remains to be done per the plan?")
-2. «Какие тесты падали за прогон и чем это закончилось?» ("Which tests failed during the run and how did it end?")
-3. «Нужно ли сейчас моё вмешательство? Если да, то где.» ("Is my intervention needed now? If so, where.")
+1. "What is the run doing now and what remains to be done per the plan?"
+2. "Which tests failed during the run and how did it end?"
+3. "Is my intervention needed now? If so, where."
 
 | Measurement | Observer | Recordings and start | Concurrency |
 | --- | --- | --- | --- |
@@ -317,7 +317,7 @@ The tail for Claude default is exactly such queues after bursts: subagents, seri
 ### 4.7. Full latency and follow-up requests
 
 - **Codex.** Events sit on rollout lines with their own time. During playback a fact is available to the collector after p50 16 ms, max 50 ms after the event time (Obs). Therefore the full latency matches the semantic latency: p95 of met expectations — 26.4 s.
-- **Claude.** Events sit on hook deliveries (PostToolUse, Stop), which have no event time of their own, so the full latency is not computed (shown as «—» in the report). A hook fires at the moment of the action, and during playback delivery is instantaneous: between the recording step and the collector's observation, from −2 to 0 ms (Obs). The full latency for Claude equals the semantic latency up to the delay of the hook itself in a live session.
+- **Claude.** Events sit on hook deliveries (PostToolUse, Stop), which have no event time of their own, so the full latency is not computed (shown as "—" in the report). A hook fires at the moment of the action, and during playback delivery is instantaneous: between the recording step and the collector's observation, from −2 to 0 ms (Obs). The full latency for Claude equals the semantic latency up to the delay of the hook itself in a live session.
 - **Follow-up requests.** The observer never requested `needs` in a batch call: the share of follow-up time is 0 % in all measurements. The Codex chat requested additional data four times: 13 calls for 9 questions (section 6).
 
 ### 4.8. Annotation defects
@@ -410,7 +410,7 @@ Obs. Call cost — per CLI data in the daemon's call journal.
 - **Chat.**
   - Claude: 12 questions, 11 answers, one CLI call exceeded the 90 s timeout. Answer: p50 21.2 s, p95 36.0 s, 33k tokens and $0.25 per answer.
   - `claude-low`: 6 of 6, p50 11.9 s, p95 14.6 s.
-  - Codex: 9 of 9, p50 11.4 s, p95 21.6 s, 26k tokens per answer. 4 answers are «недостаточно данных» ("insufficient data"), 3 of them to the question about failing tests. The chat requested additional data 4 times: 13 calls for 9 questions.
+  - Codex: 9 of 9, p50 11.4 s, p95 21.6 s, 26k tokens per answer. 4 answers are "not enough data", 3 of them to the question about failing tests. The chat requested additional data 4 times: 13 calls for 9 questions.
 
 **Token structure:**
 

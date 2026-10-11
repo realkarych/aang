@@ -90,32 +90,32 @@ test('the inspector of a stage shows its axes, criteria, work and relations, and
   const panel = inspector(page)
   await expect(panel.getByRole('heading', { level: 2 })).toHaveText(mainStageTitle)
   await expect(panel.getByRole('heading', { level: 2 })).toBeFocused()
-  await expect(panel).toContainText('восстановлен наблюдателем')
-  await expect(section(page, 'Критерии')).toContainText('The goal of the run is reached')
-  await expect(section(page, 'Критерии')).toContainText('не проверен')
-  await expect(section(page, 'Участники и действия')).toContainText('Основной агент')
-  await expect(section(page, 'Участники и действия').getByRole('list', { name: 'Действия этапа' })).toContainText('echo hi')
-  await expect(section(page, 'Время и расход')).toContainText('Расход решателя, токены')
+  await expect(panel).toContainText('inferred by the observer')
+  await expect(section(page, 'Criteria')).toContainText('The goal of the run is reached')
+  await expect(section(page, 'Criteria')).toContainText('not checked')
+  await expect(section(page, 'Participants and actions')).toContainText('Main agent')
+  await expect(section(page, 'Participants and actions').getByRole('list', { name: 'Stage actions' })).toContainText('echo hi')
+  await expect(section(page, 'Time and usage')).toContainText('Solver usage, tokens')
 
-  await section(page, 'Связи').getByRole('link', { name: /^pinger/ }).click()
+  await section(page, 'Links').getByRole('link', { name: /^pinger/ }).click()
   await expect(panel.getByRole('heading', { level: 2 })).toHaveText(/^pinger/)
   await expect(page).toHaveURL(/&stage=/)
-  await section(page, 'Связи').getByRole('link', { name: mainStageTitle }).click()
+  await section(page, 'Links').getByRole('link', { name: mainStageTitle }).click()
   await expect(panel.getByRole('heading', { level: 2 })).toHaveText(mainStageTitle)
 
-  const grounds = section(page, 'Основания')
-  await grounds.getByRole('button', { name: /^Этап и его описание: \d+ факт/ }).click()
+  const grounds = section(page, 'Grounds')
+  await grounds.getByRole('button', { name: /^Stage and its description: \d+ fact/ }).click()
   const prompt = grounds
-    .getByRole('list', { name: 'Основания: Этап и его описание' })
+    .getByRole('list', { name: 'Grounds: Stage and its description' })
     .getByRole('listitem')
-    .filter({ hasText: /^Промпт/ })
-    .filter({ has: page.getByText('человек', { exact: true }) })
+    .filter({ hasText: /^Prompt/ })
+    .filter({ has: page.getByText('human', { exact: true }) })
     .first()
   await expect(prompt).toBeVisible()
-  await prompt.getByRole('button', { name: 'Сырая запись' }).click()
-  const raw = prompt.getByRole('region', { name: /^Сырая запись: Промпт/ })
-  await expect(raw).toContainText('транскрипт, Claude Code')
-  await expect(raw).toContainText(`${claudeSession}.jsonl, строка`)
+  await prompt.getByRole('button', { name: 'Raw record' }).click()
+  const raw = prompt.getByRole('region', { name: /^Raw record: Prompt/ })
+  await expect(raw).toContainText('transcript, Claude Code')
+  await expect(raw).toContainText(`${claudeSession}.jsonl, line`)
   await expect(raw.locator('pre')).toContainText(`"sessionId": "${claudeSession}"`)
 
   await page.keyboard.press('Escape')
@@ -149,22 +149,22 @@ test.describe('the run screen on a wide window', () => {
     })
 
     await page.goto(`/?run=${claudeRun}`)
-    const asked = step(page, 'Основной агент', question)
-    await expect(asked).toContainText('ждёт решения')
+    const asked = step(page, 'Main agent', question)
+    await expect(asked).toContainText('awaiting decision')
 
     const lamps = strip(page).getByRole('listitem')
     await expect(lamps).toHaveCount(10)
     const rows = new Set(await Promise.all((await lamps.all()).map(async (lamp) => Math.round((await box(lamp)).y))))
     expect(rows.size).toBe(1)
-    const coverage = lamps.filter({ hasText: 'Не наблюдаемо' }).getByRole('button')
-    const surfaces = ((await coverage.textContent()) ?? '').replace(/^Не наблюдаемо\s*/, '')
-    expect(surfaces).toContain('облачный Codex')
-    await expect(coverage).toHaveAttribute('title', `Не наблюдаемо: ${surfaces}`)
+    const coverage = lamps.filter({ hasText: 'Not observable' }).getByRole('button')
+    const surfaces = ((await coverage.textContent()) ?? '').replace(/^Not observable\s*/, '')
+    expect(surfaces).toContain('Codex cloud')
+    await expect(coverage).toHaveAttribute('title', `Not observable: ${surfaces}`)
     const title = page.getByRole('heading', { level: 1 })
     await expect(title).toHaveAttribute('title', (await title.textContent()) ?? '')
 
     const pane = page.getByRole('main')
-    const map = page.getByRole('region', { name: 'Карта этапов' })
+    const map = page.getByRole('region', { name: 'Stage map' })
     const pick = map.getByRole('button', { name: mainStageTitle, exact: true })
     const height = Math.max(900, Math.ceil((await box(pick)).bottom) + 40)
     await page.setViewportSize({ width: 1440, height })
@@ -188,11 +188,11 @@ test.describe('the run screen on a wide window', () => {
     })
     await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBeGreaterThan(reading)
     expect(await box(panel)).toEqual(docked)
-    await expect(section(page, 'Время и расход')).toContainText('Расход решателя, токены')
+    await expect(section(page, 'Time and usage')).toContainText('Solver usage, tokens')
 
     await asked.scrollIntoViewIfNeeded()
     const text = asked.getByText(question)
-    const toggle = asked.getByRole('button', { name: 'Показать полностью' })
+    const toggle = asked.getByRole('button', { name: 'Show all' })
     const time = asked.locator('time')
     await expect(toggle).toBeVisible()
     const [shown, link, clock, row] = await Promise.all([box(text), box(toggle), box(time), box(asked)])
@@ -200,7 +200,7 @@ test.describe('the run screen on a wide window', () => {
     expect(link.right).toBeLessThanOrEqual(clock.x)
     expect(link.right).toBeLessThanOrEqual(row.right)
     await toggle.click()
-    await expect(asked.getByRole('button', { name: 'Свернуть' })).toBeVisible()
+    await expect(asked.getByRole('button', { name: 'Collapse' })).toBeVisible()
   })
 })
 
@@ -216,18 +216,18 @@ test('the open inspector follows the model live, names a new substage of a deleg
 
   await page.goto(`/?run=${claudeRun}&stage=${main}`)
   await expect(inspector(page).getByRole('heading', { level: 2 })).toHaveText(mainStageTitle)
-  await expect(section(page, 'Связи')).toContainText('Связей с другими этапами нет.')
+  await expect(section(page, 'Links')).toContainText('No links to other stages.')
 
   await playback.play()
-  const substage = section(page, 'Связи').getByRole('link', { name: /^pinger/ })
+  const substage = section(page, 'Links').getByRole('link', { name: /^pinger/ })
   await expect(substage).toBeVisible({ timeout: 45_000 })
   await expect(substage).toHaveAttribute('title', /^pinger \([0-9a-f]{32}\)$/)
   const full = (await substage.getAttribute('title')) ?? ''
   await expect(substage).toHaveText(full.replace(/[0-9a-f]{32}/, (id) => id.slice(0, 8)))
-  const rejected = section(page, 'Отклонённые ответы наблюдателя')
-  await expect(rejected).toContainText('Ответ отклонён целиком')
-  await expect(rejected).toContainText('нарушает правила модели')
-  await expect(rejected).toContainText('операция 1')
+  const rejected = section(page, 'Rejected observer responses')
+  await expect(rejected).toContainText('The whole response was rejected')
+  await expect(rejected).toContainText('violates model rules')
+  await expect(rejected).toContainText('operation 1')
 })
 
 test('a report written by a Bash command becomes an output, its copy read later is not passed off as what the command wrote, and it opens after the file changed, vanished and the daemon restarted (E2E 17)', async ({
@@ -252,11 +252,11 @@ test('a report written by a Bash command becomes an output, its copy read later 
   const main = stageTitled(await interpreted(page.request, claudeRun), (title) => title === mainStageTitle)
 
   await page.goto(`/?run=${claudeRun}&stage=${main}`)
-  const outputs = section(page, 'Входы и выходы')
-  await expect(outputs.getByRole('list', { name: 'Выходы' })).toContainText(report)
-  await expect(outputs).toContainText('сохранена: состояние файла на момент чтения', { timeout: 15_000 })
-  await expect(outputs).toContainText('в файл писало действие Bash; что копия — записанное им содержимое, не доказано')
-  await expect(outputs).not.toContainText('записана действием')
+  const outputs = section(page, 'Inputs and outputs')
+  await expect(outputs.getByRole('list', { name: 'Outputs' })).toContainText(report)
+  await expect(outputs).toContainText('saved: file state as read at', { timeout: 15_000 })
+  await expect(outputs).toContainText('action Bash wrote to the file; it is not proven that this copy is what it wrote')
+  await expect(outputs).not.toContainText('written by action')
 
   await writeFile(report, 'report-v2\n')
   await rm(report)
@@ -265,13 +265,13 @@ test('a report written by a Bash command becomes an output, its copy read later 
   const restarted = await profile.startDaemon({ entry: aangEntry })
   try {
     await page.goto(`${restarted.url}/?run=${claudeRun}&stage=${main}`)
-    const saved = section(page, 'Входы и выходы')
-    await saved.getByRole('button', { name: 'Открыть сохранённую версию' }).click()
-    const version = saved.getByRole('region', { name: `Сохранённая версия: ${report}` })
-    await expect(version).toContainText('состояние файла на момент чтения')
+    const saved = section(page, 'Inputs and outputs')
+    await saved.getByRole('button', { name: 'Open saved version' }).click()
+    const version = saved.getByRole('region', { name: `Saved version: ${report}` })
+    await expect(version).toContainText('file state at the time of reading')
     await expect(version.locator('pre')).toHaveText(retained.slice(0, 100_000))
-    await expect(version).toContainText('Показаны первые 100 000 символов из 108 024.')
-    await version.getByRole('button', { name: 'Показать полностью' }).click()
+    await expect(version).toContainText('Showing the first 100,000 of 108,024 characters.')
+    await version.getByRole('button', { name: 'Show all' }).click()
     await expect(version.locator('pre')).toHaveText(retained)
   } finally {
     expect(await restarted.stop()).toEqual({ code: 0, signal: null })
@@ -383,18 +383,18 @@ const snapshotRecords = async (request: APIRequestContext, seq = 1): Promise<num
 }
 
 const contractCriterion = (page: Page): Locator =>
-  section(page, 'Критерии').getByRole('listitem').filter({ hasText: 'Check "test" passes' })
+  section(page, 'Criteria').getByRole('listitem').filter({ hasText: 'Check "test" passes' })
 
 const statusGrounds = async (criterion: Locator): Promise<Locator> => {
-  const toggle = criterion.getByRole('button', { name: /^Статус критерия/ })
+  const toggle = criterion.getByRole('button', { name: /^Status of criterion/ })
   if ((await toggle.getAttribute('aria-expanded')) === 'false') {
     await toggle.click()
   }
-  return criterion.getByRole('list', { name: /^Основания: Статус критерия/ })
+  return criterion.getByRole('list', { name: /^Grounds: Status of criterion/ })
 }
 
 const snapshotRows = (criterion: Locator, text: string): Locator =>
-  criterion.getByRole('table', { name: /^Снимки рабочего дерева/ }).getByRole('row').filter({ hasText: text })
+  criterion.getByRole('table', { name: /^Working tree snapshots/ }).getByRole('row').filter({ hasText: text })
 
 const verifiedProject = projectAt('verified')
 
@@ -436,17 +436,17 @@ test.describe('a claim of done over a failed check, then a passing repeat that r
 
     await page.goto(`/?run=${transcript.run}&stage=${main}`)
     const panel = inspector(page)
-    await expect(panel.getByRole('definition').filter({ hasText: 'завершён' }).first()).toContainText('заявление решателя')
-    await expect(panel).toContainText('Завершён, но есть упавшая проверка')
-    const attention = section(page, 'Внимание')
-    await expect(attention).toContainText('Упавшая проверка')
-    await expect(attention).toContainText('открыт')
-    const criteria = section(page, 'Критерии')
-    await expect(criteria).toContainText('агент сообщил о завершении')
+    await expect(panel.getByRole('definition').filter({ hasText: 'done' }).first()).toContainText('solver claim')
+    await expect(panel).toContainText('Done, but a check failed')
+    const attention = section(page, 'Attention')
+    await expect(attention).toContainText('Failed check')
+    await expect(attention).toContainText('open')
+    const criteria = section(page, 'Criteria')
+    await expect(criteria).toContainText('agent reported done')
     const contract = contractCriterion(page)
-    await expect(contract).toContainText('не выполнен')
-    await expect(contract).toContainText('по контракту проверки test')
-    await expect(contract).toContainText('Критерий всего прогона')
+    await expect(contract).toContainText('failed')
+    await expect(contract).toContainText('by the check contract test')
+    await expect(contract).toContainText('A whole-run criterion')
     const goal = criteria.getByRole('listitem').filter({ hasText: goalCriterionText })
     await expect(await statusGrounds(goal)).toContainText('All done: the tests pass.')
 
@@ -456,25 +456,25 @@ test.describe('a claim of done over a failed check, then a passing repeat that r
       passedWith('toolu_verify', `Tests passed\nverified commit ${head}\n`),
       reply('message-verified', 'Fixed: the tests pass on the checked commit.'),
     )
-    await expect(contract).toContainText('подтверждён', { timeout: 45_000 })
-    await expect(contract).toContainText(`Проверенная версия — коммит ${shortSha(head)}`)
-    await expect(contract).toContainText('Критерий всего прогона')
+    await expect(contract).toContainText('confirmed', { timeout: 45_000 })
+    await expect(contract).toContainText(`Checked version: commit ${shortSha(head)}`)
+    await expect(contract).toContainText('A whole-run criterion')
     await expect(await statusGrounds(contract)).toContainText(`verified commit ${head}`)
 
     let edit = 1
     await expect(async () => {
       edit += 1
       await writeFile(appFile(verifiedProject), `export const app = ${String(edit)}\n`)
-      await expect(contract).toContainText('проверен на другой версии', { timeout: 2_000 })
+      await expect(contract).toContainText('checked on another version', { timeout: 2_000 })
     }).toPass({ timeout: 30_000 })
-    await expect(contract).toContainText(`Проверен на коммите ${shortSha(head)}, текущее состояние уже другое`)
-    await expect(contract).not.toContainText('подтверждён')
-    const edited = snapshotRows(contract, 'после изменения файлов')
-    await expect(edited).toContainText('есть изменения')
+    await expect(contract).toContainText(`Checked at commit ${shortSha(head)}, the current state is already different`)
+    await expect(contract).not.toContainText('confirmed')
+    const edited = snapshotRows(contract, 'after file changes')
+    await expect(edited).toContainText('has changes')
     await expect(edited).toContainText(shortSha(head))
     const grounds = await statusGrounds(contract)
-    await expect(grounds).toContainText('Снимок рабочего дерева')
-    await expect(grounds).toContainText('есть изменения под масками')
+    await expect(grounds).toContainText('Working tree snapshot')
+    await expect(grounds).toContainText('changes under masks')
   })
 })
 
@@ -506,16 +506,16 @@ test.describe('a passing check by a contract without a reported commit', () => {
 
     await page.goto(`/?run=${transcript.run}&stage=${main}`)
     const contract = contractCriterion(page)
-    await expect(contract).toContainText('проверка прошла, версия не установлена')
-    await expect(contract).toContainText('какую версию она проверила, неизвестно: подтверждением это не считается.')
-    await expect(contract).toContainText(`Справочно: дерево было чистым на коммите ${shortSha(first)} в обоих снимках.`)
-    await expect(snapshotRows(contract, 'при проверке')).toHaveCount(2)
-    await expect(snapshotRows(contract, 'чисто')).toHaveCount(2)
-    await expect(contract).not.toContainText('подтверждён')
-    await expect(contract).not.toContainText('Проверенная версия')
+    await expect(contract).toContainText('check passed, version not established')
+    await expect(contract).toContainText('which version it checked is unknown: this does not count as confirmation.')
+    await expect(contract).toContainText(`For reference: the tree was clean at commit ${shortSha(first)} in both snapshots.`)
+    await expect(snapshotRows(contract, 'on check')).toHaveCount(2)
+    await expect(snapshotRows(contract, 'clean')).toHaveCount(2)
+    await expect(contract).not.toContainText('confirmed')
+    await expect(contract).not.toContainText('Checked version')
     const firstGrounds = await statusGrounds(contract)
-    await expect(firstGrounds).toContainText('Снимок рабочего дерева')
-    await expect(firstGrounds).toContainText('дерево чистое')
+    await expect(firstGrounds).toContainText('Working tree snapshot')
+    await expect(firstGrounds).toContainText('tree clean')
 
     await writeFile(appFile(unversionedProject), 'export const app = 2\n')
     await git(unversionedProject, 'commit', '--quiet', '--all', '--message=fix')
@@ -526,14 +526,14 @@ test.describe('a passing check by a contract without a reported commit', () => {
     await writeFile(appFile(unversionedProject), 'export const app = 2\n')
     await transcript.append(passedWith('toolu_second', 'Tests passed\n'), reply('message-second', 'The app tests pass.'))
 
-    await expect(contract).toContainText(`Справочно: дерево было чистым на коммите ${shortSha(second)} в обоих снимках.`, {
+    await expect(contract).toContainText(`For reference: the tree was clean at commit ${shortSha(second)} in both snapshots.`, {
       timeout: 45_000,
     })
-    await expect(contract).toContainText('проверка прошла, версия не установлена')
-    await expect(contract).not.toContainText('подтверждён')
-    await expect(contract).not.toContainText('Проверенная версия')
+    await expect(contract).toContainText('check passed, version not established')
+    await expect(contract).not.toContainText('confirmed')
+    await expect(contract).not.toContainText('Checked version')
     await expect(snapshotRows(contract, shortSha(second))).toHaveCount(2)
-    await expect(snapshotRows(contract, 'чисто')).toHaveCount(2)
+    await expect(snapshotRows(contract, 'clean')).toHaveCount(2)
     await expect(await statusGrounds(contract)).toContainText('pnpm test --filter app')
   })
 })
@@ -568,7 +568,7 @@ const stageReads = (page: Page): readonly string[] => {
 const openMarkerStage = async (page: Page, run: RunId, stage: StageId): Promise<void> => {
   await page.goto(`/?run=${run}&stage=${stage}`)
   await expect(inspector(page).getByRole('heading', { level: 2 })).toHaveText(mainStageTitle)
-  const actions = section(page, 'Участники и действия').getByRole('list', { name: 'Действия этапа' })
+  const actions = section(page, 'Participants and actions').getByRole('list', { name: 'Stage actions' })
   await expect(actions).toContainText('echo review-reset')
 }
 
@@ -629,37 +629,37 @@ const cacheKeys = ({ evidence, actions }: StageInspector): { prompt: number | un
 })
 
 const expandAll = async (panel: Locator): Promise<void> => {
-  for (const name of [/: \d+ факт/, /^Сырая запись$/, /^Открыть сохранённую версию$/]) {
+  for (const name of [/: \d+ fact/, /^Raw record$/, /^Open saved version$/]) {
     const closed = panel.getByRole('button', { name, expanded: false })
     const count = await closed.count()
     for (let opened = 0; opened < count; opened += 1) {
       await closed.first().click()
     }
-    await expect(panel.getByText(/^Загрузка/)).toHaveCount(0)
+    await expect(panel.getByText(/^Loading/)).toHaveCount(0)
   }
 }
 
 const shows = async (page: Page, marker: string, stale: string): Promise<void> => {
   const panel = inspector(page)
   await expect(panel.getByRole('heading', { level: 2 })).toHaveText(mainStageTitle)
-  await expect(section(page, 'Критерии')).toContainText(goalCriterionText)
+  await expect(section(page, 'Criteria')).toContainText(goalCriterionText)
   await expandAll(panel)
-  const outputs = section(page, 'Входы и выходы')
-  await expect(outputs.getByRole('list', { name: 'Выходы' })).toContainText(join(resetProject, 'report.md'))
-  await expect(outputs.getByRole('region', { name: /^Сохранённая версия/ }).locator('pre')).toHaveText(`${marker} report\n`)
-  await expect(outputs.getByRole('region', { name: /^Сырая запись/ }).filter({ hasText: `echo ${marker} report` })).not.toHaveCount(0)
-  await expect(section(page, 'Время и расход')).toContainText('Расход решателя, токены')
-  await expect(section(page, 'Участники и действия').getByRole('list', { name: 'Действия этапа' })).toContainText(
+  const outputs = section(page, 'Inputs and outputs')
+  await expect(outputs.getByRole('list', { name: 'Outputs' })).toContainText(join(resetProject, 'report.md'))
+  await expect(outputs.getByRole('region', { name: /^Saved version/ }).locator('pre')).toHaveText(`${marker} report\n`)
+  await expect(outputs.getByRole('region', { name: /^Raw record/ }).filter({ hasText: `echo ${marker} report` })).not.toHaveCount(0)
+  await expect(section(page, 'Time and usage')).toContainText('Solver usage, tokens')
+  await expect(section(page, 'Participants and actions').getByRole('list', { name: 'Stage actions' })).toContainText(
     `echo ${marker} report > report.md`,
   )
-  await expect(section(page, 'Связи')).toContainText('Связей с другими этапами нет.')
-  const grounds = section(page, 'Основания')
-  const promptFact = grounds.getByRole('listitem').filter({ hasText: /^Промпт/ }).first()
+  await expect(section(page, 'Links')).toContainText('No links to other stages.')
+  const grounds = section(page, 'Grounds')
+  const promptFact = grounds.getByRole('listitem').filter({ hasText: /^Prompt/ }).first()
   await expect(promptFact).toContainText(`Write the ${marker} report.`)
-  await expect(promptFact.getByRole('region', { name: /^Сырая запись: Промпт/ }).locator('pre')).toContainText(
+  await expect(promptFact.getByRole('region', { name: /^Raw record: Prompt/ }).locator('pre')).toContainText(
     `Write the ${marker} report.`,
   )
-  await expect(section(page, 'История')).toContainText('создание этапа')
+  await expect(section(page, 'History')).toContainText('stage created')
   await expect(panel).not.toContainText(stale)
   await expect(trace(page)).toContainText(`echo ${marker} report > report.md`)
   await expect(trace(page)).not.toContainText(stale)
@@ -672,7 +672,7 @@ const selectByAddress = (page: Page, run: RunId, stage: StageId): Promise<void> 
   }, `/?run=${run}&stage=${stage}`)
 
 const goneStage = (stage: StageId): string =>
-  `В этом прогоне нет этапа ${stage.slice(0, 8)}: ссылка устарела или прогон собран заново.`
+  `This run has no stage ${stage.slice(0, 8)}: the link is stale or the run was rebuilt.`
 
 const quietMs = 2_000
 
@@ -714,7 +714,7 @@ test.describe('a database replaced under the open inspector', () => {
       await context.setOffline(false)
       const panel = inspector(page)
       await expect(panel).toContainText(goneStage(main))
-      await expect(panel.getByRole('heading', { level: 2 })).toHaveText(`Этап ${main.slice(0, 8)}`)
+      await expect(panel.getByRole('heading', { level: 2 })).toHaveText(`Stage ${main.slice(0, 8)}`)
       await expect(panel).not.toContainText('echo review-reset')
       expect(reads.length).toBeGreaterThan(offline)
       const settled = reads.length
@@ -795,10 +795,10 @@ test.describe('a database replaced under the open inspector', () => {
       const offline = reads.length
 
       await context.setOffline(false)
-      await expect(page.getByRole('heading', { name: 'Прогон не найден' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Run not found' })).toBeVisible()
       const panel = inspector(page)
       await expect(panel).toContainText(goneStage(main))
-      await expect(panel.getByRole('heading', { level: 2 })).toHaveText(`Этап ${main.slice(0, 8)}`)
+      await expect(panel.getByRole('heading', { level: 2 })).toHaveText(`Stage ${main.slice(0, 8)}`)
       await expect(panel).not.toContainText('echo review-reset')
       expect(reads.length).toBeGreaterThan(offline)
       const settled = reads.length

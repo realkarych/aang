@@ -71,12 +71,12 @@ export const selectionOf = (stages: readonly Stage[], chosen: StageId): StageSel
     : { stage: first.stage, lineage: first.lineage, handover: handoverOf(start, first, rest) }
 }
 
-const quoted = ({ title }: Stage): string => `«${title}»`
+const quoted = ({ title }: Stage): string => `"${title}"`
 
 export const handoverText = ({ from, to, revisions, others }: Handover): string => {
   const steps = revisions
     .filter((revision, index) => revision !== revisions[index - 1])
     .map((revision) => stageRevisionLabel[revision])
-  const rest = others.length === 0 ? '' : `, другие преемники: ${others.map(quoted).join(', ')}`
-  return `Этап ${quoted(from)} ${steps.join(', затем ')}. Выбор перешёл к преемнику ${quoted(to)}${rest}.`
+  const rest = others.length === 0 ? '' : `, other successors: ${others.map(quoted).join(', ')}`
+  return `Stage ${quoted(from)} was ${steps.join(', then ')}. Selection moved to successor ${quoted(to)}${rest}.`
 }

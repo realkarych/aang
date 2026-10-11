@@ -234,15 +234,15 @@ describe('owner checklist for Claude Desktop and Codex Desktop data', () => {
     expect(desktop).toContain('- SessionStart.source: startup, compact')
     expect(desktop).toContain('- PreCompact: 1, PostCompact: 0')
     expect(desktop).toContain('- SubagentStart: 1, SubagentStop: 1')
-    expect(desktop).toContain('- cwd в `.claude/worktrees`: да')
-    expect(desktop).toContain('пар 1, PostToolUseFailure 0, без Post*: Bash toolu_d2 (отказ в PostToolBatch)')
-    expect(desktop).toContain('- PermissionRequest: Bash → отклонено (есть в PostToolBatch, нет Post*)')
-    expect(desktop).toContain('- entrypoint в записях: claude-desktop ×2; версии: 2.1.284')
+    expect(desktop).toContain('- cwd in `.claude/worktrees`: yes')
+    expect(desktop).toContain('pairs 1, PostToolUseFailure 0, without Post*: Bash toolu_d2 (denied in PostToolBatch)')
+    expect(desktop).toContain('- PermissionRequest: Bash → denied (in PostToolBatch, no Post*)')
+    expect(desktop).toContain('- entrypoint in records: claude-desktop ×2; versions: 2.1.284')
     expect(desktop).toContain('- compact_boundary: 1;')
 
-    const metadata = sectionOf(summary, '### Метаданные Desktop (`claude-code-sessions/**/local_*.json`)')
+    const metadata = sectionOf(summary, '### Desktop metadata (`claude-code-sessions/**/local_*.json`)')
     expect(metadata).toContain(`#### \`*/*/${hostSession}.json\``)
-    expect(metadata).toContain(`- sessionId: ${hostSession}; cliSessionId: ${claudeSession}; сессия в spool: S1`)
+    expect(metadata).toContain(`- sessionId: ${hostSession}; cliSessionId: ${claudeSession}; session in spool: S1`)
     expect(metadata).toContain('- lastSpawnRootDetected: true')
     const lengths = Object.fromEntries(Object.entries(seedFields(sandbox, paths)).map(([key, value]) => [key, `<text, ${String(value.length)} chars>`]))
     expect(lineWith(metadata, '- spawnSeed:')).toBe(
@@ -250,27 +250,27 @@ describe('owner checklist for Claude Desktop and Codex Desktop data', () => {
     )
     expect(metadata).toContain('"title": "str"')
     expect(metadata).toContain('"cliSessionId": "str<uuid>"')
-    expect(lineWith(sectionOf(summary, '### Маркеры удаления `deleted_<uuid>`'), hostSession)).toBe(
+    expect(lineWith(sectionOf(summary, '### Deletion markers `deleted_<uuid>`'), hostSession)).toBe(
       `| */*/deleted_${hostSession.slice('local_'.length)} | ${hostSession} | 1791021600000 |`,
     )
 
     const codex = sectionOf(summary, '### S2')
     expect(codex).toContain('- SessionStart.source: startup')
-    expect(codex).toContain('пар 1, PostToolUseFailure 0, без Post*: нет')
-    expect(codex).toContain('- PermissionRequest: Bash → разрешено (PostToolUse)')
+    expect(codex).toContain('pairs 1, PostToolUseFailure 0, without Post*: none')
+    expect(codex).toContain('- PermissionRequest: Bash → allowed (PostToolUse)')
     expect(codex).toContain(
       '- session_meta: originator `"Codex Desktop"`, source `"vscode"`, thread_source `"user"`, parent_thread_id `null`, cli_version `"0.159.2"`',
     )
-    expect(codex).toContain('`~/aang-desktop-probe-outside` среди корней записи: нет')
+    expect(codex).toContain('`~/aang-desktop-probe-outside` among writable roots: no')
     expect(codex).toContain(`- Rollout: \`${join('~', '.codex', 'sessions', '2026', '10', '03', `rollout-2026-10-03T10-00-00-${codexSession}.jsonl`)}\``)
 
     const worktreeSession = sectionOf(summary, '### S3')
     const rolloutPath = (path: string) => join('~', '.codex', 'sessions', '2026', '10', '03', path.slice(path.lastIndexOf('rollout-')))
     expect(worktreeSession).toContain('- SubagentStart: 1, SubagentStop: 1')
-    expect(worktreeSession).toContain('- cwd в `$CODEX_HOME/worktrees`: да')
-    expect(worktreeSession).toContain('пар 1, PostToolUseFailure 0, без Post*: нет')
+    expect(worktreeSession).toContain('- cwd in `$CODEX_HOME/worktrees`: yes')
+    expect(worktreeSession).toContain('pairs 1, PostToolUseFailure 0, without Post*: none')
     expect(lineWith(worktreeSession, '- Rollout:')).toBe(`- Rollout: \`${rolloutPath(subagentRollouts.parent)}\``)
-    expect(worktreeSession).toContain(`- Субагент \`${codexSubagent}\`: parent_thread_id совпадает с session_id сессии: да`)
+    expect(worktreeSession).toContain(`- Subagent \`${codexSubagent}\`: parent_thread_id matches the session_id of the session: yes`)
     expect(worktreeSession).toContain(`  - Rollout: \`${rolloutPath(subagentRollouts.child)}\``)
     expect(worktreeSession).toContain(`  - session_meta: originator \`"Codex Desktop"\`, source \`{"subagent":{"thread_spawn":{"parent_thread_id":"${codexWorktreeSession}"`)
 

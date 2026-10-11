@@ -40,13 +40,13 @@ export interface StageInspectorProps {
 
 const recentActions = 8
 
-const actionForms = { one: 'раннее действие', few: 'ранних действия', many: 'ранних действий' } as const
+const actionForms = { one: 'early action', other: 'early actions' } as const
 
-const tokenFormat = new Intl.NumberFormat('ru')
+const tokenFormat = new Intl.NumberFormat('en-US')
 
 const tokens = (value: number): string => tokenFormat.format(value)
 
-const costFormat = new Intl.NumberFormat('ru', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 })
+const costFormat = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 4 })
 
 const Section = ({
   title,
@@ -81,7 +81,7 @@ const StageLink = ({
   const select = useSelect()
   const mode = useRoutedMode()
   const agents = useKnownAgents()
-  const title = titles.get(stage) ?? `этап ${shortId(stage)}`
+  const title = titles.get(stage) ?? `stage ${shortId(stage)}`
   return (
     <a className="stage-link" href={stageHref(run, stage, mode)} onClick={select} title={fullHint(title, agents)}>
       {shortIds(title, agents)}
@@ -94,31 +94,31 @@ const lifecycleNote = (stage: Stage): string | null => {
     case 'active':
       return null
     case 'replaced':
-      return 'Этап заменён'
+      return 'Stage replaced'
     case 'merged':
-      return 'Этап объединён с другими'
+      return 'Stage merged with others'
     case 'split':
-      return 'Этап разделён'
+      return 'Stage split'
   }
 }
 
 const Axes = ({ stage }: { readonly stage: Stage }): ReactElement => (
   <dl className="axes">
     <div>
-      <dt>Выполнение</dt>
+      <dt>Execution</dt>
       <dd>
         <ExecutionBadge execution={stage.execution.value} />
         {stage.execution.basis.kind === 'observed' ? null : <BasisLine basis={stage.execution.basis} />}
       </dd>
     </div>
     <div>
-      <dt>Основание</dt>
+      <dt>Basis</dt>
       <dd>
         <BasisLine basis={stage.basis} />
       </dd>
     </div>
     <div>
-      <dt>Решение человека</dt>
+      <dt>Human decision</dt>
       <dd>
         <DecisionBadge decision={stage.decision.value} basis={stage.decision.basis} />
       </dd>
@@ -139,8 +139,8 @@ const Warnings = ({ stage, attention }: { readonly stage: Stage; readonly attent
         <li>
           <LevelGlyph level="caution" />
           <span>
-            Наблюдатель утверждает: «{executionLabel(conflict.value)}», а по событиям этап «
-            {executionLabel(stage.execution.value)}». Показано наблюдаемое.
+            The observer claims "{executionLabel(conflict.value)}", but events show the stage as "
+            {executionLabel(stage.execution.value)}". Showing what was observed.
           </span>
         </li>
       )}
@@ -148,7 +148,7 @@ const Warnings = ({ stage, attention }: { readonly stage: Stage; readonly attent
         <li data-level="warning">
           <LevelGlyph level="warning" />
           <span>
-            {stage.execution.value.state === 'done' ? 'Завершён, но есть упавшая проверка' : 'Есть упавшая проверка'}
+            {stage.execution.value.state === 'done' ? 'Done, but a check failed' : 'A check failed'}
           </span>
         </li>
       ) : null}
@@ -161,13 +161,13 @@ const Purpose = ({ stage }: { readonly stage: Stage }): ReactElement | null =>
     <dl className="purpose">
       {stage.expected_result === null ? null : (
         <div>
-          <dt>Ожидаемый результат</dt>
+          <dt>Expected result</dt>
           <dd>{stage.expected_result}</dd>
         </div>
       )}
       {stage.summary === null ? null : (
         <div>
-          <dt>Сводка</dt>
+          <dt>Summary</dt>
           <dd>{stage.summary}</dd>
         </div>
       )}
@@ -179,12 +179,12 @@ const AttentionEntry = ({ item }: { readonly item: AttentionItem }): ReactElemen
     <p className="attention-kind">
       <AttentionGlyph kind={item.kind} />
       <span>{attentionKindLabel[item.kind]}</span>
-      <span>{item.resolution === 'open' && item.runtime_wait === 'active' ? 'ждёт ответа' : resolutionLabel[item.resolution]}</span>
+      <span>{item.resolution === 'open' && item.runtime_wait === 'active' ? 'awaiting an answer' : resolutionLabel[item.resolution]}</span>
       <span>{attentionAuthorLabel[item.author]}</span>
-      {item.priority === null ? null : <span>рекомендация: приоритет {priorityLabel[item.priority.value]}</span>}
+      {item.priority === null ? null : <span>recommended: {priorityLabel[item.priority.value]} priority</span>}
     </p>
     <p className="attention-text">{item.text}</p>
-    {item.likely_resolved === null ? null : <p className="attention-note">Вероятно, уже отвечен: пункт остаётся открытым до снятия.</p>}
+    {item.likely_resolved === null ? null : <p className="attention-note">Probably already answered: the item stays open until dismissed.</p>}
     <Grounds basis={item.basis} evidence={item.evidence} label={`${attentionKindLabel[item.kind]}: ${item.text}`} />
   </li>
 )
@@ -205,10 +205,10 @@ const AttentionList = ({ items }: { readonly items: readonly AttentionItem[] }):
 const activeTime = (milliseconds: number): string => {
   const seconds = Math.round(milliseconds / 1_000)
   if (seconds < 60) {
-    return `${String(seconds)} с`
+    return `${String(seconds)} s`
   }
   const minutes = Math.floor(seconds / 60)
-  return minutes < 60 ? `${String(minutes)} мин ${String(seconds % 60)} с` : `${String(Math.floor(minutes / 60))} ч ${String(minutes % 60)} мин`
+  return minutes < 60 ? `${String(minutes)} min ${String(seconds % 60)} s` : `${String(Math.floor(minutes / 60))} h ${String(minutes % 60)} min`
 }
 
 const UsageRow = ({ label, totals }: { readonly label: string; readonly totals: UsageTotals }): ReactElement => (
@@ -218,7 +218,7 @@ const UsageRow = ({ label, totals }: { readonly label: string; readonly totals: 
     <td className="number">{tokens(totals.tokens.cache_read_input_tokens + totals.tokens.cache_write_input_tokens)}</td>
     <td className="number">
       {tokens(totals.tokens.output_tokens)}
-      {totals.output_lower_bound ? <span className="lower-bound"> не меньше</span> : null}
+      {totals.output_lower_bound ? <span className="lower-bound"> at least</span> : null}
     </td>
     <td className="number">{totals.records}</td>
   </tr>
@@ -229,44 +229,44 @@ const SolverUsage = ({ usage }: { readonly usage: Inspected['usage'] }): ReactEl
   if (usage.stage.records === 0 && usage.unassigned_in_sessions.records === 0) {
     return (
       <div className="usage-empty">
-        <p className="usage-caption">Расход решателя, токены</p>
-        <p className="section-empty">Нет записей расхода для этого этапа.</p>
+        <p className="usage-caption">Solver usage, tokens</p>
+        <p className="section-empty">No usage records for this stage.</p>
       </div>
     )
   }
   return (
     <>
       <table className="usage">
-        <caption>Расход решателя, токены</caption>
+        <caption>Solver usage, tokens</caption>
         <thead>
           <tr>
             <td />
             <th scope="col" className="number">
-              Вход
+              Input
             </th>
             <th scope="col" className="number">
-              Кеш
+              Cache
             </th>
             <th scope="col" className="number">
-              Выход
+              Output
             </th>
             <th scope="col" className="number">
-              Записей
+              Records
             </th>
           </tr>
         </thead>
         <tbody>
-          <UsageRow label="Этап" totals={usage.stage} />
-          <UsageRow label="Не привязано к этапам" totals={usage.unassigned_in_sessions} />
+          <UsageRow label="Stage" totals={usage.stage} />
+          <UsageRow label="Not assigned to stages" totals={usage.unassigned_in_sessions} />
         </tbody>
       </table>
       <p className="usage-note">
-        «Не привязано к этапам» — расход сессий этапа, который нельзя целиком отнести ни к одному этапу.
+        "Not assigned to stages" is usage from the stage’s sessions that cannot be attributed entirely to any one stage.
         {costs.length === 0 ? null : (
           <>
             {' '}
-            Стоимость {costFormat.format(costs.reduce((sum, cost) => sum + cost, 0))} — по прейскуранту; при подписке это не
-            списание.
+            Cost {costFormat.format(costs.reduce((sum, cost) => sum + cost, 0))} at list price; under a subscription it is not a
+            charge.
           </>
         )}
       </p>
@@ -279,19 +279,19 @@ const TimeAndUsage = ({ inspected }: { readonly inspected: Inspected }): ReactEl
   return (
     <>
       {time.started_at === null ? (
-        <p className="section-empty">К этапу не привязано действий со временем.</p>
+        <p className="section-empty">No timed actions are assigned to the stage.</p>
       ) : (
         <dl className="figures">
           <div>
-            <dt>Начало</dt>
+            <dt>Start</dt>
             <dd>{absoluteTime(time.started_at)}</dd>
           </div>
           <div>
-            <dt>Конец</dt>
-            <dd>{time.ended_at === null ? 'ещё идёт' : absoluteTime(time.ended_at)}</dd>
+            <dt>End</dt>
+            <dd>{time.ended_at === null ? 'still running' : absoluteTime(time.ended_at)}</dd>
           </div>
           <div>
-            <dt>Активное время</dt>
+            <dt>Active time</dt>
             <dd>{time.active_ms === null ? '—' : activeTime(time.active_ms)}</dd>
           </div>
         </dl>
@@ -325,7 +325,7 @@ const ActionEntry = ({ action }: { readonly action: Action }): ReactElement => {
       <span className="action-tool">{action.tool}</span>
       <span className="action-body">
         {action.input_fact === null ? null : <ActionDetail fact={action.input_fact} />}
-        {action.inherited ? <span className="action-note">унаследовано из исходной сессии</span> : null}
+        {action.inherited ? <span className="action-note">inherited from the source session</span> : null}
       </span>
       {at === null ? <span /> : <time className="action-time">{clockTime(at)}</time>}
     </li>
@@ -344,12 +344,12 @@ const Participants = ({ agents, actions }: { readonly agents: readonly Agent[]; 
   const hidden = all ? 0 : Math.max(0, ordered.length - recentActions)
   const shown = ordered.slice(hidden)
   if (agents.length === 0 && actions.length === 0) {
-    return <p className="section-empty">Наблюдатель не привязал к этапу агентов и действий.</p>
+    return <p className="section-empty">The observer has not assigned agents or actions to the stage.</p>
   }
   return (
     <>
       {agents.length === 0 ? null : (
-        <ul className="participants" aria-label="Агенты этапа">
+        <ul className="participants" aria-label="Stage agents">
           {agents.map((agent) => (
             <li key={agent.id}>
               <span className="participant-name">{agentTitle(agent)}</span>
@@ -360,7 +360,7 @@ const Participants = ({ agents, actions }: { readonly agents: readonly Agent[]; 
         </ul>
       )}
       {actions.length === 0 ? null : (
-        <ol className="action-list" aria-label="Действия этапа">
+        <ol className="action-list" aria-label="Stage actions">
           {hidden === 0 && !all ? null : (
             <li className="action-toggle">
               <button
@@ -370,7 +370,7 @@ const Participants = ({ agents, actions }: { readonly agents: readonly Agent[]; 
                   setAll(!all)
                 }}
               >
-                {all ? 'Скрыть ранние действия' : `Показать ${plural(hidden, actionForms)}`}
+                {all ? 'Hide early actions' : `Show ${plural(hidden, actionForms)}`}
               </button>
             </li>
           )}
@@ -411,11 +411,11 @@ const StageLinks = ({
 const successorLabel = (stage: Stage): string => {
   switch (stage.lifecycle.state) {
     case 'merged':
-      return 'Объединён в'
+      return 'Merged into'
     case 'split':
-      return 'Разделён на'
+      return 'Split into'
     default:
-      return 'Заменён на'
+      return 'Replaced by'
   }
 }
 
@@ -432,16 +432,16 @@ const Relations = ({
   const needs = dependencies.flatMap((link) => (link.kind === 'dependency' && link.stage === stage.id ? [link.depends_on] : []))
   const neededBy = dependencies.flatMap((link) => (link.kind === 'dependency' && link.depends_on === stage.id ? [link.stage] : []))
   const rows: [string, readonly StageId[]][] = [
-    ['Входит в', stage.parent === null ? [] : [stage.parent]],
-    ['Подэтапы', children],
-    ['Зависит от', needs],
-    ['Нужен для', neededBy],
-    ['Пришёл на смену', predecessors],
+    ['Part of', stage.parent === null ? [] : [stage.parent]],
+    ['Substages', children],
+    ['Depends on', needs],
+    ['Needed by', neededBy],
+    ['Replaces', predecessors],
     [successorLabel(stage), successors],
   ]
   const present = rows.filter(([, stages]) => stages.length > 0)
   if (present.length === 0) {
-    return <p className="section-empty">Связей с другими этапами нет.</p>
+    return <p className="section-empty">No links to other stages.</p>
   }
   return (
     <dl className="relations">
@@ -459,22 +459,22 @@ const Statements = ({ stage }: { readonly stage: Stage }): ReactElement => {
   return (
     <ul className="statements">
       <li>
-        <p className="statement">Этап и его описание</p>
-        <Grounds basis={stage.basis} evidence={stage.evidence} label="Этап и его описание" />
+        <p className="statement">Stage and its description</p>
+        <Grounds basis={stage.basis} evidence={stage.evidence} label="Stage and its description" />
       </li>
       <li>
-        <p className="statement">Выполнение: {executionLabel(stage.execution.value)}</p>
-        <Grounds basis={stage.execution.basis} evidence={stage.execution.evidence} label="Выполнение" />
+        <p className="statement">Execution: {executionLabel(stage.execution.value)}</p>
+        <Grounds basis={stage.execution.basis} evidence={stage.execution.evidence} label="Execution" />
       </li>
       {claim === null ? null : (
         <li>
-          <p className="statement">Утверждение наблюдателя: {executionLabel(claim.value)}</p>
-          <Grounds basis={claim.basis} evidence={claim.evidence} label="Утверждение наблюдателя" />
+          <p className="statement">Observer claim: {executionLabel(claim.value)}</p>
+          <Grounds basis={claim.basis} evidence={claim.evidence} label="Observer claim" />
         </li>
       )}
       <li>
-        <p className="statement">Решение человека</p>
-        <Grounds basis={stage.decision.basis} evidence={stage.decision.evidence} label="Решение человека" />
+        <p className="statement">Human decision</p>
+        <Grounds basis={stage.decision.basis} evidence={stage.decision.evidence} label="Human decision" />
       </li>
     </ul>
   )
@@ -499,33 +499,33 @@ const Body = ({
       <Warnings stage={stage} attention={attention} />
       <Purpose stage={stage} />
       {attention.length === 0 ? null : (
-        <Section title="Внимание" count={attention.filter(({ resolution }) => resolution === 'open').length}>
+        <Section title="Attention" count={attention.filter(({ resolution }) => resolution === 'open').length}>
           <AttentionList items={attention} />
         </Section>
       )}
-      <Section title="Критерии" count={criteria.length}>
+      <Section title="Criteria" count={criteria.length}>
         <StageCriteria criteria={criteria} />
       </Section>
-      <Section title="Входы и выходы" count={inputs.length + outputs.length}>
+      <Section title="Inputs and outputs" count={inputs.length + outputs.length}>
         <StageArtifacts inputs={inputs} outputs={outputs} actions={objects?.actions ?? inspected.actions} />
       </Section>
-      <Section title="Время и расход">
+      <Section title="Time and usage">
         <TimeAndUsage inspected={inspected} />
       </Section>
-      <Section title="Участники и действия">
+      <Section title="Participants and actions">
         <Participants agents={inspected.agents} actions={inspected.actions} />
       </Section>
-      <Section title="Связи">
+      <Section title="Links">
         <Relations run={run} inspected={inspected} titles={titles} />
       </Section>
-      <Section title="Основания" count={evidence.length}>
+      <Section title="Grounds" count={evidence.length}>
         <Statements stage={stage} />
       </Section>
-      <Section title="История" count={history.length}>
+      <Section title="History" count={history.length}>
         <StageHistory history={history} />
       </Section>
       {rejected.length === 0 ? null : (
-        <Section title="Отклонённые ответы наблюдателя" count={rejected.length}>
+        <Section title="Rejected observer responses" count={rejected.length}>
           <RejectedCalls calls={rejected} />
         </Section>
       )}
@@ -550,21 +550,21 @@ const Inspection = ({
     <>
       {load.kind === 'ready' && load.failing ? (
         <p className="inspector-trouble" role="status">
-          Связь с демоном прервалась: показано последнее полученное состояние, обновление повторяется.
+          Lost connection to the daemon: showing the last received state, retrying the update.
         </p>
       ) : null}
       {load.kind === 'ready' ? (
         <Body run={run} inspected={load.inspector} titles={titles} objects={snapshot?.objects ?? null} />
       ) : load.kind === 'missing' ? (
         <p className="inspector-trouble">
-          В этом прогоне нет этапа <code>{shortId(stage)}</code>: ссылка устарела или прогон собран заново.
+          This run has no stage <code>{shortId(stage)}</code>: the link is stale or the run was rebuilt.
         </p>
       ) : load.kind === 'failing' ? (
         <p className="inspector-trouble" role="status">
-          Не удалось загрузить этап, повтор через секунду.
+          Could not load the stage, retrying in a second.
         </p>
       ) : (
-        <p className="loading">Загрузка этапа…</p>
+        <p className="loading">Loading stage…</p>
       )}
     </>
   )
@@ -575,7 +575,7 @@ export const StageInspector = ({ run, stage, feed, onSignedOut, onClose }: Stage
   const heading = useRef<HTMLHeadingElement>(null)
   const titleId = useId()
   const known = snapshot?.model.stages.find(({ id }) => id === stage) ?? null
-  const title = known?.title ?? `Этап ${shortId(stage)}`
+  const title = known?.title ?? `Stage ${shortId(stage)}`
   const agents = useKnownAgents()
 
   useEffect(() => {
@@ -595,7 +595,7 @@ export const StageInspector = ({ run, stage, feed, onSignedOut, onClose }: Stage
       <header className="inspector-head">
         <div className="inspector-heading">
           <p className="inspector-kind">
-            <span>Этап</span>
+            <span>Stage</span>
             {known === null ? null : <span>{stageOriginLabel[known.origin]}</span>}
             {known === null || lifecycleNote(known) === null ? null : <span className="inspector-lifecycle">{lifecycleNote(known)}</span>}
           </p>
@@ -604,7 +604,7 @@ export const StageInspector = ({ run, stage, feed, onSignedOut, onClose }: Stage
           </h2>
         </div>
         <button type="button" className="inspector-close" onClick={onClose}>
-          Закрыть
+          Close
         </button>
       </header>
       <Inspection key={generation.ordinal} run={run} stage={stage} snapshot={snapshot} onSignedOut={onSignedOut} />

@@ -61,11 +61,11 @@ const Masthead = ({
       <a className="wordmark" href={listHref} onClick={navigate}>
         aang
       </a>
-      <nav className="masthead-nav" aria-label="Навигация">
+      <nav className="masthead-nav" aria-label="Navigation">
         <ol className="trail">
           <li>
             <a href={listHref} onClick={navigate} aria-current={trail.length === 0 ? 'page' : undefined}>
-              Прогоны
+              Runs
             </a>
           </li>
           {trail.map(({ label, href }) =>
@@ -84,7 +84,7 @@ const Masthead = ({
         </ol>
         {usage ? (
           <a className="masthead-usage" href={usageHref(null)} onClick={navigate}>
-            Расход
+            Usage
           </a>
         ) : null}
       </nav>
@@ -100,7 +100,7 @@ interface ScreenProps {
 
 const ListScreen = ({ status, now, onSignedOut }: ScreenProps): ReactElement => {
   const runs = usePolled(readRuns, onSignedOut)
-  useTitle('Прогоны — aang')
+  useTitle('Runs — aang')
   const lamps = lampsOf({
     status: status.value,
     statusFailing: status.failing,
@@ -179,7 +179,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
   }, [run])
   const agents = useMemo(() => agentIds(feed.snapshot?.objects.agents ?? []), [feed.snapshot])
   const title = snapshotTitle(feed.snapshot)
-  useTitle(`${title ?? 'Прогон'} — aang`)
+  useTitle(`${title ?? 'Run'} — aang`)
   const lamps = lampsOf({
     status: status.value,
     statusFailing: status.failing,
@@ -190,7 +190,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
   })
   return (
     <>
-      <Masthead trail={[{ label: title ?? 'Прогон' }]} />
+      <Masthead trail={[{ label: title ?? 'Run' }]} />
       <StatusStrip lamps={lamps} />
       <div className="run-screen" data-inspecting={stage !== null}>
         <GenerationContext value={feed.generation}>
@@ -265,7 +265,7 @@ const UsageScreen = ({
   onSignedOut,
 }: ScreenProps & { readonly period: UsagePeriod }): ReactElement => {
   const runs = usePolled(readRuns, onSignedOut)
-  useTitle('Расход — aang')
+  useTitle('Usage — aang')
   const lamps = lampsOf({
     status: status.value,
     statusFailing: status.failing,
@@ -276,7 +276,7 @@ const UsageScreen = ({
   })
   return (
     <>
-      <Masthead trail={[{ label: 'Расход' }]} usage={false} />
+      <Masthead trail={[{ label: 'Usage' }]} usage={false} />
       <StatusStrip lamps={lamps} />
       <main className="page">
         <OverviewBody key={period} run={null} period={period} runs={runs.value?.runs ?? []} onSignedOut={onSignedOut} />
@@ -295,7 +295,7 @@ const RunUsageScreen = ({
   const feed = useRunFeed(run, onSignedOut)
   const runs = usePolled(readRuns, onSignedOut)
   const title = snapshotTitle(feed.snapshot)
-  useTitle(`Расход: ${title ?? 'прогон'} — aang`)
+  useTitle(`Usage: ${title ?? 'run'} — aang`)
   const lamps = lampsOf({
     status: status.value,
     statusFailing: status.failing,
@@ -306,7 +306,7 @@ const RunUsageScreen = ({
   })
   return (
     <>
-      <Masthead trail={[{ label: title ?? 'Прогон', href: runHref(run) }, { label: 'Расход' }]} />
+      <Masthead trail={[{ label: title ?? 'Run', href: runHref(run) }, { label: 'Usage' }]} />
       <StatusStrip lamps={lamps} />
       <main className="page">
         {feed.connection === 'missing' ? (
@@ -327,13 +327,13 @@ const RunUsageScreen = ({
 }
 
 const SignedOutScreen = (): ReactElement => {
-  useTitle('Вход не выполнен — aang')
+  useTitle('Signed out — aang')
   return (
     <main className="page signed-out">
-      <h1>Вход не выполнен</h1>
+      <h1>Signed out</h1>
       <p>
-        Сессия входа закончилась или токен aang заменён. Выполните в терминале <code>aang open</code> и откройте
-        полученную ссылку в этом браузере.
+        The sign-in session ended or the aang token was replaced. Run <code>aang open</code> in a terminal and open the
+        link it prints in this browser.
       </p>
     </main>
   )

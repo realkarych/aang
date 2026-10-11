@@ -19,7 +19,7 @@ export const StatusStrip = ({ lamps }: { readonly lamps: readonly Lamp[] }): Rea
   const panel = useId()
   const opened = lamps.find(({ id, details }) => id === open && details.length > 0) ?? null
   return (
-    <section className="annunciator" aria-label="Состояние наблюдения">
+    <section className="annunciator" aria-label="Observation status">
       <ul className="lamps">
         {lamps.map((lamp) => (
           <li key={lamp.id} className="lamp-slot">
@@ -46,7 +46,7 @@ export const StatusStrip = ({ lamps }: { readonly lamps: readonly Lamp[] }): Rea
         ))}
       </ul>
       {opened === null ? null : (
-        <div id={panel} className="lamp-details" role="region" aria-label={`${opened.label}: подробности`}>
+        <div id={panel} className="lamp-details" role="region" aria-label={`${opened.label}: details`}>
           <ul>
             {opened.details.map((detail, index) => (
               <li key={index} data-level={detail.level}>

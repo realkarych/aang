@@ -375,9 +375,9 @@ describe('the measurement', () => {
       expect(eventOf(annotated, 'command-running')).toMatchObject({ status: 'missed', latency_ms: null })
       expect(annotated.backends[0]).toMatchObject({ assessed: 6, met: 4, violations: 2, unassessed: 0, p95: { kind: 'violation' } })
       const summary = await readFile(join(space.measurement, 'report.md'), 'utf8')
-      expect(summary).toContain(`| ${approval} | denial-requested | разметчик | выполнено |`)
-      expect(summary).toContain(`| ${tools} | turn-finished | предикат | не выполнено, нарушение |`)
-      expect(summary).toContain(`| ${approval} | approved-finished | предикат | выполнено до события, разметка некорректна |`)
+      expect(summary).toContain(`| ${approval} | denial-requested | annotator | met |`)
+      expect(summary).toContain(`| ${tools} | turn-finished | predicate | missed, violation |`)
+      expect(summary).toContain(`| ${approval} | approved-finished | predicate | met before the event, annotation invalid |`)
 
       await annotate([{ held_before: true }, { mismatch: true }])
       expect((await space.freshness('report', space.measurement)).code).toBe(0)
@@ -393,7 +393,7 @@ describe('the measurement', () => {
         mismatched: 1,
       })
       expect(await readFile(join(space.measurement, 'report.md'), 'utf8')).toContain(
-        `| ${interrupt} | command-running | разметчик | описание не соответствует записи, разметка некорректна |`,
+        `| ${interrupt} | command-running | annotator | description does not match the recording, annotation invalid |`,
       )
 
       await annotate([{ met: true, run: opened.run, version: 999 }, null])
@@ -506,8 +506,8 @@ describe('the measurement', () => {
       expect(spending?.per_active_hour.observer?.tokens).toBeCloseTo(((spending?.observer.tokens ?? 0) * 3_600_000) / (spending?.active_ms ?? 1))
       expect(report.active_hours.hours).toBeGreaterThan(0)
       const summary = await readFile(join(space.measurement, 'report.md'), 'utf8')
-      expect(summary).toContain('## Расход')
-      expect(summary).toMatch(/\| claude \| 1 \| 1 \| 0 \| 0 \| 0 \| \d+,\d \| \d+,\d \|/)
+      expect(summary).toContain('## Spending')
+      expect(summary).toMatch(/\| claude \| 1 \| 1 \| 0 \| 0 \| 0 \| \d+\.\d \| \d+\.\d \|/)
     },
   )
 

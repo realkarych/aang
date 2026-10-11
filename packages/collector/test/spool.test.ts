@@ -20,7 +20,7 @@ const permissionRequest = JSON.stringify({
   session_id: 'b0f4c1e2-1111-4a4a-9c9c-000000000001',
   hook_event_name: 'PermissionRequest',
   tool_name: 'Bash',
-  tool_input: { command: 'rm -rf build/ && echo "готово"' },
+  tool_input: { command: 'rm -rf build/ && echo "έτοιμο"' },
 })
 
 test('a hook event written to spool/new reaches a batch within a second and is deleted only after ack', async ({
@@ -36,7 +36,7 @@ test('a hook event written to spool/new reaches a batch within a second and is d
   const env = {
     CLAUDE_CODE_ENTRYPOINT: 'cli',
     CLAUDE_CODE_SESSION_ID: 'b0f4c1e2-1111-4a4a-9c9c-000000000001',
-    CLAUDE_PROJECT_DIR: 'C:\\Users\\Имя Фамилия\\proj=1',
+    CLAUDE_PROJECT_DIR: 'C:\\Users\\Όνομα Επώνυμο\\proj=1',
     CLAUDE_PLUGIN_ROOT: '/home/user/.aang/claude-plugin',
   }
   const writtenAt = performance.now()

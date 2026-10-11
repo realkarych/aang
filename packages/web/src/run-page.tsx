@@ -45,73 +45,73 @@ const Facts = ({ snapshot, runs, now }: FactsProps): ReactElement => {
   return (
     <dl className="facts">
       <div>
-        <dt>Состояние</dt>
+        <dt>State</dt>
         <dd>
           <ExecutionBadge execution={summary.execution} />
         </dd>
       </div>
       <div>
-        <dt>Свежесть</dt>
+        <dt>Freshness</dt>
         <dd>
           <FreshnessBadge freshness={summary.freshness} />
         </dd>
       </div>
       <div>
-        <dt>Режим</dt>
+        <dt>Mode</dt>
         <dd>{summary.support_modes.map((mode) => supportModeLabel[mode]).join(', ')}</dd>
       </div>
       <div>
-        <dt>Внимание</dt>
+        <dt>Attention</dt>
         <dd>
           <AttentionBadge attention={summary.attention} />
         </dd>
       </div>
       <div>
-        <dt>Сессии</dt>
+        <dt>Sessions</dt>
         <dd className="number">{summary.sessions}</dd>
       </div>
       <div>
-        <dt>Агенты</dt>
+        <dt>Agents</dt>
         <dd className="number">{summary.agents}</dd>
       </div>
       <div>
-        <dt>Версия карты</dt>
+        <dt>Map version</dt>
         <dd className="number">{summary.version}</dd>
       </div>
       <div>
-        <dt>Начат</dt>
+        <dt>Started</dt>
         <dd>{absoluteTime(summary.created_at)}</dd>
       </div>
       <div>
-        <dt>Последнее событие</dt>
+        <dt>Last event</dt>
         <dd>
           <Moment at={summary.last_event_at} now={now} />
         </dd>
       </div>
       <div>
-        <dt>Расход</dt>
+        <dt>Usage</dt>
         <dd>
           <a href={usageHref(summary.id)} onClick={navigate}>
-            три журнала
+            three journals
           </a>
         </dd>
       </div>
       {summary.forked_from === null ? null : (
         <div>
-          <dt>Ответвление от</dt>
+          <dt>Forked from</dt>
           <dd>
-            <RunLink id={summary.forked_from} runs={runs} unknown="исходный прогон" />
+            <RunLink id={summary.forked_from} runs={runs} unknown="source run" />
           </dd>
         </div>
       )}
       {forks.length === 0 ? null : (
         <div>
-          <dt>Ответвления</dt>
+          <dt>Forks</dt>
           <dd>
             <ul className="run-links">
               {forks.map(({ id }) => (
                 <li key={id}>
-                  <RunLink id={id} runs={runs} unknown="ответвление" />
+                  <RunLink id={id} runs={runs} unknown="fork" />
                 </li>
               ))}
             </ul>
@@ -120,8 +120,8 @@ const Facts = ({ snapshot, runs, now }: FactsProps): ReactElement => {
       )}
       {summary.start_pruned ? (
         <div>
-          <dt>Начало</dt>
-          <dd>удалено командой aang prune</dd>
+          <dt>Start</dt>
+          <dd>pruned with aang prune</dd>
         </div>
       ) : null}
     </dl>
@@ -132,14 +132,14 @@ export const Missing = (): ReactElement => {
   const navigate = useNavigate()
   return (
     <div className="empty">
-      <h2>Прогон не найден</h2>
+      <h2>Run not found</h2>
       <p>
-        Демон не знает этот прогон: он удалён или ещё не принят заново после перезапуска. Страница обновится сама, когда
-        прогон появится.
+        The daemon does not know this run: it was deleted or has not been re-admitted after a restart. The page will update
+        itself when the run appears.
       </p>
       <p>
         <a href={listHref} onClick={navigate}>
-          К списку прогонов
+          Back to runs
         </a>
       </p>
     </div>
@@ -174,8 +174,8 @@ const RunContent = ({ snapshot, feed, runs, now, onSignedOut }: RunContentProps)
     <article className="run">
       <header className="run-head">
         <p className="run-origin">
-          {title === null ? <span>цель не определена</span> : <span>{runtimeLabel[summary.runtime]}</span>}
-          {summary.goal === null ? null : <span>цель из первого запроса</span>}
+          {title === null ? <span>goal unknown</span> : <span>{runtimeLabel[summary.runtime]}</span>}
+          {summary.goal === null ? null : <span>goal from the first prompt</span>}
         </p>
         {title === null ? (
           <h1 className="run-title">
@@ -226,7 +226,7 @@ export interface RunPageProps {
 export const RunPage = ({ feed, runs, now, onSignedOut }: RunPageProps): ReactElement => {
   const { snapshot, connection } = feed
   if (snapshot === null) {
-    return connection === 'missing' ? <Missing /> : <p className="loading">Загрузка прогона…</p>
+    return connection === 'missing' ? <Missing /> : <p className="loading">Loading run…</p>
   }
   return <RunContent snapshot={snapshot} feed={feed} runs={runs} now={now} onSignedOut={onSignedOut} />
 }

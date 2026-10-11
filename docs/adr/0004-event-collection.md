@@ -116,13 +116,13 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
   - aang does not write `hooks.state` to `config.toml`.
 
   Trust preservation when the binary is updated in place is known only from documentation and is checked by a contract test.
-- **«hooks не активны» ("hooks inactive") (approved by the owner).** The UI and `aang status` show it per runtime and per session:
+- **"hooks inactive" (approved by the owner).** The UI and `aang status` show it per runtime and per session:
   - statically — the plugin is not enabled, or the Codex entry's `trustStatus` is not `trusted` according to `hooks/list`;
   - dynamically — session lines appear in files, but there are no hook events from it;
   - mid-session (approved by the owner 2026-10-07) — the session already had hook events, a human prompt is visible in files, and there are no hook events for this turn for longer than `freshness.hooksInactiveAfterMs` (30 s by default). Details:
     - a prompt is a `prompt` fact of the main agent from the transcript or rollout, from the human; command prompts (`/model` and the like) and runtime service prompts do not open a turn;
     - a hook event of this turn is a session hook fact with the same turn identifier (`prompt_id` for Claude, `turn_id` for Codex) or not earlier than the prompt;
-    - while there are no hook events, the session mode is «только файлы» ("files only"), freshness is `hooks_inactive`, and `aang status` lists it among `hooks_inactive_sessions`;
+    - while there are no hook events, the session mode is "files only", freshness is `hooks_inactive`, and `aang status` lists it among `hooks_inactive_sessions`;
     - each such period is a separate `hooks_inactive` gap of the session. The gap starts at the prompt time; several consecutive turns without hooks give one gap;
     - the next hook event of the session closes the gap at its time, and the mode is full again. Closed gaps remain in the session history;
     - a period shorter than the threshold leaves no gap;
@@ -131,7 +131,7 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
   - `aang install` generates the plugin in `~/.aang/claude-plugin/` and installs it in the user scope via a local marketplace and `claude plugin` commands (decision 1);
   - the expected plugin coverage is CLI, Desktop Local/worktree and Agent SDK with default `settingSources`. Loading of the marketplace plugin and of the fallback directory in CLI 2.1.288 and Agent SDK 0.3.288 was confirmed by D.5 (`docs/research/d5-plugin-delivery-live.md`); Desktop is checked by the owner's checklist (D.7). Exceptions:
     - resume from `sessionStore`: the SDK strips `enabledPlugins` and runs in a temporary `CLAUDE_CONFIG_DIR`;
-    - `persistSession: false`: there is no transcript, the «только hooks» ("hooks only") mode remains;
+    - `persistSession: false`: there is no transcript, the "hooks only" mode remains;
   - isolated SDK applications (`settingSources: []`) are connected with the line `plugins: [{type: 'local', path}]` (spike 5.3-L);
   - `--plugin-dir` is used only by the dev tool for recording reference sessions (ADR-0010);
   - `aang uninstall` removes the plugin and neutralizes aang entries in `hooks.json`.
@@ -144,7 +144,7 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
 | Files only | hooks inactive | content, links, usage | "approval waits are not visible" (spike 5.2-I) |
 | Hooks only | no transcript is written: SDK with `persistSession: false`, `CLAUDE_CODE_SKIP_PROMPT_HISTORY` | live events, waits, final text from `Stop` | "no content, usage or recovery" |
 
-- For profiles with interactive approvals (Claude CLI/Desktop, Codex TUI/Desktop with `on-request`), the «только файлы» mode is not full support.
+- For profiles with interactive approvals (Claude CLI/Desktop, Codex TUI/Desktop with `on-request`), the "files only" mode is not full support.
 - For Codex `exec` and the SDK with `approval_policy=never`, hooks only speed up collection. `exec --approve-for-me` enables `on-request` with the guardian and `PermissionRequest`, so hooks are needed for it.
 
 ### Codex OpenTelemetry (opt-in)
@@ -156,7 +156,7 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
   - `aang doctor` only reads `config.toml` and warns if `exporter` is already taken by the user's own collector.
 - The receiver is a separate loopback-only listener. It responds `200` before processing and does not hold the connection.
 - Only `codex.tool_decision` is stored. Other records, including `codex.tool_result`, are discarded before being written to disk.
-- Without OTel, the approval decision in Codex is shown as «неизвестно» ("unknown").
+- Without OTel, the approval decision in Codex is shown as "unknown".
 
 ### Files: cursors, deduplication, backfill
 
@@ -202,7 +202,7 @@ Q.4 showed (`docs/research/q4-live-resilience.md`, finding Q4-5): a Claude sessi
 - **Record.** If the process has exited and the file is still there, the collector emits a `registry` channel record with the `process_exited` position (path, pid, content hash) and the file content. The receive time is the moment of detection. The deduplication key includes the content hash, so after a daemon restart the same file does not produce a repeated record. While the file is tracked, the record is emitted once.
 - **Fact.** The Claude adapter turns the record into a `process_exited` fact of the session from the file: pid, path and process start time from `startedAt`. The fact time is the moment of detection.
 - **`engine` rule.** Process P is superseded by a new process of the same session if, after P started, the session has a registry record with a different pid or a hook event with a different `CLAUDE_PID`. The boundary of P is the moment of detection or the earlier first sign of the new process.
-  - If no new process appeared before detection and `SessionEnd` did not arrive, the session is in the «неизвестно» state from the moment of detection, with execution `unknown`. The next launch returns it to the normal rules.
+  - If no new process appeared before detection and `SessionEnd` did not arrive, the session is in the "unknown" state from the moment of detection, with execution `unknown`. The next launch returns it to the normal rules.
   - An action started before the boundary of P and without an end gets the outcome `unknown` with the basis `observed` on the `process_exited` fact; the end is the moment of detection. Such an action is not shown as failed (`error`, `failed`) (ADR-0006).
   - An agent started before the boundary and not finished gets execution `unknown`.
   - A blocking human wait opened before the boundary is ended by the `process_exited` fact, as by a session end: the question is closed without an answer, the stage does not remain in `waiting`.
@@ -217,12 +217,12 @@ Q.4 showed (`docs/research/q4-live-resilience.md`, finding Q4-5): a Claude sessi
 - Codex TUI, `exec`, Desktop Local/worktree and SDK are served by one adapter. By `originator`/`source` only `exec`, subagents and the guardian are reliably distinguished. The SDK is recognized by `originator: codex_sdk_ts` unless the application has overridden the environment. TUI and Desktop are shown as a guess.
 - Sessions spawned by Desktop (spawn task, Dispatch, scheduled tasks) are linked to the parent only via Desktop metadata (decision 4) or an explicit binding. Until then the link is shown as unknown.
 - SSH modes of both Desktops and one's own VM/Docker: the aang daemon runs on the same host as the solver (ADR-0011), the UI is reachable via an SSH tunnel (ADR-0003). Merging several hosts into one UI is not offered.
-- **Cowork and cloud modes (Claude Cloud, Codex Cloud, Work Cloud) are excluded; the UI shows them as «не наблюдаемо» ("not observable") (approved by the owner).** Display method: a persistent notice in the status bar and in `/api/status`. aang does not read Cowork and cloud session directories, so individual such sessions are not listed (decision 10).
+- **Cowork and cloud modes (Claude Cloud, Codex Cloud, Work Cloud) are excluded; the UI shows them as "Not observable" (approved by the owner).** Display method: a persistent notice in the status bar and in `/api/status`. aang does not read Cowork and cloud session directories, so individual such sessions are not listed (decision 10).
 
 ## Consequences
 
 - Collection does not depend on the daemon's lifetime and does not require attaching to vendor processes.
-- Completeness of waits depends on hooks. Enterprise `allowManagedHooksOnly`/`disableAllHooks` and missing trust in Codex move sessions to the «только файлы» mode. On Windows Codex hooks are not installed by default, so Codex sessions there run in the «только файлы» mode until the user enables hooks explicitly (ADR-0013, decision 7).
+- Completeness of waits depends on hooks. Enterprise `allowManagedHooksOnly`/`disableAllHooks` and missing trust in Codex move sessions to the "files only" mode. On Windows Codex hooks are not installed by default, so Codex sessions there run in the "files only" mode until the user enables hooks explicitly (ADR-0013, decision 7).
 - The Go handler is an exception to ADR-0001 for the sake of latency on the solver's critical path and Windows support (ADR-0013).
 - Until processed, the spool contains full payloads, including secrets from tool output.
 - There is no quantitative spool limit. With a dead daemon, growth is bounded only by the lease expiry; a running daemon reacts to the threshold. This is an exception to the RFC §8 requirement "queues are bounded", approved by the owner (decision 7).
@@ -242,7 +242,7 @@ Accepted by the owner 2026-10-01:
 7. The RFC §8 exception for the spool is approved. There is no quantitative size limit; there is a 24-hour lease, a 1 GB reaction threshold and discarding of files older than 7 days, and the size and lease expiry are visible in `aang status`. A transport with a quantitative limit — after the MVP, based on measurements.
 8. MVP platforms are macOS, Linux and native Windows, including Claude Desktop and Codex Desktop without WSL (ADR-0013). By the owner's decision of 2026-10-02, Desktop on Windows is not checked in the MVP (ADR-0013, decision 3).
 9. The SDK "no code changes" boundary is recorded in the README and shown by the session mode in the UI.
-10. «не наблюдаемо» for Cowork and cloud modes is a persistent notice without reading their directories.
+10. "Not observable" for Cowork and cloud modes is a persistent notice without reading their directories.
 
 Accepted by the owner 2026-10-02:
 
@@ -250,11 +250,11 @@ Accepted by the owner 2026-10-02:
 
 Accepted by the owner 2026-10-07 based on the Q.4 report (`docs/research/q4-live-resilience.md`, finding Q4-4):
 
-12. Loss of hooks mid-session is visible: a turn visible in files without hook events for longer than `freshness.hooksInactiveAfterMs` opens a `hooks_inactive` gap of the session and moves it to the «только файлы» mode; the next hook event closes the gap (section "Installation", «hooks не активны»). The full mode flag is no longer "sticky". The fix is part of the MVP.
+12. Loss of hooks mid-session is visible: a turn visible in files without hook events for longer than `freshness.hooksInactiveAfterMs` opens a `hooks_inactive` gap of the session and moves it to the "files only" mode; the next hook event closes the gap (section "Installation", "hooks inactive"). The full mode flag is no longer "sticky". The fix is part of the MVP.
 
 Accepted by the owner 2026-10-07 based on the Q.4 report (`docs/research/q4-live-resilience.md`, section 2, finding Q4-5):
 
-13. Process liveness from the Claude registry is used: if the session process is dead and `SessionEnd` did not arrive, the session is shown in the «неизвестно» state, and in-progress actions get the outcome `unknown`. No action is shown as failed (ADR-0006). The check method and the rule are in the section "Claude session process liveness".
+13. Process liveness from the Claude registry is used: if the session process is dead and `SessionEnd` did not arrive, the session is shown in the "unknown" state, and in-progress actions get the outcome `unknown`. No action is shown as failed (ADR-0006). The check method and the rule are in the section "Claude session process liveness".
 
 Accepted by the owner 2026-10-07 based on the Q.4 report (`docs/research/q4-live-resilience.md`, section 2, finding Q4-1; PR #161):
 

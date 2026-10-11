@@ -73,7 +73,7 @@ export const AttentionBadge = ({ attention }: { readonly attention: RunSummary['
     return (
       <span className="badge" data-tone="ask">
         <LevelGlyph level="caution" />
-        {`ждут ответа: ${String(attention.waiting_for_human)}`}
+        {`awaiting an answer: ${String(attention.waiting_for_human)}`}
       </span>
     )
   }
@@ -81,11 +81,11 @@ export const AttentionBadge = ({ attention }: { readonly attention: RunSummary['
     return (
       <span className="badge" data-tone="hold">
         <LevelGlyph level="normal" />
-        {`открыто: ${String(attention.open)}`}
+        {`open: ${String(attention.open)}`}
       </span>
     )
   }
-  return <span className="quiet">нет</span>
+  return <span className="quiet">none</span>
 }
 
 const BasisNote = ({ basis }: { readonly basis: Basis }): ReactElement | null =>

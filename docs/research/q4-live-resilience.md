@@ -27,7 +27,7 @@ The machine was not dedicated: other development sessions were running in parall
 
 **Method.** Each scenario runs in its own temporary `@aang/testkit` profile:
 
-- `HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `AANG_HOME` are temporary; the project is the directory `проект q4` in the profile `Имя Фамилия`;
+- `HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `AANG_HOME` are temporary; the project is the directory `έργο q4` in the profile `Όνομα Επώνυμο`; the run used a Cyrillic profile name, the tools now use this Greek one;
 - the runtime roots `~/.claude/projects` and `~/.codex/sessions` exist before the daemon starts, as on a machine where the runtime has already been used; the case without them is a separate scenario;
 - hooks are installed by the product command `aang install`. Trust for Codex hooks is confirmed by writing `hooks.state` with hashes from `hooks/list`, as `/hooks` does;
 - the model is the `tools/record` stubs: Anthropic Messages for Claude and Responses for Codex. The response is chosen by the `[aang:<key>]` tag in the prompt. The real model was not called; the cost is zero;
@@ -63,15 +63,15 @@ Result: 23 scenarios, not a single unexpected failure on any OS: on the owner's 
    - SIGKILL mid-turn for Claude and Codex: while the daemon is down, hooks keep writing to the spool because the lease is valid. After startup the daemon takes in the spool and the rest of the files once. A repeated restart adds nothing.
    - `aang stop` between turns: hooks stop writing immediately, and the turn made while stopped is recovered from the transcript.
 2. **Loss and move of sources work per ADR-0004.**
-   - A deleted Claude transcript and a rollout deleted via `codex delete` are marked «Источник потерян» ("Source lost"). What was observed stays, and after a restart the mark is kept.
+   - A deleted Claude transcript and a rollout deleted via `codex delete` are marked "source lost". What was observed stays, and after a restart the mark is kept.
    - Moving a transcript to another project directory with the daemon running and with it stopped does not lose the session and does not add a single raw record. `codex archive` and `unarchive` do not lose the thread, and its calls are not duplicated.
    - Claude rewrites a transcript deleted mid-turn at the same path. The daemon briefly marks the loss, then closes it and takes in the new lines once.
 3. **A hook failure is visible.**
-   - Without the `aang-hook` binary, with the plugin disabled or with untrusted Codex hooks, the solver is not blocked. The session is shown in the «только файлы» ("files only") mode, and `aang status` lists it among sessions without hooks.
+   - Without the `aang-hook` binary, with the plugin disabled or with untrusted Codex hooks, the solver is not blocked. The session is shown in the "files only" mode, and `aang status` lists it among sessions without hooks.
    - Codex hook trust, its preservation on reinstallation and its loss when the positional key shifts are visible in `aang status` without a daemon restart.
-4. **The «только hooks» ("hooks only") mode works.** `claude -p --no-session-persistence` and `codex exec --ephemeral` write no files. Their sessions are shown in the «только hooks» mode, and actions are taken from hooks.
+4. **The "hooks only" mode works.** `claude -p --no-session-persistence` and `codex exec --ephemeral` write no files. Their sessions are shown in the "hooks only" mode, and actions are taken from hooks.
 5. **Lineage without guesses.**
-   - Two branches of one Claude session and a branch of a branch are separate runs with an «Общее происхождение» ("Common origin") link; no parent is assigned.
+   - Two branches of one Claude session and a branch of a branch are separate runs with an "Common origin" link; no parent is assigned.
    - The copied history is inherited and not repeated as new actions.
    - A `fork_parent` binding assigns the parent; its retraction removes it.
    - A Codex branch is linked to its source.
@@ -81,7 +81,7 @@ Result: 23 scenarios, not a single unexpected failure on any OS: on the owner's 
 
 ## 2. Findings and questions to the owner
 
-Q4-1, Q4-4 and Q4-5 need an owner decision: they change ADR-0004 rules — detection of file changes, a dynamic «hooks не активны» ("hooks inactive") and use of process liveness. Implementation has not started before approval.
+Q4-1, Q4-4 and Q4-5 need an owner decision: they change ADR-0004 rules — detection of file changes, a dynamic "hooks inactive" and use of process liveness. Implementation has not started before approval.
 
 **Q4-1. `fs.watch` on macOS does not see appends to an open file.** Question to the owner (ADR-0004, "Discovery").
 
@@ -104,13 +104,13 @@ Q4-1, Q4-4 and Q4-5 need an owner decision: they change ADR-0004 rules — detec
 
 **Q4-4. Loss of hooks mid-session is not marked.** Question to the owner.
 
-- What is seen: if hooks disappeared mid-session (no lease, `aang stop`, an unavailable spool), the full-mode flag remains — it is "sticky", and a turn without hooks looks like an ordinary one. ADR-0004 defines «hooks не активны» only for the session as a whole.
+- What is seen: if hooks disappeared mid-session (no lease, `aang stop`, an unavailable spool), the full-mode flag remains — it is "sticky", and a turn without hooks looks like an ordinary one. ADR-0004 defines "hooks inactive" only for the session as a whole.
 - Where: `hooks/claude-lease-lost-mid-session`. `aang status` meanwhile shows that there is no lease.
 - Proposal: open a session gap `hooks_inactive` if a turn is visible in the files but there have been no hook events of this turn for longer than N seconds, and close it on the next hook.
 
 **Q4-5. A session with a killed process stays running.** Question to the owner.
 
-- What is seen: a Claude session whose process was killed in the middle of a tool stays in the "turn in progress" state, the action stays "running". After 5 minutes freshness switches to «нет новых событий» ("no new events"), as ADR-0006 requires. ADR-0004 names process liveness as part of the registry hint, but the product does not use it.
+- What is seen: a Claude session whose process was killed in the middle of a tool stays in the "turn in progress" state, the action stays "running". After 5 minutes freshness switches to "no new events", as ADR-0006 requires. ADR-0004 names process liveness as part of the registry hint, but the product does not use it.
 - Where: `divergence/claude-killed-mid-tool`.
 - Proposal: if the session process from the registry is dead and `SessionEnd` did not arrive, show the session state as "unknown" and running actions with outcome `unknown`.
 
@@ -124,7 +124,7 @@ Q4-1, Q4-4 and Q4-5 need an owner decision: they change ADR-0004 rules — detec
 
 - What is seen: if rollout lines are taken in before the session's first hook file, a `hooks_inactive` gap opens and closes an instant later. The closed gap stays in the session history. It does not happen in every run.
 - Where: `restart/codex-sigkill-mid-turn`, `sources/codex-rollout-deleted-mid-turn`.
-- Proposal: decide «hooks не активны» no earlier than a few seconds after the first line of the file.
+- Proposal: decide "hooks inactive" no earlier than a few seconds after the first line of the file.
 
 **Q4-8. The outcome of a Codex command known only from hooks.** Documented as a limitation of Codex hooks.
 
@@ -163,7 +163,7 @@ Limitations visible to the user do not violate the ADR:
 | `sources/claude-transcript-deleted` | The transcript of a finished Claude session is deleted with the daemon running, then a restart. | ✔ The session is `lost`, a `source_lost` gap with the search path is open. The observed actions remain. After the restart everything is the same. |
 | `sources/claude-transcript-moved` | The transcript is moved to `projects/<dir>-moved/` with the daemon running, then once more with it stopped. | ✔ After both moves the session is not lost, the actions are the same, the number of raw records did not change: the re-read was cut off by deduplication. |
 | `sources/claude-transcript-deleted-mid-turn` | The transcript is deleted while the turn waits in the gate. After the gate Claude writes the rest of the turn. | ✔ Claude opens the file by path for every write and creates a new file with the rest of the turn (one `tool_use` line). The daemon first marks `source_lost`, then finds the stream by `sessionId` in the new file and closes the gap. The actions of the old and the new file appear once each, after a restart too. |
-| `sources/claude-projects-root-created-after-start` | The daemon starts when `~/.claude/projects` does not exist yet, then the first session runs. | ✔ per the ADR: the transcript is found by the scan after 59.8 s. Until then the session is visible through hooks in the «только hooks» mode. ⚑ Q4-6. |
+| `sources/claude-projects-root-created-after-start` | The daemon starts when `~/.claude/projects` does not exist yet, then the first session runs. | ✔ per the ADR: the transcript is found by the scan after 59.8 s. Until then the session is visible through hooks in the "hooks only" mode. ⚑ Q4-6. |
 | `sources/codex-archive-unarchive-delete` | `codex archive` of thread A, `codex unarchive`, `codex exec resume` A. Then `codex delete --force` of thread B and a restart. | ✔ The archived thread A lies in `archived_sessions/` and is not lost. After unarchiving and continuing, each call is one action. Thread B is `lost`, after a restart too. ⚑ Q4-3 (A has starts `startup`, `startup`, `resume`). |
 | `sources/codex-rollout-read-during-command` | While `codex exec` waits in the gate, it is measured when the daemon cursor reaches the end of the rollout. Separately, a probe: 9 appends to a file opened for every write, and 9 through an open handle. | ⚑ Q4-1: the cursor reached the end after 30.1 s, at the moment the turn ended. Codex returns control from `exec_command` no later than after 30 s. Probe: opening for every write — 9 events, the last write is visible; through an open handle — 1 event (creation), the last write is not there. |
 | `sources/codex-rollout-deleted-mid-turn` | The rollout is deleted while the turn waits in the gate: on macOS the daemon had read its beginning, 35 888 of 41 728 bytes, on Windows the whole file. | ✔ Codex keeps writing to the deleted file; there is no new file. The session is `lost`, commands after the deletion are visible from hooks. Their outcome is `unknown` (Q4-8). On Windows, deleting a rollout opened by Codex also succeeds, and the result is the same. |
@@ -177,10 +177,10 @@ Confirmed along the way:
 
 | Scenario | What is done | Result |
 | --- | --- | --- |
-| `hooks/claude-hook-binary-missing` | `aang-hook` is removed from `<AANG_HOME>/bin`, a Claude session runs. Then the binary is put back, and another session runs. | ✔ Claude exits with code 0: a missing handler does not block. The first session is «только файлы», freshness `hooks_inactive`, a `hooks_inactive` gap is open, and in `aang status` it is among `hooks_inactive_sessions`. The second session is in full mode and not in that list. The static Claude state is `active` meanwhile: the plugin is enabled, the binary is missing. The missing binary is visible only through sessions. |
+| `hooks/claude-hook-binary-missing` | `aang-hook` is removed from `<AANG_HOME>/bin`, a Claude session runs. Then the binary is put back, and another session runs. | ✔ Claude exits with code 0: a missing handler does not block. The first session is "files only", freshness `hooks_inactive`, a `hooks_inactive` gap is open, and in `aang status` it is among `hooks_inactive_sessions`. The second session is in full mode and not in that list. The static Claude state is `active` meanwhile: the plugin is enabled, the binary is missing. The missing binary is visible only through sessions. |
 | `hooks/claude-lease-lost-mid-session` | Between the turns of one session the spool lease is deleted; the daemon's lease check is postponed (`spool.checkIntervalMs` = 10 min). Turn 2, then a daemon restart and turn 3. | ✔ Without a lease hooks write nothing, `aang status` shows `lease_expires_at: null`, turn 2 is recovered from the transcript. The restarted daemon issues a lease, turn 3 is again with hooks. ⚑ Q4-4: the session stays in full mode without a mark. |
-| `hooks/codex-hooks-trust` | `aang install --codex`, a session without confirmed trust. Then trust via `hooks.state`, a session, a repeated `aang install --codex`, a session. At the end, another party's `PreToolUse` hook is inserted into `hooks.json` before the aang entry. | ✔ After installation — `untrusted`. Codex skips untrusted hooks, the spool is empty, the session is «только файлы». After trust, `aang status` shows `active` without a restart, the next session is in full mode. The repeated installation does not change a single byte of `hooks.json` and keeps the trust. The other entry before the aang entry shifts the positional key: the aang entry loses trust, the status is `untrusted`. |
-| `hooks/claude-plugin-disabled` | `claude plugin disable aang@aang`, a session, then `claude plugin enable aang@aang`, a session. | ✔ `aang status` follows the state: `disabled` → `active`. The session with the plugin disabled is «только файлы», with it enabled — full mode. |
+| `hooks/codex-hooks-trust` | `aang install --codex`, a session without confirmed trust. Then trust via `hooks.state`, a session, a repeated `aang install --codex`, a session. At the end, another party's `PreToolUse` hook is inserted into `hooks.json` before the aang entry. | ✔ After installation — `untrusted`. Codex skips untrusted hooks, the spool is empty, the session is "files only". After trust, `aang status` shows `active` without a restart, the next session is in full mode. The repeated installation does not change a single byte of `hooks.json` and keeps the trust. The other entry before the aang entry shifts the positional key: the aang entry loses trust, the status is `untrusted`. |
+| `hooks/claude-plugin-disabled` | `claude plugin disable aang@aang`, a session, then `claude plugin enable aang@aang`, a session. | ✔ `aang status` follows the state: `disabled` → `active`. The session with the plugin disabled is "files only", with it enabled — full mode. |
 | `hooks/claude-duplicate-plugin` | The aang plugin is installed from the marketplace. Its copy lies in the fallback directory `<claude>/skills/aang`, another one is passed via `--plugin-dir`. | ✔ Claude 2.1.292 loads one plugin per name: with the copy in `skills` — `aang@aang` from the marketplace, with `--plugin-dir` — `aang@inline`. Each event is delivered once; there is no double registration. |
 
 Conclusion on double registration (ADR-0004). The spike scenario — two identical payloads from two registrations — is not reproduced for the aang plugin in Claude 2.1.292: the engine does not load two plugins with the same name. The engine rule for double registration remains a safeguard in case the runtime behaves differently. The `hooks/claude-duplicate-plugin` scenario will catch such a change in a new version.
@@ -189,8 +189,8 @@ Conclusion on double registration (ADR-0004). The spike scenario — two identic
 
 | Scenario | What is done | Result |
 | --- | --- | --- |
-| `divergence/claude-no-session-persistence` | `claude -p --no-session-persistence`: no transcript. | ✔ «только hooks» mode, the action from hooks completed with `ok`, no gaps. |
-| `divergence/codex-ephemeral` | `codex exec --ephemeral`: no rollout. | ✔ «только hooks» mode, the command from hooks is not considered running. Execution and outcome `unknown` (Q4-8). |
+| `divergence/claude-no-session-persistence` | `claude -p --no-session-persistence`: no transcript. | ✔ "hooks only" mode, the action from hooks completed with `ok`, no gaps. |
+| `divergence/codex-ephemeral` | `codex exec --ephemeral`: no rollout. | ✔ "hooks only" mode, the command from hooks is not considered running. Execution and outcome `unknown` (Q4-8). |
 | `divergence/claude-killed-mid-tool` | The Claude process gets SIGKILL while a command waits in the gate. The hooks have `PreToolUse` without `PostToolUse`, the transcript has `tool_use` without a result, no end of turn. `freshness.quietAfterMs` = 5 s. | ✔ After 5 s of silence freshness is `quiet`; no action is shown as failed (ADR-0006). ⚑ Q4-5: the session and the action stay "running". |
 | `divergence/claude-cwd-drift` | A session starts in the project with `--add-dir <outside root>` and runs `cd <outside root> && echo outside`, then `echo still`. Separately, a session started outside the root runs. | ✔ The transcript lines after `cd` carry a directory outside the root, but the session stays in scope by its first `cwd` (ADR-0004): both actions are in place, the session's `cwd` is the initial one. The session started outside the root is not accepted. Without `--add-dir` Claude returns the shell directory to the project, and there is no drift. On Windows `cd` runs in Git Bash, while the transcript records Windows paths; the result is the same. |
 
@@ -200,10 +200,10 @@ Merging hook and file records about one object gave exactly one action per `tool
 
 | Scenario | What is done | Result |
 | --- | --- | --- |
-| `lineage/claude-forks` | Session S. Two branches `--resume S --fork-session` (F1, F2) and a branch of a branch `--resume F1 --fork-session` (F3). Then a `fork_parent` binding F1 → S and its retraction. | ✔ Four runs, S has one session. Each session has one own action. Inherited: F1 and F2 have 1, F3 has 2. The «Общее происхождение» link of each branch lists exactly the other three sessions, no candidate parent is assigned, grounds `observed`: the check compares the link as a whole. Claude branches have no `forked_from`. The binding makes run S the parent of F1, the retraction removes it. The branch starts are `fork` from the `SessionStart` hook. |
-| `lineage/claude-fork-parent-unseen` | The daemon is killed. A session and its branch run, the parent's transcript is deleted, then the daemon is started. | ✔ The branch is recognized by its own file: the history before the start is inherited (1 inherited, 1 own action). The exact link is checked: exactly one «Общее происхождение» with an empty session list, no candidate parent, grounds `observed`; no `forked_from`. The parent is visible only through its own hooks from the spool, in the «только hooks» mode. |
+| `lineage/claude-forks` | Session S. Two branches `--resume S --fork-session` (F1, F2) and a branch of a branch `--resume F1 --fork-session` (F3). Then a `fork_parent` binding F1 → S and its retraction. | ✔ Four runs, S has one session. Each session has one own action. Inherited: F1 and F2 have 1, F3 has 2. The "Common origin" link of each branch lists exactly the other three sessions, no candidate parent is assigned, grounds `observed`: the check compares the link as a whole. Claude branches have no `forked_from`. The binding makes run S the parent of F1, the retraction removes it. The branch starts are `fork` from the `SessionStart` hook. |
+| `lineage/claude-fork-parent-unseen` | The daemon is killed. A session and its branch run, the parent's transcript is deleted, then the daemon is started. | ✔ The branch is recognized by its own file: the history before the start is inherited (1 inherited, 1 own action). The exact link is checked: exactly one "Common origin" with an empty session list, no candidate parent, grounds `observed`; no `forked_from`. The parent is visible only through its own hooks from the spool, in the "hooks only" mode. |
 | `lineage/claude-resume-continue` | A session, then `--resume` and `--continue`. | ✔ One `sessionId`, one run, starts `startup`, `resume`, `resume`, three own actions. |
-| `lineage/codex-forks` | `codex exec fork` of thread A. Then, with the daemon stopped, thread B and its branch; the rollout of B is deleted, the daemon is started. | ✔ The branch is its own run with `forked_from` pointing to run A, grounds `observed`. ⚑ Q4-3 (`["fork","fork"]`). The branch of an unseen source points `forked_from` to a run that is not in `/api/runs`. The run id is derived from the session key and does not depend on whether the source is visible. The UI shows such a link as «исходный прогон» ("source run") without a link (`RunLink` with `unknown`), so this is not a defect. |
+| `lineage/codex-forks` | `codex exec fork` of thread A. Then, with the daemon stopped, thread B and its branch; the rollout of B is deleted, the daemon is started. | ✔ The branch is its own run with `forked_from` pointing to run A, grounds `observed`. ⚑ Q4-3 (`["fork","fork"]`). The branch of an unseen source points `forked_from` to a run that is not in `/api/runs`. The run id is derived from the session key and does not depend on whether the source is visible. The UI shows such a link as "source run" without a link (`RunLink` with `unknown`), so this is not a defect. |
 
 `codex delete --force` does not delete a thread that has a branch: "failed to delete session". Therefore the scenario deletes the branch's source as a file.
 

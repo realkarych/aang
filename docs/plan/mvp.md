@@ -126,7 +126,7 @@ In parallel with it, the following must be ready in time:
 | --- | --- | --- | --- |
 | K1. Facts without an LLM | S; A; B.1–B.6; C.1–C.5; D.1–D.6, D.8; E.1–E.7c; M.1, M.6; G.1–G.5, G.7; T.1–T.5; R.1–R.5a; H.1–H.2 | runs, sessions, agents, actions, plan facts; explicit requests in the attention zone; support modes; source loss | 2, 9, 10, 12, 13 |
 | K2. Semantic map | B.7–B.9, C.6, R.2b, R.2c, R.2d, R.4b, R.5b; D.9; M.2–M.5c; F.1–F.9; G.6; T.6; H.3–H.6, H.11 | stages, three axes, grounds, saved versions, inspector, persisted choice, LLM refusal, Codex with OTel | 1, 3, 7, 8, 14, 17 |
-| K3. Return and chat | E.8–E.9; M.7–M.8; G.8–G.12; K; U; H.7–H.10, H.12 | «С последнего просмотра» ("Since last view"), chat, view rules, dismissing items, usage, restart | 4, 5, 6, 11, 15, 16, 18; variants by runtime and surface |
+| K3. Return and chat | E.8–E.9; M.7–M.8; G.8–G.12; K; U; H.7–H.10, H.12 | "Since last review", chat, view rules, dismissing items, usage, restart | 4, 5, 6, 11, 15, 16, 18; variants by runtime and surface |
 | K4. Delivery and support | F.10, P, Q | npm and Docker, support matrix, freshness and economics measurements | all; Q — on live sessions |
 
 ## Stage 0. Skeleton, contract, store (S)
@@ -387,7 +387,7 @@ Samples are in `docs/research/samples/`: `codex-cli/`, `codex-sdk/`, `codex-otel
   - Tests: integration in a temporary HOME with a fake `claude`.
 - **D.3 Codex hooks**.
   - Scope: an entry with the `user` tag and the absolute spool path only at the end of the arrays; the binary path in the command line is escaped for the runtime's shell: `sh` on macOS and Linux, PowerShell on Windows — `& '<path>' 'codex' 'user' '<spool>'` with single quotes doubled (D.8); stale aang entries are neutralized in place (`true`, on Windows `exit 0`); a backup copy; `uninstall` neutralizes aang entries.
-  - Windows (owner decision 2026-10-06, ADR-0013, decision 7): `aang install` without flags does not install Codex hooks, and Codex sessions run in «только файлы» ("files only") mode; `aang install --codex` installs them explicitly. `aang install` and `aang status` warn about a slowdown of 0.25–0.4 s per event.
+  - Windows (owner decision 2026-10-06, ADR-0013, decision 7): `aang install` without flags does not install Codex hooks, and Codex sessions run in "files only" mode; `aang install --codex` installs them explicitly. `aang install` and `aang status` warn about a slowdown of 0.25–0.4 s per event.
   - Trust check on Windows: `codex app-server` is launched through the D.9 launcher in `stream` mode. The mode is not part of decision 7; it was accepted by the owner 2026-10-07 (ADR-0013, technical decision 4).
   - Acceptance:
     - the positions and contents of other parties' entries do not change — verified on `codex-cli/hooks/hooks.json.logger-config.json` and on a synthetic file with a stale `aang hook` entry;
@@ -542,7 +542,7 @@ Tests feed raw records through the real adapters (ADR-0012).
   - Scope:
     - turn state and waiting reasons (registry, `idle_prompt`, background tasks);
     - `quiet` (5 min), `lost`, dynamic `hooks_inactive`;
-    - the «полный» ("full"), «только файлы» ("files only"), «только hooks» ("hooks only") modes;
+    - the "full", "files only", "hooks only" modes;
     - a counter of unrecognized records.
   - Acceptance: a session with files but without hook events gets `hooks_inactive`; silence does not change execution.
   - Tests: functional with controlled clocks.
@@ -570,7 +570,7 @@ Tests feed raw records through the real adapters (ADR-0012).
   - Acceptance:
     - the item is created in the same transaction as the request fact;
     - `source: Config` does not produce a human decision;
-    - `permission` is closed by `turn_aborted` and by the end of the session as «ожидание прекращено» ("waiting stopped");
+    - `permission` is closed by `turn_aborted` and by the end of the session as "wait ended without an answer";
     - an unanswered question survives the end of the session and the next prompt;
     - runtime waiting, resolution and dismissal are stored separately.
   - Tests: functional.
@@ -604,12 +604,12 @@ Tests feed raw records through the real adapters (ADR-0012).
   - Scope: the solver journal per ADR-0009, aggregates, time.
   - Acceptance:
     - a Claude fork does not double the usage;
-    - output without `stop_reason` is marked «нижняя оценка» ("lower bound");
+    - output without `stop_reason` is marked "at least";
     - the Codex sum matches `thread_token_usage`, except for forks;
     - the run duration is not equal to the sum of parallel agents.
   - Tests: functional.
 - **E.9 `reparse` and projection rebuild** (E.2).
-  - Scope: reparsing by `normalizer_version`; preserving ids; «основание недоступно» ("ground unavailable").
+  - Scope: reparsing by `normalizer_version`; preserving ids; "Ground unavailable".
   - Acceptance: after `reparse` with a changed fact order, the model's references point to the same facts.
   - Tests: functional.
 
@@ -677,7 +677,7 @@ Tests feed raw records through the real adapters (ADR-0012).
     - a hidden agent's question stays in the attention zone;
     - a rule applies to new elements.
   - Tests: functional.
-- **M.8 «С последнего просмотра» ("Since last view") and attention order** (E.6, M.5c).
+- **M.8 "Since last review" and attention order** (E.6, M.5c).
   - Scope:
     - an atomic "version and `change_seq`" mark;
     - the diff by the model journal and by observation and attention objects;
@@ -857,8 +857,8 @@ Tests feed raw records through the real adapters (ADR-0012).
   - Acceptance: facts of a Codex session in a Claude run without `crossVendor` are not sent and are visible as a gap.
   - Tests: integration with fake CLIs.
 - **G.7 Connection state** (D.4, D.6, E.3, R.5a).
-  - Scope: support modes (static from D.4, dynamic from E.3, matrix from R.5a); spool and lease; the «не наблюдаемо» ("not observable") notification; unverified versions and the observer admission status.
-  - Acceptance: `/api/status` distinguishes "not installed", "untrusted", «hooks не активны в сессии» ("hooks not active in the session"), `unverified`.
+  - Scope: support modes (static from D.4, dynamic from E.3, matrix from R.5a); spool and lease; the "Not observable" notification; unverified versions and the observer admission status.
+  - Acceptance: `/api/status` distinguishes "not installed", "untrusted", "hooks inactive in the session", `unverified`.
   - Tests: integration.
 - **G.8 Write API: viewing, rules, bindings** (M.7, M.8, E.5).
   - Scope: the run mark with the "version and `change_seq`" pair, marking and dismissing an item, view rules, bindings.
@@ -869,7 +869,7 @@ Tests feed raw records through the real adapters (ADR-0012).
   - Acceptance: after `watch`, the project files within `lookback` are reread despite the cursors.
   - Tests: integration.
 - **G.10 `prune`**.
-  - Scope: cascading deletion of a run's layers in `store`, `VACUUM`; the deletion boundary in `pruned_streams`, respected by backfill, `rescan`, recovery after a move, and the spool; «начало удалено» ("start deleted").
+  - Scope: cascading deletion of a run's layers in `store`, `VACUUM`; the deletion boundary in `pruned_streams`, respected by backfill, `rescan`, recovery after a move, and the spool; "start pruned".
   - Acceptance:
     - `prune` → `codex archive` or a Claude move → restart: what was deleted does not come back;
     - `prune` → a Claude file with the same `sessionId` shrunk or replaced with new records → stream intake stopped with a gap, new records are not silently discarded;
@@ -928,7 +928,7 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
   - Scope:
     - cookie login, the run list;
     - an SSE client handling `reset`;
-    - the status bar: the observer and the model age, support modes, source loss, unverified versions, unrecognized records, spool, «не наблюдаемо» ("not observable").
+    - the status bar: the observer and the model age, support modes, source loss, unverified versions, unrecognized records, spool, "Not observable".
   - Acceptance: E2E 13, 9.
 
 **Line "facts and attention"**
@@ -937,7 +937,7 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
   - Scope: sessions, agents, actions, plan facts; freshness (`quiet`, `lost`, waiting); the attention zone with rule items.
   - Acceptance: E2E 2, 10, 12.
 - **H.3 Attention zone** (M.8).
-  - Scope: ordering with an explanation; the «рекомендация» ("recommendation") label; marking and dismissing an item; «из скрытого элемента» ("from a hidden element"); the «сессия завершена» ("session ended") mark.
+  - Scope: ordering with an explanation; the "recommended" label; marking and dismissing an item; "from a hidden element"; the "session ended" mark.
   - Acceptance: E2E 3 (attention part), E2E 15 (after G.8).
 
 **Line "map and inspector"** (after G.6 and T.6)
@@ -949,12 +949,12 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
   - Scope: preserving the selection and scroll; navigating to a successor; a stable layout.
   - Acceptance: E2E 14.
 - **H.6 Inspector**.
-  - Scope: summary, expected result, inputs and outputs with saved versions or the «только ссылка» ("reference only") mark, time, usage, the "ground → fact → raw record" chain, history, criteria with snapshots and the `passed_unversioned` status, rejected observer responses.
+  - Scope: summary, expected result, inputs and outputs with saved versions or the "reference only" mark, time, usage, the "ground → fact → raw record" chain, history, criteria with snapshots and the `passed_unversioned` status, rejected observer responses.
   - Acceptance: E2E 1, 3, 17.
 
 **Line "return, chat, usage"**
 
-- **H.7 «С последнего просмотра» ("Since last view")** (G.8).
+- **H.7 "Since last review"** (G.8).
   - Scope: the mark, the diff with grounds, cards with a link to the original.
   - Acceptance: E2E 4, 16.
 - **H.8 Chat and view rules** (K.2).
@@ -978,7 +978,7 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
     - a question about an old ground outside the first input gets an answer with a link to it via `needs`;
     - both phases use the same map version;
     - an invalid citation is removed with a mark;
-    - «недостаточно данных» ("insufficient data") reaches the UI.
+    - "not enough data" reaches the UI.
   - Tests: integration with fake CLIs.
 - **K.2 View rule from chat** (M.7, G.8).
   - Scope: selector validation, application, the number of affected elements, undo.
@@ -1050,7 +1050,7 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
 | Requirement | E2E | Where implemented |
 | --- | --- | --- |
 | During work: active stages, agents, waits, changes, freshness (RFC §2) | 1, 2, 7, 8, 10 | E.1–E.3, M, F, G.6, H.2–H.6 |
-| After an iteration: «С последнего просмотра» ("Since last view"), cards, attention order, unresolved questions after the end of the session (RFC §2, §5) | 3, 4, 15, 16 | E.6, M.5b–M.5c, M.8, H.3, H.7 |
+| After an iteration: "Since last review", cards, attention order, unresolved questions after the end of the session (RFC §2, §5) | 3, 4, 15, 16 | E.6, M.5b–M.5c, M.8, H.3, H.7 |
 | Chat with links and view rules (RFC §4, §5) | 5 | K, M.7, H.8 |
 | Preserving the selection, color with a label (RFC §5) | 14 | H.4–H.5 |
 | Links, fork, three axes, grounds, criterion confirmation on the established version (RFC §6) | 1, 3, 8, 11, 12 | E.4–E.7c, M.2–M.5c |
@@ -1089,11 +1089,11 @@ Accepted by the owner 2026-10-04 based on the F.3 report (`docs/research/f3-obse
 Accepted by the owner 2026-10-06 based on the D.8 report (`docs/research/windows-runtimes.md`, section 2):
 
 15. The `aang-hook.exe` budget for Claude on Windows is p95 up to 25 ms per event; on macOS and Linux it is still 10 ms (ADR-0013, decision 6).
-16. Codex hooks on Windows are not installed by default: Codex sessions run in «только файлы» ("files only") mode (ADR-0004), approval waits are not visible. The explicit flag `aang install --codex` enables hooks; `aang install` and `aang status` warn about a slowdown of 0.25–0.4 s per event (ADR-0013, decision 7).
+16. Codex hooks on Windows are not installed by default: Codex sessions run in "files only" mode (ADR-0004), approval waits are not visible. The explicit flag `aang install --codex` enables hooks; `aang install` and `aang status` warn about a slowdown of 0.25–0.4 s per event (ADR-0013, decision 7).
 
 Accepted by the owner 2026-10-07 based on the Q.4 report (`docs/research/q4-live-resilience.md`, section 2):
 
-17. Loss of hooks mid-session (Q4-4) is fixed in the MVP: a turn visible in the files without hook events for longer than `freshness.hooksInactiveAfterMs` opens a `hooks_inactive` gap and switches the session to «только файлы» ("files only") mode until the next hook event (ADR-0004, decision 12).
+17. Loss of hooks mid-session (Q4-4) is fixed in the MVP: a turn visible in the files without hook events for longer than `freshness.hooksInactiveAfterMs` opens a `hooks_inactive` gap and switches the session to "files only" mode until the next hook event (ADR-0004, decision 12).
 
 Approved by the owner 2026-10-08 based on the Q.2 and Q.3 report (`docs/research/q2-q3-live-measurement.md`, section 2; PR #163):
 

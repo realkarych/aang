@@ -21,7 +21,7 @@ const factTimeoutMs = 10_000
 
 const shownFacts = 6
 
-const groundForms = { one: 'запись', few: 'записи', many: 'записей' } as const
+const groundForms = { one: 'record', other: 'records' } as const
 
 const joined = (parts: readonly (string | null)[]): string | null => {
   const present = parts.filter((part): part is string => part !== null && part.trim() !== '')
@@ -104,9 +104,9 @@ const useRead = <T,>(
 
 const Failed = ({ what, retry }: { readonly what: string; readonly retry: () => void }): ReactElement => (
   <p className="grounds-failed" role="alert">
-    {what} не загружены: демон не ответил.{' '}
+    {what} not loaded: the daemon did not respond.{' '}
     <button type="button" className="text-button" onClick={retry}>
-      Повторить
+      Retry
     </button>
   </p>
 )
@@ -127,7 +127,7 @@ const FactCaption = ({
       <span>{speakerLabel[fact.speaker]}</span>
       <Moment at={fact.at} now={now} />
       {place === null ? null : <span>{place}</span>}
-      <span>сырая запись № {fact.seq}</span>
+      <span>raw record #{fact.seq}</span>
     </>
   )
 }
@@ -143,10 +143,10 @@ const GroundFacts = ({ ids, objects, now, onSignedOut }: FactsProps): ReactEleme
   const [load] = useState(() => (signal: AbortSignal) => Promise.all(ids.map((id) => readFact(id, signal))))
   const { reading, retry } = useRead(load, onSignedOut)
   if (reading.state === 'loading') {
-    return <p className="grounds-loading">Загрузка оснований…</p>
+    return <p className="grounds-loading">Loading grounds…</p>
   }
   if (reading.state === 'failed') {
-    return <Failed what="Основания" retry={retry} />
+    return <Failed what="Grounds" retry={retry} />
   }
   return (
     <ul className="ground-facts">
@@ -171,12 +171,12 @@ const journalText = (journal: readonly ModelChangeRef[]): string | null => {
     return null
   }
   return versions.length === 1
-    ? `журнал карты: версия ${String(versions[0])}`
-    : `журнал карты: версии ${versions.join(', ')}`
+    ? `map journal: version ${String(versions[0])}`
+    : `map journal: versions ${versions.join(', ')}`
 }
 
 const journalTitle = (journal: readonly ModelChangeRef[]): string =>
-  journal.map(({ version, index }) => `версия ${String(version)}, изменение ${String(index + 1)}`).join('; ')
+  journal.map(({ version, index }) => `version ${String(version)}, change ${String(index + 1)}`).join('; ')
 
 export interface Grounding {
   readonly basis: Basis | null
@@ -214,7 +214,7 @@ export const Grounds = ({ grounds, journal, objects, now, onSignedOut }: Grounds
               setOpen(!open)
             }}
           >
-            {open ? 'Скрыть основания' : `Основания: ${plural(facts.length, groundForms)}`}
+            {open ? 'Hide grounds' : `Grounds: ${plural(facts.length, groundForms)}`}
           </button>
         )}
       </p>
@@ -229,7 +229,7 @@ export const Grounds = ({ grounds, journal, objects, now, onSignedOut }: Grounds
                 setAll(true)
               }}
             >
-              {`Показать все ${plural(facts.length, groundForms)}`}
+              {`Show all ${plural(facts.length, groundForms)}`}
             </button>
           ) : null}
         </div>
@@ -264,10 +264,10 @@ export const JournalGrounds = ({
   const [load] = useState(() => async (signal: AbortSignal) => (await readStage(run, stage, signal)).history)
   const { reading, retry } = useRead(load, onSignedOut)
   if (reading.state === 'loading') {
-    return <p className="grounds-loading">Загрузка оснований…</p>
+    return <p className="grounds-loading">Loading grounds…</p>
   }
   if (reading.state === 'failed') {
-    return <Failed what="Основания" retry={retry} />
+    return <Failed what="Grounds" retry={retry} />
   }
   const wanted = new Set(journal.map(refKey))
   const changes = reading.value.filter((change) => wanted.has(refKey(change)) && select(change))
@@ -292,10 +292,10 @@ const OriginalText = ({ source, objects, now, onSignedOut }: OriginalProps): Rea
     }
   }, [ready])
   if (reading.state === 'loading') {
-    return <p className="grounds-loading">Загрузка оригинала…</p>
+    return <p className="grounds-loading">Loading original…</p>
   }
   if (reading.state === 'failed') {
-    return <Failed what="Оригинал" retry={retry} />
+    return <Failed what="Original" retry={retry} />
   }
   const fact = reading.value
   const text = finalTextOf(fact) ?? ''
@@ -327,7 +327,7 @@ export const Original = (props: OriginalProps): ReactElement => {
           setOpen(!open)
         }}
       >
-        {open ? 'Скрыть оригинал' : 'Показать в оригинале'}
+        {open ? 'Hide original' : 'Show original'}
       </button>
       {open ? (
         <div id={id}>

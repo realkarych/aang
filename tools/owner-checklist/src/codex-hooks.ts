@@ -78,20 +78,20 @@ const parseDocument = (path: string, file: HooksFile): HooksDocument => {
     root = JSON.parse(file.original?.toString('utf8').replace(byteOrderMark, '') ?? '{}')
   } catch (error) {
     throw new Error(
-      `${path}: некорректный JSON (${error instanceof Error ? error.message : String(error)}); файл не изменён`,
+      `${path}: invalid JSON (${error instanceof Error ? error.message : String(error)}); file not changed`,
       { cause: error },
     )
   }
   if (!isObject(root)) {
-    throw new Error(`${path}: верхний уровень не объект; файл не изменён`)
+    throw new Error(`${path}: the top level is not an object; file not changed`)
   }
   const hooks = root.hooks ?? {}
   if (!isObject(hooks)) {
-    throw new Error(`${path}: "hooks" не объект; файл не изменён`)
+    throw new Error(`${path}: "hooks" is not an object; file not changed`)
   }
   const malformed = codexHookEvents.find((event) => hooks[event] !== undefined && !Array.isArray(hooks[event]))
   if (malformed !== undefined) {
-    throw new Error(`${path}: "hooks.${malformed}" не массив; файл не изменён`)
+    throw new Error(`${path}: "hooks.${malformed}" is not an array; file not changed`)
   }
   root.hooks = hooks
   return { root, hooks }
@@ -153,7 +153,7 @@ const replaceContent = async (file: HooksFile, text: string | Buffer): Promise<v
     await chmod(staged, file.mode)
     const current = await readFile(file.target).catch(() => null)
     if (file.original !== null && (current === null || !current.equals(file.original))) {
-      throw new Error(`${file.target}: файл изменился во время записи; повторите команду`)
+      throw new Error(`${file.target}: the file changed during the write; run the command again`)
     }
     await rename(staged, file.target)
   } finally {
@@ -167,7 +167,7 @@ export const applyCodexHooks = async ({ registration, file, text }: CodexHooksPl
     try {
       await writeFile(file.target, text, { flag: 'wx', mode: newFileMode })
     } catch (error) {
-      throw new Error(`${file.target}: файл появился во время подготовки; повторите команду`, { cause: error })
+      throw new Error(`${file.target}: the file appeared during prepare; run the command again`, { cause: error })
     }
     return
   }

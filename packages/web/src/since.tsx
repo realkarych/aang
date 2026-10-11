@@ -52,14 +52,14 @@ const MarkControl = ({ run, shown, mark, now, onMarked, onSignedOut }: MarkContr
     )
   }
   return (
-    <div className="mark" role="group" aria-label="Отметка просмотра">
+    <div className="mark" role="group" aria-label="Review mark">
       <p className="mark-state" data-marked={mark !== null}>
         <MarkGlyph />
         {mark === null ? (
-          <span>Не отмечен просмотренным</span>
+          <span>Not marked as reviewed</span>
         ) : (
           <span>
-            Просмотрен <Moment at={mark.marked_at} now={now} />, версия карты {mark.version}
+            Reviewed <Moment at={mark.marked_at} now={now} />, map version {mark.version}
           </span>
         )}
       </p>
@@ -75,13 +75,13 @@ const MarkControl = ({ run, shown, mark, now, onMarked, onSignedOut }: MarkContr
               }
         }
       >
-        Отметить просмотренным
+        Mark as reviewed
       </button>
       {saving.state === 'failed' ? (
         <p className="mark-failed" role="alert">
           {saving.refusal === null
-            ? 'Отметка не сохранена: демон не ответил. Попробуйте ещё раз.'
-            : `Отметка не сохранена: демон отказал (${saving.refusal}). Попробуйте ещё раз.`}
+            ? 'Mark not saved: the daemon did not respond. Try again.'
+            : `Mark not saved: the daemon refused (${saving.refusal}). Try again.`}
         </p>
       ) : null}
     </div>
@@ -100,23 +100,23 @@ const Modes = ({ snapshot, mode, changes }: ModesProps): ReactElement => {
   const run = snapshot.run.id
   const count = changes === null ? 0 : changeCount(changes)
   return (
-    <nav className="modes" aria-label="Вид прогона">
+    <nav className="modes" aria-label="Run view">
       <a
         className="mode"
         href={viewHref(run, stage, 'trace')}
         aria-current={mode === 'trace' ? 'page' : undefined}
         onClick={switchMode}
       >
-        Ход прогона
+        Run progress
       </a>
       <a
         className="mode"
         href={viewHref(run, stage, 'changes')}
         aria-current={mode === 'changes' ? 'page' : undefined}
-        aria-label={count === 0 ? undefined : `С последнего просмотра, ${plural(count, changeForms)}`}
+        aria-label={count === 0 ? undefined : `Since last review, ${plural(count, changeForms)}`}
         onClick={switchMode}
       >
-        С последнего просмотра
+        Since last review
         {count === 0 ? null : (
           <span className="mode-count" aria-hidden="true">
             {count}

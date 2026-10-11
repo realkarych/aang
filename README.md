@@ -82,7 +82,7 @@ aang installs hooks into the Codex profile: the regular `~/.codex` or a profile 
 - Before the file is changed, a backup `hooks.json.aang-backup-<time>-<suffix>` is made, and its path is printed.
 - aang does not write `config.toml` or `hooks.state`: trust for aang's entries is granted by the user.
 
-After writing, `aang install` prints the state of aang's entries. After the first installation they are not trusted. Open Codex and trust them with the `/hooks` command. Until then Codex skips them, and Codex sessions are visible in the «только файлы» ("files only") mode.
+After writing, `aang install` prints the state of aang's entries. After the first installation they are not trusted. Open Codex and trust them with the `/hooks` command. Until then Codex skips them, and Codex sessions are visible in the "files only" mode.
 
 Before and after writing, aang verifies the trust of other entries with its own `codex app-server` process: `initialize`, then `hooks/list`. If the trust of another entry changed, the installation is rolled back.
 
@@ -97,7 +97,7 @@ The Codex profile is `runtimes.codex.home` from the aang config, `CODEX_HOME` or
 Windows decisions and measurements are in [ADR-0013](docs/adr/0013-windows.md) and the [runtime check on Windows](docs/research/windows-runtimes.md).
 
 - **Claude Code** is connected the same way as on macOS and Linux. Claude runs `aang-hook.exe` directly, without a shell. Hook startup on Windows is p95 18–24 ms versus 1–4 ms on macOS and Linux: Windows process creation itself is expensive. The budget on Windows is p95 up to 25 ms.
-- **Codex.** `aang install` without flags does not install Codex hooks on Windows. Codex runs the hook command only through PowerShell, and each event costs 0.25–0.4 s: a session with 20 tool calls takes 12–14 s instead of 1–2 s. Without hooks, Codex sessions are visible in the «только файлы» mode: content, links and usage are there; approval waits are not. `aang install` and `aang status` remind about this.
+- **Codex.** `aang install` without flags does not install Codex hooks on Windows. Codex runs the hook command only through PowerShell, and each event costs 0.25–0.4 s: a session with 20 tool calls takes 12–14 s instead of 1–2 s. Without hooks, Codex sessions are visible in the "files only" mode: content, links and usage are there; approval waits are not. `aang install` and `aang status` remind about this.
 - `aang install --codex` installs Codex hooks explicitly and warns about the slowdown. `aang status` repeats the warning while the entries are in place.
   - The entry command is `& '<AANG_HOME>\bin\aang-hook.exe' 'codex' 'user' '<AANG_HOME>\spool'`. PowerShell needs the call operator `&`; a single quote in the path is doubled.
   - aang verifies the trust of other entries with its own `codex app-server`, as on macOS and Linux. On Windows it is started via `aang-hook.exe launch`, which terminates the whole CLI process tree (Job Object).
@@ -137,28 +137,28 @@ Records of sessions that left the scope are discarded at intake. Data already co
 
 | Mode | When | What is visible |
 | --- | --- | --- |
-| «полный» (full) | hooks are active, runtime files are available | everything |
-| «только файлы» (files only) | hooks are not active: not installed (the default for Codex on Windows), the plugin is disabled, Codex entries are not trusted | content, links and usage; approval waits are not visible |
-| «только hooks» (hooks only) | the runtime does not write a transcript: Agent SDK with `persistSession: false`, `CLAUDE_CODE_SKIP_PROMPT_HISTORY` | live events, waits, the final text; no content, usage or recovery |
+| "full" | hooks are active, runtime files are available | everything |
+| "files only" | hooks are not active: not installed (the default for Codex on Windows), the plugin is disabled, Codex entries are not trusted | content, links and usage; approval waits are not visible |
+| "hooks only" | the runtime does not write a transcript: Agent SDK with `persistSession: false`, `CLAUDE_CODE_SKIP_PROMPT_HISTORY` | live events, waits, the final text; no content, usage or recovery |
 
 - The UI shows the mode of each session.
-- For profiles with interactive approvals, the «только файлы» mode is incomplete support. These are Claude CLI and Desktop, as well as Codex TUI and Desktop with `on-request`. For `codex exec` and the SDKs with `approval_policy=never`, hooks only speed up collection.
-- The Claude enterprise policies `allowManagedHooksOnly` and `disableAllHooks` disable aang's hooks. Sessions are then visible in the «только файлы» mode.
+- For profiles with interactive approvals, the "files only" mode is incomplete support. These are Claude CLI and Desktop, as well as Codex TUI and Desktop with `on-request`. For `codex exec` and the SDKs with `approval_policy=never`, hooks only speed up collection.
+- The Claude enterprise policies `allowManagedHooksOnly` and `disableAllHooks` disable aang's hooks. Sessions are then visible in the "files only" mode.
 
 Surfaces:
 
 - Claude Code — CLI, Desktop (Local and worktree) and Agent SDK;
 - Codex — TUI, `exec`, Desktop and Codex SDK.
 
-Desktop on Windows is not checked in the MVP. aang does not observe Cowork and the cloud modes (Claude Cloud, Codex Cloud, Work Cloud). The UI shows them with a persistent notice «Не наблюдаемо» ("Not observable").
+Desktop on Windows is not checked in the MVP. aang does not observe Cowork and the cloud modes (Claude Cloud, Codex Cloud, Work Cloud). The UI shows them with a persistent notice "Not observable".
 
 ### Version support
 
 Support is declared per exact engine version for each surface, OS and placement (local, Docker, VM, Desktop SSH mode) in [`support/matrix.json`](support/matrix.json) according to [ADR-0010](docs/adr/0010-format-versions.md). The status follows from check results (owner decision 2026-10-08); the UI shows it for an encountered version in the status bar:
 
-- «поддерживается» ("supported", `full`) — no gaps: the contract run of the reference recordings of this OS passes for all scenarios, E2E 1 and 4 run on these recordings, the placement check and, where needed, the owner's checklist have passed;
-- «с ограничениями» ("limited", `limited`) — the row is checked but has gaps, and the matrix lists them: no recording of a scenario, a scenario does not pass, E2E 1 and 4 do not run or do not pass;
-- «не проверена» ("unverified", `unverified`) — the version is not in the matrix, the row has no recordings of its own OS or no passed placement check, it needs an owner's checklist that has not yet been passed, or it is Desktop on Windows.
+- "supported" (`full`) — no gaps: the contract run of the reference recordings of this OS passes for all scenarios, E2E 1 and 4 run on these recordings, the placement check and, where needed, the owner's checklist have passed;
+- "limited" (`limited`) — the row is checked but has gaps, and the matrix lists them: no recording of a scenario, a scenario does not pass, E2E 1 and 4 do not run or do not pass;
+- "unverified" (`unverified`) — the version is not in the matrix, the row has no recordings of its own OS or no passed placement check, it needs an owner's checklist that has not yet been passed, or it is Desktop on Windows.
 
 An unverified version works in tolerant mode: sessions are collected and shown, unparsed records are stored.
 
@@ -179,7 +179,7 @@ The owner accepted them on 2026-10-08 as known MVP limitations (RFC §4; [Q.1 re
 1. Desktop on Windows is not checked in the MVP ([ADR-0013](docs/adr/0013-windows.md), decision 3).
 2. The live GUI of Claude Desktop and Codex Desktop is not checked automatically: Desktop reference recordings and E2E run on Desktop engines in emulation, and only the owner's manual checklist makes a Desktop row verified.
 3. The SSH mode of both Desktops is checked only by emulation: it is unknown which engine, of which version and with which settings sources Desktop starts on the remote host, and whether the aang plugin loads there. There are no Desktop engine recordings for Linux, so the `desktop_ssh` rows remain without contract columns.
-4. aang distinguishes Codex Desktop from other Codex surfaces only by `originator`, and the UI labels such sessions «предположительно» ("presumably").
+4. aang distinguishes Codex Desktop from other Codex surfaces only by `originator`, and the UI labels such sessions "(assumed)".
 5. Sessions spawned by Desktop (spawn task, Dispatch, scheduled tasks) are linked to the parent only through Desktop metadata; the owner's checklist verifies the link format.
 6. Desktop engines are updated by the application itself and lag behind the CLI: currently 2.1.286 in Claude Desktop and 0.159.2 in Codex Desktop, with CLIs at 2.1.289 and 0.160.0. Each new engine version needs reference recordings; until then its row is `unverified`.
 
@@ -214,7 +214,7 @@ In `path`, give the absolute path `<AANG_HOME>/claude-plugin`; the directory is 
 
 Limitations:
 
-- `persistSession: false`: there is no transcript, and the session is visible only in the «только hooks» mode;
+- `persistSession: false`: there is no transcript, and the session is visible only in the "hooks only" mode;
 - resume from `sessionStore`: the SDK drops `enabledPlugins` and works in a temporary `CLAUDE_CONFIG_DIR`. The plugin from user settings is not loaded, and the transcript is written outside aang's roots.
 
 ### Codex SDK
@@ -223,7 +223,7 @@ The Codex SDK runs `codex exec`. It always writes the rollout to `CODEX_HOME/ses
 
 ## Codex OpenTelemetry
 
-A human's approval decision in Codex is visible only through OpenTelemetry. Without it, the UI shows such a decision as «неизвестно» ("unknown"). Connecting it is optional; aang does not change the Codex config.
+A human's approval decision in Codex is visible only through OpenTelemetry. Without it, the UI shows such a decision as "unknown". Connecting it is optional; aang does not change the Codex config.
 
 ```sh
 aang otel-config
@@ -322,7 +322,7 @@ docker exec solver aang open
 - Open the link from `aang open` in the host browser. If Docker runs on a remote machine, add an SSH tunnel to it.
 - Docker on Windows runs Linux containers, so Linux rules apply inside the container.
 
-Hooks are connected in the container the same way as on the host: `docker exec solver aang install` installs the Claude plugin and Codex hooks with the image's `aang-hook` binary; trust the Codex entries via `/hooks` in `docker exec --interactive --tty solver codex`. Without `aang install`, the solver's sessions are visible in the «только файлы» mode (section ["What aang sees"](#what-aang-sees)).
+Hooks are connected in the container the same way as on the host: `docker exec solver aang install` installs the Claude plugin and Codex hooks with the image's `aang-hook` binary; trust the Codex entries via `/hooks` in `docker exec --interactive --tty solver codex`. Without `aang install`, the solver's sessions are visible in the "files only" mode (section ["What aang sees"](#what-aang-sees)).
 
 The runtime roots (`~/.claude/projects`, `~/.codex/sessions`) appear in a new container only with the first session. While they are absent, the daemon notices them by scanning the roots every 60 s (`collector.rootsScanIntervalMs`), and the files of the first session appear in the UI with this delay; hooks arrive immediately.
 

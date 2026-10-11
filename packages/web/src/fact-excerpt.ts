@@ -40,7 +40,7 @@ export const factExcerpt = (fact: Fact): string | null => {
     case 'action_end':
       return joined(
         outcomeLabel[fact.payload.outcome],
-        fact.payload.exit_code === null ? null : `код выхода ${String(fact.payload.exit_code)}`,
+        fact.payload.exit_code === null ? null : `exit code ${String(fact.payload.exit_code)}`,
         fact.payload.output,
       )
     case 'permission_request':
@@ -53,8 +53,8 @@ export const factExcerpt = (fact: Fact): string | null => {
       return fact.payload.text ?? fact.payload.items.map(({ text }) => text).join('\n')
     case 'git_snapshot':
       return joined(
-        fact.payload.head === null ? 'HEAD неизвестен' : `HEAD ${fact.payload.head.slice(0, 12)}`,
-        fact.payload.clean ? 'дерево чистое' : 'есть изменения под масками',
+        fact.payload.head === null ? 'HEAD unknown' : `HEAD ${fact.payload.head.slice(0, 12)}`,
+        fact.payload.clean ? 'tree clean' : 'changes under masks',
       )
     case 'notification':
       return fact.payload.message

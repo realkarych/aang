@@ -1,69 +1,69 @@
-# Замер свежести: codex-plan
+# Freshness measurement: codex-plan
 
-- Профиль нагрузки зафиксирован 2026-10-08T18:20:50.476Z, замер начат 2026-10-08T18:20:57.854Z и длился 472,5 с.
-- Окно замера 120,0 с, масштаб времени записей 1.
-- Демон 0.0.0.
+- Workload profile fixed at 2026-10-08T18:20:50.476Z; the measurement started at 2026-10-08T18:20:57.854Z and lasted 472.5 s.
+- Measurement window 120.0 s, recording time scale 1.
+- Daemon 0.0.0.
 
-## Записи
+## Recordings
 
-| Запись | Рантайм | Старт, с |
+| Recording | Runtime | Start, s |
 | --- | --- | --- |
-| codex/0.160.0/codex_exec/macos/workload-ledger | codex | 0,0 |
-| codex/0.160.0/codex_exec/macos/workload-logstats | codex | 102,9 |
-| codex/0.160.0/codex_exec/macos/workload-kvstore | codex | 240,2 |
+| codex/0.160.0/codex_exec/macos/workload-ledger | codex | 0.0 |
+| codex/0.160.0/codex_exec/macos/workload-logstats | codex | 102.9 |
+| codex/0.160.0/codex_exec/macos/workload-kvstore | codex | 240.2 |
 
-## Итог по backend
+## Backend summary
 
-Нарушение — ожидание не выполнено в окне замера. p95 считается по оценённым событиям, невыполненные события стоят в нём за окном. Выполненные до события и не соответствующие записи события — дефекты разметки, в p95 они не входят. Полная задержка идёт от времени самого события; в скобках — число событий с известным временем. Доля дозапросов — доля времени `needs` в задержке выполненных событий; в скобках — число событий с дозапросом.
+A violation is an expectation not met within the measurement window. p95 is computed over assessed events, with missed events counted as beyond the window. Events met before the event or not matching the recording are annotation defects and are excluded from p95. Full latency runs from the time of the event itself; the number in parentheses is the count of events with a known time. Follow-up share is the share of `needs` time in the latency of met events; the number in parentheses is the count of events with a follow-up.
 
-| Backend | CLI | Модель | Effort | Ориентир p95 | p95 | Ориентир выполнен | В пределах ориентира | Выполнено | Нарушения | Без оценки | Выполнено до события | Не соответствует записи | Полная задержка p95 | Доля дозапросов |
+| Backend | CLI | Model | Effort | Target p95 | p95 | Target met | Within target | Met | Violations | Unassessed | Met before the event | Does not match the recording | Full latency p95 | Follow-up share |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| codex | 0.160.0 | gpt-6.1-sol | умолчание CLI | 40,0 с | за окном (нарушение) | нет | 17 % | 2 из 6 | 4 | 0 | 2 | 0 | 44,1 с (2) | 0 % (0) |
+| codex | 0.160.0 | gpt-6.1-sol | CLI default | 40.0 s | beyond the window (violation) | no | 17% | 2 of 6 | 4 | 0 | 2 | 0 | 44.1 s (2) | 0% (0) |
 
-## Контрольные события
+## Control events
 
-| Запись | Событие | Способ | Итог | Задержка, с | Полная, с | Дозапросы, с | Версия | Автор |
+| Recording | Event | Method | Outcome | Latency, s | Full, s | Follow-ups, s | Version | Author |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| codex/0.160.0/codex_exec/macos/workload-ledger | plan-written | предикат | выполнено | 44,0 | 44,1 | 0,0 | 6 | наблюдатель |
-| codex/0.160.0/codex_exec/macos/workload-ledger | plan-ready | разметчик | выполнено | 36,7 | 36,7 | 0,0 | 6 | наблюдатель |
-| codex/0.160.0/codex_exec/macos/workload-logstats | triage-tested | предикат | выполнено до события, разметка некорректна | — | — | — | 4 | — |
-| codex/0.160.0/codex_exec/macos/workload-logstats | triage-done | предикат | выполнено до события, разметка некорректна | — | — | — | 4 | — |
-| codex/0.160.0/codex_exec/macos/workload-logstats | plan-written | предикат | не выполнено, нарушение | — | — | — | — | — |
-| codex/0.160.0/codex_exec/macos/workload-logstats | plan-ready | разметчик | не выполнено, нарушение | — | — | — | — | — |
-| codex/0.160.0/codex_exec/macos/workload-kvstore | plan-written | предикат | не выполнено, нарушение | — | — | — | — | — |
-| codex/0.160.0/codex_exec/macos/workload-kvstore | plan-ready | разметчик | не выполнено, нарушение | — | — | — | — | — |
+| codex/0.160.0/codex_exec/macos/workload-ledger | plan-written | predicate | met | 44.0 | 44.1 | 0.0 | 6 | observer |
+| codex/0.160.0/codex_exec/macos/workload-ledger | plan-ready | annotator | met | 36.7 | 36.7 | 0.0 | 6 | observer |
+| codex/0.160.0/codex_exec/macos/workload-logstats | triage-tested | predicate | met before the event, annotation invalid | — | — | — | 4 | — |
+| codex/0.160.0/codex_exec/macos/workload-logstats | triage-done | predicate | met before the event, annotation invalid | — | — | — | 4 | — |
+| codex/0.160.0/codex_exec/macos/workload-logstats | plan-written | predicate | missed, violation | — | — | — | — | — |
+| codex/0.160.0/codex_exec/macos/workload-logstats | plan-ready | annotator | missed, violation | — | — | — | — | — |
+| codex/0.160.0/codex_exec/macos/workload-kvstore | plan-written | predicate | missed, violation | — | — | — | — | — |
+| codex/0.160.0/codex_exec/macos/workload-kvstore | plan-ready | annotator | missed, violation | — | — | — | — | — |
 
-## Наблюдатель
+## Observer
 
-| Backend | Вызовы | Приняты | Отклонены | Ошибки | С дозапросом |
+| Backend | Calls | Accepted | Rejected | Failed | With follow-up |
 | --- | --- | --- | --- | --- | --- |
 | codex | 17 | 17 | 0 | 0 | 3 |
 
-| Backend | Состояние | Время, с | Доля |
+| Backend | State | Time, s | Share |
 | --- | --- | --- | --- |
-| codex | ok | 1071,2 | 100 % |
+| codex | ok | 1071.2 | 100% |
 
-## Расход
+## Spending
 
-Расход вызовов — по данным CLI в журнале вызовов демона. Час прогона — сумма длительностей проигранных прогонов backend, активный час — время, когда шёл хотя бы один его прогон. Деньги — только у Claude, по прейскуранту; при подписке это не списание.
+Call spending comes from CLI data in the daemon call journal. A run hour is the sum of the durations of the played runs of the backend; an active hour is the time when at least one of its runs was in progress. Money is shown only for Claude, at list prices; under a subscription it is not a charge.
 
-| Backend | Прогоны | Часы прогонов | Активные часы |
+| Backend | Runs | Run hours | Active hours |
 | --- | --- | --- | --- |
-| codex | 3 | 0,08 | 0,08 |
+| codex | 3 | 0.08 | 0.08 |
 
-| Backend | Журнал | Вызовы | Вход без кэша | Чтение кэша | Запись кэша | Вывод | Рассуждения | Всего токенов | Стоимость |
+| Backend | Journal | Calls | Uncached input | Cache read | Cache write | Output | Reasoning | Total tokens | Cost |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| codex | наблюдатель | 17 | 128 171 | 5 120 | 0 | 5 440 | 108 | 138 731 | — |
-| codex | чат | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
-| codex | пробы и auth status | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
+| codex | observer | 17 | 128,171 | 5,120 | 0 | 5,440 | 108 | 138,731 | — |
+| codex | chat | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
+| codex | probes and auth status | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
 
-| Backend | Журнал | Вызовов на час прогона | Токенов на час прогона | Стоимость часа прогона | Вызовов на активный час | Токенов на активный час | Стоимость активного часа |
+| Backend | Journal | Calls per run hour | Tokens per run hour | Cost per run hour | Calls per active hour | Tokens per active hour | Cost per active hour |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| codex | наблюдатель | 209,5 | 1 709 299 | — | 209,5 | 1 709 299 | — |
-| codex | чат | 0,0 | 0 | — | 0,0 | 0 | — |
+| codex | observer | 209.5 | 1,709,299 | — | 209.5 | 1,709,299 | — |
+| codex | chat | 0.0 | 0 | — | 0.0 | 0 | — |
 
-| Backend | Вопросы | Ответы | Ошибки | Не заданы | Недостаточно данных | p50 ответа, с | p95 ответа, с | Токенов на ответ | Стоимость ответа |
+| Backend | Questions | Answers | Failed | Not asked | Insufficient data | Answer p50, s | Answer p95, s | Tokens per answer | Cost per answer |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | codex | 0 | 0 | 0 | 0 | 0 | — | — | — | — |
 
-По учёту расхода демона (U.1) активных часов — 1: это календарные часы, в которых была активность решателя.
+Per the daemon spending accounting (U.1), active hours: 1; these are calendar hours with solver activity.

@@ -96,9 +96,9 @@ const lamp = (id: LampId, label: string, value: string, level: Level, details: r
 
 const modelLagLimitNs = 30_000_000_000n
 
-const lostSourceForms = { one: 'источник потерян', few: 'источника потеряны', many: 'источников потеряно' } as const
-const problemForms = { one: 'проблема', few: 'проблемы', many: 'проблем' } as const
-const unknownRecordForms = { one: 'нераспознанная', few: 'нераспознанные', many: 'нераспознанных' } as const
+const lostSourceForms = { one: 'source lost', other: 'sources lost' } as const
+const problemForms = { one: 'problem', other: 'problems' } as const
+const unknownRecordForms = { one: 'unrecognized record', other: 'unrecognized records' } as const
 
 const sourceGapKinds: ReadonlySet<GapKind> = new Set([
   'source_lost',
@@ -115,59 +115,59 @@ const interpreting = ({ state }: ObserverState): boolean => state === 'ok' || st
 
 const retryDetails = (state: ObserverState): LampDetail[] =>
   state.state === 'unavailable' && state.retry_at !== null
-    ? [detail(`${retryLabel[state.reason]} — в ${clockTime(state.retry_at)}.`, 'warning')]
+    ? [detail(`${retryLabel[state.reason]} at ${clockTime(state.retry_at)}.`, 'warning')]
     : []
 
 const pausedDetails = (state: ObserverState): LampDetail[] =>
   interpreting(state)
     ? []
-    : [detail('Факты и пункты внимания продолжают поступать, этапы обновятся, когда наблюдатель вернётся.')]
+    : [detail('Facts and attention items keep arriving; stages will update when the observer is back.')]
 
 const catchUpDetails = ({ deferred_facts: deferred }: ObserverRunState): LampDetail[] =>
   deferred === 0
     ? []
     : [
         detail(
-          `Догоняющий режим: ${plural(deferred, earlyFactForms)} наблюдатель видит только сводкой — счётчиками по агентам и инструментам, без подробностей.`,
+          `Catching up: the observer sees ${plural(deferred, earlyFactForms)} only as a summary, counts per agent and tool, without details.`,
           'caution',
         ),
       ]
 
 const linkLamp = ({ statusFailing, runsFailing, focus }: LampInput): Lamp => {
   if (statusFailing) {
-    return lamp('link', 'Связь', 'нет связи с демоном', 'warning', [
-      detail('Демон не отвечает. Проверьте его командой aang status; данные на экране могут устареть.', 'warning'),
+    return lamp('link', 'Link', 'no connection to the daemon', 'warning', [
+      detail('The daemon is not responding. Check it with aang status; the data on screen may be stale.', 'warning'),
     ])
   }
   if (runsFailing && focus === null) {
-    return lamp('link', 'Связь', 'список не обновляется', 'warning', [
-      detail('Демон не отдал список прогонов. aang повторяет запрос; список на экране может устареть.', 'warning'),
+    return lamp('link', 'Link', 'list not updating', 'warning', [
+      detail('The daemon did not return the run list. aang keeps retrying; the list on screen may be stale.', 'warning'),
     ])
   }
   switch (focus?.connection) {
     case undefined:
-      return lamp('link', 'Связь', 'есть', 'normal')
+      return lamp('link', 'Link', 'connected', 'normal')
     case 'loading':
-      return lamp('link', 'Связь', 'подключение', 'normal')
+      return lamp('link', 'Link', 'connecting', 'normal')
     case 'live':
       return runsFailing
-        ? lamp('link', 'Связь', 'ответвления не обновляются', 'caution', [
-            detail('Изменения прогона приходят по мере записи событий.'),
+        ? lamp('link', 'Link', 'branches not updating', 'caution', [
+            detail('Run changes arrive as events are recorded.'),
             detail(
-              'Демон не отдал список прогонов. aang повторяет запрос; ответвления и названия связанных прогонов могут устареть.',
+              'The daemon did not return the run list. aang keeps retrying; branches and names of linked runs may be stale.',
               'caution',
             ),
           ])
-        : lamp('link', 'Связь', 'поток подключён', 'normal', [
-            detail('Изменения прогона приходят по мере записи событий.'),
+        : lamp('link', 'Link', 'stream connected', 'normal', [
+            detail('Run changes arrive as events are recorded.'),
           ])
     case 'reconnecting':
-      return lamp('link', 'Связь', 'переподключение', 'caution', [
-        detail('Поток изменений прерван. aang переподключится и дочитает пропущенное.', 'caution'),
+      return lamp('link', 'Link', 'reconnecting', 'caution', [
+        detail('The change stream was interrupted. aang will reconnect and catch up on what it missed.', 'caution'),
       ])
     case 'missing':
-      return lamp('link', 'Связь', 'прогон не найден', 'warning', [
-        detail('Демон не знает этот прогон: он удалён или ещё не принят заново.', 'warning'),
+      return lamp('link', 'Link', 'run not found', 'warning', [
+        detail('The daemon does not know this run: it was deleted or has not been re-admitted yet.', 'warning'),
       ])
   }
 }
@@ -182,20 +182,20 @@ const observerLamp = ({ status, runs, focus }: LampInput): Lamp => {
   const backends = status?.observer.backends ?? []
   const backendDetails = backends.map((backend) =>
     detail(
-      `${backendName(backend)}, модель ${backend.model}: ${observerStateLabel(backend.state)}.`,
+      `${backendName(backend)}, model ${backend.model}: ${observerStateLabel(backend.state)}.`,
       observerLevel(backend.state),
     ),
   )
   const focused = focus?.run ?? null
   if (focused !== null) {
     const { observer } = focused.summary
-    return lamp('observer', 'Наблюдатель', observerStateLabel(observer.state), observerLevel(observer.state), [
+    return lamp('observer', 'Observer', observerStateLabel(observer.state), observerLevel(observer.state), [
       ...retryDetails(observer.state),
       ...pausedDetails(observer.state),
-      ...(observer.isolation_unverified ? [detail('Изоляция наблюдателя не подтверждена.', 'caution')] : []),
+      ...(observer.isolation_unverified ? [detail('Observer isolation is not confirmed.', 'caution')] : []),
       ...catchUpDetails(observer),
       ...(observer.not_interpreted_facts > 0
-        ? [detail(`Не интерпретировано: ${plural(observer.not_interpreted_facts, factForms)}.`, 'caution')]
+        ? [detail(`Not interpreted: ${plural(observer.not_interpreted_facts, factForms)}.`, 'caution')]
         : []),
       ...backendDetails,
     ])
@@ -204,7 +204,7 @@ const observerLamp = ({ status, runs, focus }: LampInput): Lamp => {
   if (backend !== null) {
     return lamp(
       'observer',
-      'Наблюдатель',
+      'Observer',
       `${runtimeLabel[backend.vendor]}: ${observerStateLabel(backend.state)}`,
       observerLevel(backend.state),
       backendDetails,
@@ -213,11 +213,11 @@ const observerLamp = ({ status, runs, focus }: LampInput): Lamp => {
   const states = (runs ?? []).map(({ observer }) => observer.state)
   const shown = worstOf(states, observerLevel)
   if (shown === null) {
-    return lamp('observer', 'Наблюдатель', 'нет данных', 'normal')
+    return lamp('observer', 'Observer', 'no data', 'normal')
   }
   const same = states.filter((state) => observerStateLabel(state) === observerStateLabel(shown)).length
-  return lamp('observer', 'Наблюдатель', observerStateLabel(shown), observerLevel(shown), [
-    detail(`Так в ${plural(same, runInForms)} из ${String(states.length)}.`),
+  return lamp('observer', 'Observer', observerStateLabel(shown), observerLevel(shown), [
+    detail(`Same in ${plural(same, runInForms)} of ${String(states.length)}.`),
   ])
 }
 
@@ -232,46 +232,46 @@ const modelLamp = ({ summary }: FocusedRun, now: bigint): Lamp => {
       ? []
       : [
           detail(
-            `Ждут наблюдателя: ${plural(observer.pending_facts, factForms)}, старейший — ${duration(oldest, now)} назад.`,
+            `Waiting for the observer: ${plural(observer.pending_facts, factForms)}, oldest ${duration(oldest, now)} ago.`,
             lagging ? 'caution' : 'normal',
           ),
         ]
   return lamp(
     'model',
-    'Модель',
-    updated === null ? 'не строилась' : `обновлена ${relativeTime(updated, now)}`,
+    'Model',
+    updated === null ? 'not built' : `updated ${relativeTime(updated, now)}`,
     lagging || unbuilt ? 'caution' : 'normal',
     [
-      detail(`Версия карты ${String(version)}.`),
-      ...(updated === null ? [] : [detail(`Последнее обновление: ${absoluteTime(updated)}.`)]),
+      detail(`Map version ${String(version)}.`),
+      ...(updated === null ? [] : [detail(`Last update: ${absoluteTime(updated)}.`)]),
       ...pending,
       ...(observer.deferred_facts === 0
         ? []
-        : [detail('Ранние факты карта учитывает только по сводке, с пониженной детализацией.', 'caution')]),
+        : [detail('The map counts early facts only through a summary, with less detail.', 'caution')]),
     ],
   )
 }
 
 const modeExplanation: Readonly<Record<SupportMode, string>> = {
-  full: 'hooks и файлы сессии',
-  files_only: 'hooks не активны, события берутся из файлов сессии',
-  hooks_only: 'файл сессии не найден, видны только события hooks',
+  full: 'hooks and session files',
+  files_only: 'hooks inactive, events come from session files',
+  hooks_only: 'session file not found, only hook events are visible',
 }
 
 const modeLamp = ({ summary, sessions }: FocusedRun): Lamp => {
   const modes = summary.support_modes
   if (modes.length === 0) {
-    return lamp('mode', 'Режим', 'нет сессий', 'normal')
+    return lamp('mode', 'Mode', 'no sessions', 'normal')
   }
   const limited = modes.filter((mode) => mode !== 'full')
   return lamp(
     'mode',
-    'Режим',
+    'Mode',
     (limited.length > 0 ? limited : modes).map((mode) => supportModeLabel[mode]).join(', '),
     limited.length > 0 ? 'caution' : 'normal',
     sessions.map(({ key, support_mode: mode }) =>
       detail(
-        `Сессия ${key.session.slice(0, 8)}: ${supportModeLabel[mode]} — ${modeExplanation[mode]}.`,
+        `Session ${key.session.slice(0, 8)}: ${supportModeLabel[mode]}: ${modeExplanation[mode]}.`,
         mode === 'full' ? 'normal' : 'caution',
       ),
     ),
@@ -291,20 +291,20 @@ const runtimeHookDetails = ({
   return [
     detail(`${name}: ${hookInstallationLabel[hooks]}.`, installationLevel(hooks)),
     ...(idle.length > 0
-      ? [detail(`${name}: hooks не активны в ${sessionsIn(idle.length)}, режим «только файлы».`, 'caution')]
+      ? [detail(`${name}: hooks inactive in ${sessionsIn(idle.length)}, "files only" mode.`, 'caution')]
       : []),
-    ...(twice.length > 0 ? [detail(`${name}: двойная регистрация hooks в ${sessionsIn(twice.length)}.`, 'caution')] : []),
+    ...(twice.length > 0 ? [detail(`${name}: hooks registered twice in ${sessionsIn(twice.length)}.`, 'caution')] : []),
   ]
 }
 
 const hooksLamp = ({ status }: LampInput): Lamp => {
   if (status === null) {
-    return lamp('hooks', 'Hooks', 'нет данных', 'normal')
+    return lamp('hooks', 'Hooks', 'no data', 'normal')
   }
   const inactive = status.runtimes.reduce((total, runtime) => total + runtime.hooks_inactive_sessions.length, 0)
   const details = status.runtimes.flatMap(runtimeHookDetails)
   if (inactive > 0) {
-    return lamp('hooks', 'Hooks', `не активны в ${sessionsIn(inactive)}`, 'caution', details)
+    return lamp('hooks', 'Hooks', `inactive in ${sessionsIn(inactive)}`, 'caution', details)
   }
   const missing = status.runtimes.find(({ hooks }) => installationLevel(hooks) !== 'normal')
   if (missing !== undefined) {
@@ -314,7 +314,7 @@ const hooksLamp = ({ status }: LampInput): Lamp => {
   return lamp(
     'hooks',
     'Hooks',
-    status.runtimes.every(({ hooks }) => hooks === 'active') ? 'активны' : 'нет неактивных',
+    status.runtimes.every(({ hooks }) => hooks === 'active') ? 'active' : 'none inactive',
     worst(details.map(({ level }) => level)),
     details,
   )
@@ -322,7 +322,7 @@ const hooksLamp = ({ status }: LampInput): Lamp => {
 
 const gapDetail = (gap: Gap): LampDetail =>
   detail(
-    `${gapLabel[gap.kind]}${gap.details === null ? '' : `: ${gap.details}`} — с ${clockTime(gap.detected_at)}.`,
+    `${gapLabel[gap.kind]}${gap.details === null ? '' : `: ${gap.details}`} since ${clockTime(gap.detected_at)}.`,
     gap.kind === 'source_lost' ? 'warning' : 'caution',
   )
 
@@ -336,25 +336,25 @@ const sourcesLamp = ({ status, runs, focus }: LampInput): Lamp => {
   const lostRuns = focus === null ? (runs ?? []).filter(({ freshness }) => freshness === 'lost').length : 0
   const details = [
     ...gaps.map(gapDetail),
-    ...(lostRuns > 0 ? [detail(`Источник потерян в ${plural(lostRuns, runInForms)}.`, 'warning')] : []),
+    ...(lostRuns > 0 ? [detail(`Source lost in ${plural(lostRuns, runInForms)}.`, 'warning')] : []),
   ]
   if (lost > 0 || lostRuns > 0) {
     return lamp(
       'sources',
-      'Источники',
+      'Sources',
       plural(Math.max(lost, lostRuns), lostSourceForms),
       'warning',
       details,
     )
   }
   if (gaps.length > 0) {
-    return lamp('sources', 'Источники', plural(gaps.length, problemForms), 'caution', details)
+    return lamp('sources', 'Sources', plural(gaps.length, problemForms), 'caution', details)
   }
-  return lamp('sources', 'Источники', 'в порядке', 'normal')
+  return lamp('sources', 'Sources', 'fine', 'normal')
 }
 
 const unknownRecordsNote = detail(
-  'Записи неизвестного формата сохранены в журнале, но фактов из них нет: часть работы может быть не видна.',
+  'Records in an unknown format are kept in the journal but yield no facts: some work may not be visible.',
   'caution',
 )
 
@@ -363,17 +363,17 @@ const recordsLamp = ({ status, focus }: LampInput): Lamp => {
   const focused = focus?.run ?? null
   if (focused === null) {
     return total === 0
-      ? lamp('records', 'Записи', 'все распознаны', 'normal')
-      : lamp('records', 'Записи', `всего ${plural(total, unknownRecordForms)}`, 'caution', [unknownRecordsNote])
+      ? lamp('records', 'Records', 'all recognized', 'normal')
+      : lamp('records', 'Records', `${plural(total, unknownRecordForms)} in total`, 'caution', [unknownRecordsNote])
   }
   const unknown = focused.sessions.reduce((sum, { unknown_records: count }) => sum + count, 0)
   const elsewhere =
     total > unknown
-      ? [detail(`Всего нераспознанных записей: ${String(total)}, из них в этом прогоне — ${String(unknown)}.`)]
+      ? [detail(`Unrecognized records in total: ${String(total)}, in this run: ${String(unknown)}.`)]
       : []
   return unknown === 0
-    ? lamp('records', 'Записи', 'в этом прогоне все распознаны', 'normal', elsewhere)
-    : lamp('records', 'Записи', `в этом прогоне ${plural(unknown, unknownRecordForms)}`, 'caution', [
+    ? lamp('records', 'Records', 'all recognized in this run', 'normal', elsewhere)
+    : lamp('records', 'Records', `${plural(unknown, unknownRecordForms)} in this run`, 'caution', [
         unknownRecordsNote,
         ...elsewhere,
       ])
@@ -381,43 +381,43 @@ const recordsLamp = ({ status, focus }: LampInput): Lamp => {
 
 const spoolLamp = ({ status, now }: LampInput): Lamp => {
   if (status === null) {
-    return lamp('spool', 'Spool', 'нет данных', 'normal')
+    return lamp('spool', 'Spool', 'no data', 'normal')
   }
   const { spool } = status
   const usage = detail(
-    `${plural(spool.files, fileForms)}, ${bytes(spool.bytes)} при пороге ${bytes(spool.threshold_bytes)}.`,
+    `${plural(spool.files, fileForms)}, ${bytes(spool.bytes)} of a ${bytes(spool.threshold_bytes)} threshold.`,
   )
   const gaps = openGaps(status.gaps, spoolGapKinds)
     .filter(({ kind }) => kind !== 'spool_over_threshold')
     .map(gapDetail)
   if (spool.over_threshold) {
-    return lamp('spool', 'Spool', 'превышен порог', 'warning', [
+    return lamp('spool', 'Spool', 'over threshold', 'warning', [
       usage,
-      detail('Аренда снята: hooks не пишут в spool.', 'warning'),
-      detail(`После порога прибавилось ${bytes(spool.growth_since_threshold_bytes ?? 0)}.`),
+      detail('Lease released: hooks do not write to the spool.', 'warning'),
+      detail(`Grew by ${bytes(spool.growth_since_threshold_bytes ?? 0)} past the threshold.`),
       ...gaps,
     ])
   }
   if (spool.stopped) {
-    return lamp('spool', 'Spool', 'запись остановлена', 'caution', [
+    return lamp('spool', 'Spool', 'writing stopped', 'caution', [
       usage,
-      detail('Демон остановлен командой aang stop: hooks не пишут в spool до aang start.', 'caution'),
+      detail('The daemon was stopped with aang stop: hooks do not write to the spool until aang start.', 'caution'),
       ...gaps,
     ])
   }
   if (spool.lease_expires_at === null || spool.lease_expires_at < now) {
-    return lamp('spool', 'Spool', 'нет аренды', 'caution', [
+    return lamp('spool', 'Spool', 'no lease', 'caution', [
       usage,
-      detail('Аренды spool нет: hooks не пишут события.', 'caution'),
+      detail('No spool lease: hooks do not write events.', 'caution'),
       ...gaps,
     ])
   }
   return lamp(
     'spool',
     'Spool',
-    spool.files === 0 ? 'пуст' : `${plural(spool.files, fileForms)}, ${bytes(spool.bytes)}`,
+    spool.files === 0 ? 'empty' : `${plural(spool.files, fileForms)}, ${bytes(spool.bytes)}`,
     gaps.length > 0 ? 'caution' : 'normal',
-    [usage, detail(`Аренда действует до ${clockTime(spool.lease_expires_at)}.`), ...gaps],
+    [usage, detail(`Lease valid until ${clockTime(spool.lease_expires_at)}.`), ...gaps],
   )
 }
 
@@ -429,8 +429,8 @@ const versionsLamp = ({ status }: LampInput): Lamp | null => {
   const doubtful = versions.filter(({ status: support }) => support !== 'full')
   return lamp(
     'versions',
-    'Версии',
-    doubtful.length === 0 ? 'проверены' : `${plural(doubtful.length, versionForms)} без полной поддержки`,
+    'Versions',
+    doubtful.length === 0 ? 'verified' : `${plural(doubtful.length, versionForms)} without full support`,
     doubtful.length === 0 ? 'normal' : 'caution',
     versions.map(({ key, status: support, sessions }) =>
       detail(
@@ -448,11 +448,11 @@ const coverageLamp = ({ status }: LampInput): Lamp | null => {
   }
   return lamp(
     'coverage',
-    'Не наблюдаемо',
+    'Not observable',
     surfaces.map((surface) => notObservableLabel[surface]).join(', '),
     'caution',
     surfaces.map((surface) =>
-      detail(`${notObservableLabel[surface]}: события этого режима aang не получает.`, 'caution'),
+      detail(`${notObservableLabel[surface]}: aang receives no events from this mode.`, 'caution'),
     ),
   )
 }

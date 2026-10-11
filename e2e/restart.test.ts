@@ -28,9 +28,9 @@ const day = 86_400_000
 
 const subagent = 'aad616394e806288d'
 
-const formatQuestion = 'Какой формат выбрать?'
+const formatQuestion = 'Which format should I pick?'
 
-const downtimeQuestion = 'Публиковать отчёт после перезапуска?'
+const downtimeQuestion = 'Publish the report after the restart?'
 
 const approvalText = 'Bash: touch probe-perm.txt'
 
@@ -43,7 +43,7 @@ const checks = [
 ] as const
 
 const askUser = (question: string): Readonly<Record<string, unknown>> => ({
-  questions: [{ question, header: 'Выбор', options: [{ label: 'Первый' }, { label: 'Второй' }], multiSelect: false }],
+  questions: [{ question, header: 'Choice', options: [{ label: 'First' }, { label: 'Second' }], multiSelect: false }],
 })
 
 interface SentHooks {
@@ -206,7 +206,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   const replay = await player(tornAt(await loadManifest(scenario), 'continue', 'torn', tornBytes), { timeScale: 0.02 })
   await replay.play({ until: 'resume' })
   await page.goto(`/?run=${run}`)
-  await expect(fact(page, 'Агенты')).toHaveText('2')
+  await expect(fact(page, 'Agents')).toHaveText('2')
 
   const fields = hookFields(profile, claudeOriginal)
   const hooks = trackedHooks(hook)
@@ -220,8 +220,8 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   await hooks.send('UserPromptSubmit.json', fields)
   await hooks.send('PermissionRequest.Bash.json', fields)
   await ask(formatQuestion, 'toolu_h10_format')
-  await expect(zoneItem(page, approvalText)).toContainText('ждёт ответа')
-  await expect(zoneItem(page, formatQuestion)).toContainText('ждёт ответа')
+  await expect(zoneItem(page, approvalText)).toContainText('awaiting an answer')
+  await expect(zoneItem(page, formatQuestion)).toContainText('awaiting an answer')
 
   const before = await snapshotOf(page.request)
   await write(daemon, attentionPath(itemOf(before, approvalText), 'attentionDismiss'), 'POST', {})
@@ -234,7 +234,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   const grouped = await createRule(daemon, {
     action: 'group',
     selector: { kind: 'action_tool', tool: 'Bash' },
-    params: { name: 'Проверки' },
+    params: { name: 'Checks' },
   })
   const revoked = await createRule(daemon, {
     action: 'hide',
@@ -243,7 +243,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   })
   await write(daemon, endpoints.revokeViewRule.path.replace(':run', run).replace(':id', revoked.rule.id), 'DELETE')
   await markButton(page).click()
-  await expect(mark(page)).toContainText('Просмотрен только что')
+  await expect(mark(page)).toContainText('Reviewed just now')
   const kept = await snapshotOf(page.request)
   expect(kept.view.mark).not.toBeNull()
   expect(kept.view.rules.map(({ rule }) => rule.id).toSorted()).toEqual([collapsed.rule.id, grouped.rule.id].toSorted())
@@ -267,7 +267,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   await daemon.kill()
   const queuedAtKill = await queued(profile)
   expect((await readFile(transcripts.main)).at(-1)).not.toBe(0x0a)
-  await expect(lamp(page, 'Связь')).toHaveText('Связь нет связи с демоном')
+  await expect(lamp(page, 'Link')).toHaveText('Link no connection to the daemon')
 
   const [first] = checks
   await hooks.send('PostToolUse.Bash.json', {
@@ -290,20 +290,20 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
     api: { port: daemon.api.port },
   })
   const restarted = await profile.startDaemon({ entry: aangEntry })
-  await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён', reconnected)
+  await expect(lamp(page, 'Link')).toHaveText('Link stream connected', reconnected)
   await expect.poll(() => queued(profile), reconnected).toEqual([])
 
-  await expect(zoneItem(page, downtimeQuestion)).toContainText('ждёт ответа')
+  await expect(zoneItem(page, downtimeQuestion)).toContainText('awaiting an answer')
   await expect(zoneItem(page, downtimeQuestion)).toHaveCount(1)
   await expect(zoneItem(page, formatQuestion)).toHaveCount(1)
-  await expect(fact(page, 'Агенты')).toHaveText('2')
+  await expect(fact(page, 'Agents')).toHaveText('2')
   await expect(
-    stepsOf(page, 'Основной агент')
-      .getByRole('list', { name: 'Шаги группы «Проверки»', exact: true })
+    stepsOf(page, 'Main agent')
+      .getByRole('list', { name: 'Steps of group "Checks"', exact: true })
       .getByRole('listitem')
       .filter({ hasText: first.command }),
-  ).toContainText('успешно')
-  await expect(mark(page)).toContainText(`версия карты ${String(kept.view.mark?.version)}`)
+  ).toContainText('succeeded')
+  await expect(mark(page)).toContainText(`map version ${String(kept.view.mark?.version)}`)
 
   const files = [transcripts.main, transcripts.subagent, transcripts.fork]
   const written = await Promise.all(files.map(fileLines))
@@ -343,10 +343,10 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
 
   const returned = await context.newPage()
   await returned.goto(`/?run=${run}&mode=changes`)
-  await expect(mark(returned)).toContainText(`версия карты ${String(kept.view.mark?.version)}`)
-  await expect(sinceTab(returned)).toHaveAccessibleName(/^С последнего просмотра, \d+ изменени/)
-  const asked = change(returned, 'Вопросы и запросы', downtimeQuestion)
-  await expect(asked).toContainText('открыт')
+  await expect(mark(returned)).toContainText(`map version ${String(kept.view.mark?.version)}`)
+  await expect(sinceTab(returned)).toHaveAccessibleName(/^Since last review, \d+ change/)
+  const asked = change(returned, 'Questions and requests', downtimeQuestion)
+  await expect(asked).toContainText('opened')
   await expect(asked).toHaveCount(1)
   await expect(since(returned)).not.toContainText(formatQuestion)
   await expect(zone(returned).getByRole('listitem').filter({ hasText: downtimeQuestion })).toHaveCount(1)

@@ -669,7 +669,7 @@ test('the batch size counts payload bytes, not characters', async (context) => {
   const scene = await createScene(context, { claude: [accepted, accepted], limits: { batchBytes: 5_000 } })
   const session = scene.claudeSession('session-bytes')
   await session.start()
-  await session.command(`echo ${'я'.repeat(3_000)}`)
+  await session.command(`echo ${'ω'.repeat(3_000)}`)
   const text = (fact: FactId): string =>
     JSON.stringify(scene.store.facts.get(fact)?.payload, (_key, value: unknown) => (typeof value === 'bigint' ? value.toString() : value))
   const queued = scene.store.interpretations.pending(session.run)

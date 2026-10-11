@@ -76,7 +76,7 @@ claude
 
 1. **During work (E2E 1).** Prompt: "Create notes.txt containing one line about this repository with your shell tool, then use a subagent to list the files, then ask me one question with AskUserQuestion". When a permission request appears, wait 10 s and look at the UI: the run appeared on its own, the permission request is open in the attention zone and closes after you answer, the subagent and actions are visible, the question is visible until answered.
 2. **Reconnection.** While Claude is waiting for an answer to the question, run `aang stop` in the preparation window, then `aang start`. Answer. There are no duplicate actions or questions, the question is closed.
-3. **After the iteration (E2E 4).** «Отметить просмотренным» ("Mark as viewed") in the UI. Exit the session (`/exit`) and continue it: `claude --resume`, the same session, prompt "Append a second line to notes.txt". The «С последнего просмотра» ("Since last view") tab has a new version of `notes.txt` and a new action, and the cards lead to the transcript.
+3. **After the iteration (E2E 4).** "Mark as viewed" in the UI. Exit the session (`/exit`) and continue it: `claude --resume`, the same session, prompt "Append a second line to notes.txt". The "Since last review" tab has a new version of `notes.txt` and a new action, and the cards lead to the transcript.
 4. **Compaction.** `/compact`. The session continues in the UI without a gap.
 
 For each item, write down the outcome, the surface label (`Claude Code CLI`), the session support mode, the version status in the status bar, and screenshots.

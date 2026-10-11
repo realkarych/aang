@@ -42,18 +42,18 @@ AGENTS.md sets the testing rules: unit tests only by exception, 100% of business
 | 1 | Live observation with a subagent and parallel agents: map, inspector, evidence down to the source event | both; CLI, Desktop, SDK variants | RFC §2, §5, §9 |
 | 2 | An approval request appears in the attention zone within ≤ 1 s while the LLM is unavailable | both | RFC §8 |
 | 3 | "All done" with a failed check: a conflict on the stage, the attention item remains. A successful contract rerun where the check reports the verified commit gives `confirmed`; a subsequent edit under the mask gives `stale`. A contract rerun without a reported commit gives `passed_unversioned`, including with a clean tree before and after the check and when the input changes and is reverted between snapshots | Claude | RFC §2, §6 |
-| 4 | Marking as viewed, the run continues, the «С последнего просмотра» ("Since last view") mode with a replaced stage, a new result and a question; final text cards lead to the original | both; CLI, Desktop, SDK variants | RFC §2, §5 |
-| 5 | Chat: an answer with references and the map version; «сверни ревьюеров» ("collapse the reviewers"); undoing the rule; questions are visible | both | RFC §5 |
+| 4 | Marking as viewed, the run continues, the "Since last review" mode with a replaced stage, a new result and a question; final text cards lead to the original | both; CLI, Desktop, SDK variants | RFC §2, §5 |
+| 5 | Chat: an answer with references and the map version; "collapse the reviewers"; undoing the rule; questions are visible | both | RFC §5 |
 | 6 | SIGKILL of the daemon in the middle of playback and a restart: no duplicates, cursors, the mark and the rules are restored, hook events from the spool are not lost | Claude | RFC §8 |
 | 7 | LLM failure: facts keep flowing, the model age grows, the state is visible; recovery and catch-up mode | Codex | RFC §8 |
 | 8 | Hooks with `PermissionRequest`, a decision via OTel (`source: User`), a subagent, a fork as a new run with a link | Codex | RFC §4, §6 |
-| 9 | A session without hook events: «hooks не активны» ("hooks inactive"), «только файлы» ("files only") mode | both | ADR-0004 |
-| 10 | Distinguishing «ждёт человека» ("waiting for a human"), «нет новых событий» ("no new events"), «источник потерян» ("source lost") | Claude | RFC §6, §8 |
+| 9 | A session without hook events: "hooks inactive", "files only" mode | both | ADR-0004 |
+| 10 | Distinguishing "waiting for a human", "no new events", "source lost" | Claude | RFC §6, §8 |
 | 11 | Claude fork: shared origin, no double usage; a usage panel with three journals | Claude | RFC §8 |
 | 12 | Claude compaction: a false `SubagentStop` does not turn into an agent | Claude | ADR-0006 |
 | 13 | Access without a token is rejected; a one-time link works | — | ADR-0003 |
 | 14 | A new model version does not reset the selected stage; when a stage is replaced, the selection moves to its successor | Claude | RFC §5 |
-| 15 | A session ended with an unanswered question and a review request: on return both are in the attention zone, the stage is not in `waiting`; a new off-topic prompt does not close them; an answer to an asynchronous Codex question gives the «вероятно отвечен» ("probably answered") mark, while the item stays open; dismissal by the user removes the item with a history entry | both | RFC §2, §5 |
+| 15 | A session ended with an unanswered question and a review request: on return both are in the attention zone, the stage is not in `waiting`; a new off-topic prompt does not close them; an answer to an asynchronous Codex question gives the "likely answered" mark, while the item stays open; dismissal by the user removes the item with a history entry | both | RFC §2, §5 |
 | 16 | Marking as viewed → LLM failure → a new artifact version and a question by a rule → return: both are visible in the changes mode; after a restart and observer recovery they are not announced again | Claude | RFC §5, §8 |
 | 17 | A report created via Bash becomes evidence; the source file is changed and deleted, the daemon is restarted; the inspector opens the saved version | Claude | RFC §6, §7 |
 | 18 | A chat question about an old piece of evidence that is not in the first input: an answer via `needs` with a reference to that evidence and the same map version | both | RFC §5 |

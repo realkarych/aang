@@ -39,70 +39,70 @@ export const runtimeLabel: Readonly<Record<Runtime, string>> = {
 }
 
 const waitingLabel: Readonly<Record<Extract<Execution, { state: 'waiting' }>['reason'], string>> = {
-  human: 'ждёт человека',
-  background: 'ждёт фоновую задачу',
-  idle: 'ждёт ввода',
-  unknown: 'ожидает',
+  human: 'waiting for a human',
+  background: 'waiting for a background task',
+  idle: 'waiting for input',
+  unknown: 'waiting',
 }
 
 const executionLabels: Readonly<Record<Exclude<Execution['state'], 'waiting'>, string>> = {
-  planned: 'запланирован',
-  running: 'выполняется',
-  done: 'завершён',
-  failed: 'ошибка',
-  cancelled: 'отменён',
-  unknown: 'неизвестно',
+  planned: 'planned',
+  running: 'running',
+  done: 'done',
+  failed: 'error',
+  cancelled: 'cancelled',
+  unknown: 'unknown',
 }
 
 export const executionLabel = (execution: Execution): string =>
   execution.state === 'waiting' ? waitingLabel[execution.reason] : executionLabels[execution.state]
 
 export const freshnessLabel: Readonly<Record<Freshness, string>> = {
-  ok: 'события идут',
-  quiet: 'нет новых событий',
-  lost: 'источник потерян',
-  hooks_inactive: 'hooks не активны',
+  ok: 'events flowing',
+  quiet: 'no new events',
+  lost: 'source lost',
+  hooks_inactive: 'hooks inactive',
 }
 
 export const supportModeLabel: Readonly<Record<SupportMode, string>> = {
-  full: 'полный',
-  files_only: 'только файлы',
-  hooks_only: 'только hooks',
+  full: 'full',
+  files_only: 'files only',
+  hooks_only: 'hooks only',
 }
 
 export const hookInstallationLabel: Readonly<Record<HookInstallation, string>> = {
-  not_installed: 'не установлены',
-  untrusted: 'не доверены',
-  disabled: 'выключены',
-  active: 'установлены',
-  unknown: 'установка не проверена',
+  not_installed: 'not installed',
+  untrusted: 'not trusted',
+  disabled: 'disabled',
+  active: 'installed',
+  unknown: 'installation not checked',
 }
 
 export const gapLabel: Readonly<Record<GapKind, string>> = {
-  source_lost: 'источник потерян',
-  unknown_records: 'нераспознанные записи',
-  unknown_stream_layout: 'неизвестная раскладка потока',
-  hooks_inactive: 'hooks не активны',
-  spool_expired: 'файлы spool отброшены по сроку',
-  spool_over_threshold: 'spool превысил порог',
-  read_failed: 'ошибка чтения',
-  stream_changed_after_prune: 'поток изменён после удаления',
-  not_interpreted: 'факты не интерпретированы',
-  summarized_backlog: 'очередь сведена в сводку',
-  cross_vendor_excluded: 'не передано наблюдателю другого вендора',
+  source_lost: 'source lost',
+  unknown_records: 'unrecognized records',
+  unknown_stream_layout: 'unknown stream layout',
+  hooks_inactive: 'hooks inactive',
+  spool_expired: 'spool files expired',
+  spool_over_threshold: 'spool over threshold',
+  read_failed: 'read error',
+  stream_changed_after_prune: 'stream changed after pruning',
+  not_interpreted: 'facts not interpreted',
+  summarized_backlog: 'backlog summarized',
+  cross_vendor_excluded: 'not sent to another vendor’s observer',
 }
 
 export const notObservableLabel: Readonly<Record<NotObservableSurface, string>> = {
   claude_cowork: 'Claude Cowork',
-  claude_cloud: 'облачный Claude Code',
-  codex_cloud: 'облачный Codex',
-  work_cloud: 'облачные задачи',
+  claude_cloud: 'Claude Code cloud',
+  codex_cloud: 'Codex cloud',
+  work_cloud: 'cloud tasks',
 }
 
 export const supportStatusLabel: Readonly<Record<SupportStatus, string>> = {
-  full: 'поддерживается',
-  limited: 'с ограничениями',
-  unverified: 'не проверена',
+  full: 'supported',
+  limited: 'limited',
+  unverified: 'unverified',
 }
 
 export const surfaceLabel: Readonly<Record<Surface, string>> = {
@@ -117,259 +117,259 @@ export const surfaceLabel: Readonly<Record<Surface, string>> = {
 
 export const supportKeyLabel = ({ runtime, surface, engine_version: version, os, placement }: VersionKey): string =>
   surface === null
-    ? `${runtimeLabel[runtime]} ${version} (поверхность не определена), ${os}, ${placement}`
+    ? `${runtimeLabel[runtime]} ${version} (surface unknown), ${os}, ${placement}`
     : `${surfaceLabel[surface]} ${version}, ${os}, ${placement}`
 
 const unavailableReason: Readonly<Record<Extract<ObserverState, { state: 'unavailable' }>['reason'], string>> = {
-  auth: 'нет авторизации CLI',
-  auth_path_broken: 'путь авторизации нарушен',
-  limit: 'исчерпан лимит подписки',
-  transient: 'временный сбой',
-  process_stuck: 'процесс завис',
+  auth: 'CLI not authorized',
+  auth_path_broken: 'authorization path broken',
+  limit: 'subscription limit reached',
+  transient: 'transient failure',
+  process_stuck: 'process stuck',
 }
 
 const disabledReason: Readonly<Record<Extract<ObserverState, { state: 'disabled' }>['reason'], string>> = {
-  isolation: 'изоляция не подтверждена',
-  cli_missing: 'CLI не найден',
-  version_not_admitted: 'версия CLI не допущена',
-  admission_failed: 'допуск версии не пройден',
-  self_check_failed: 'самопроверка не пройдена',
-  unsafe_workdir: 'небезопасный рабочий каталог',
-  launcher_unavailable: 'запуск недоступен',
+  isolation: 'isolation not confirmed',
+  cli_missing: 'CLI not found',
+  version_not_admitted: 'CLI version not admitted',
+  admission_failed: 'version admission failed',
+  self_check_failed: 'self-check failed',
+  unsafe_workdir: 'unsafe working directory',
+  launcher_unavailable: 'launcher unavailable',
 }
 
 const lagLabel: Readonly<Record<Extract<ObserverState, { state: 'lagging' }>['reason'], string>> = {
-  budget: 'отстаёт: исчерпан бюджет',
-  backlog: 'догоняющий режим',
+  budget: 'lagging: budget exhausted',
+  backlog: 'catching up',
 }
 
 export const retryLabel: Readonly<Record<Extract<ObserverState, { state: 'unavailable' }>['reason'], string>> = {
-  auth: 'Следующая проверка авторизации CLI',
-  auth_path_broken: 'Следующая проверка авторизации CLI',
-  limit: 'Следующая проба наблюдателя',
-  transient: 'Следующая проба наблюдателя',
-  process_stuck: 'Следующая проба наблюдателя',
+  auth: 'Next CLI authorization check',
+  auth_path_broken: 'Next CLI authorization check',
+  limit: 'Next observer probe',
+  transient: 'Next observer probe',
+  process_stuck: 'Next observer probe',
 }
 
 export const observerStateLabel = (state: ObserverState): string => {
   switch (state.state) {
     case 'ok':
-      return 'работает'
+      return 'working'
     case 'lagging':
       return lagLabel[state.reason]
     case 'backoff':
-      return `повтор в ${clockTime(state.until)}, попытка ${String(state.attempt)}`
+      return `retry at ${clockTime(state.until)}, attempt ${String(state.attempt)}`
     case 'unavailable':
-      return `недоступен: ${unavailableReason[state.reason]}`
+      return `unavailable: ${unavailableReason[state.reason]}`
     case 'disabled':
-      return `отключён: ${disabledReason[state.reason]}`
+      return `disabled: ${disabledReason[state.reason]}`
   }
 }
 
 export const basisLabel: Readonly<Record<BasisKind, string>> = {
-  observed: 'наблюдаемое событие',
-  claimed: 'заявление решателя',
-  interpreted: 'интерпретация aang',
+  observed: 'observed event',
+  claimed: 'solver claim',
+  interpreted: 'aang interpretation',
 }
 
 export const interpreterLabel = (interpreter: Interpreter): string =>
-  interpreter.kind === 'rule' ? `правило ${interpreter.rule}` : `наблюдатель, вызов ${interpreter.call}`
+  interpreter.kind === 'rule' ? `rule ${interpreter.rule}` : `observer, call ${interpreter.call}`
 
 export const attentionKindLabel: Readonly<Record<AttentionKind, string>> = {
-  question: 'Вопрос',
-  permission: 'Запрос одобрения',
-  review_request: 'Запрос ревью',
-  blocker: 'Препятствие',
-  failed_check: 'Упавшая проверка',
+  question: 'Question',
+  permission: 'Approval request',
+  review_request: 'Review request',
+  blocker: 'Blocker',
+  failed_check: 'Failed check',
 }
 
 export const attentionAuthorLabel: Readonly<Record<AttentionAuthor, string>> = {
-  rule: 'по правилу aang',
-  observer: 'от наблюдателя',
+  rule: 'by aang rule',
+  observer: 'from the observer',
 }
 
 export const attentionPriorityLabel: Readonly<Record<AttentionPriority, string>> = {
-  high: 'высокий приоритет',
-  medium: 'средний приоритет',
-  low: 'низкий приоритет',
+  high: 'high priority',
+  medium: 'medium priority',
+  low: 'low priority',
 }
 
 const closedLabel: Readonly<Record<Exclude<AttentionResolution, 'open' | 'answered'>, string>> = {
-  resolved: 'решён',
-  ended_without_answer: 'ожидание прекращено без ответа',
+  resolved: 'resolved',
+  ended_without_answer: 'wait ended without an answer',
 }
 
 const answeredLabel: Readonly<Record<AttentionKind, string>> = {
-  question: 'отвечен',
-  permission: 'решение принято',
-  review_request: 'отвечен',
-  blocker: 'решён',
-  failed_check: 'проверка прошла',
+  question: 'answered',
+  permission: 'decision made',
+  review_request: 'answered',
+  blocker: 'resolved',
+  failed_check: 'check passed',
 }
 
 export const attentionOutcomeLabel = (kind: AttentionKind, resolution: Exclude<AttentionResolution, 'open'>): string =>
   resolution === 'answered' ? answeredLabel[kind] : closedLabel[resolution]
 
 export const questionKindLabel: Readonly<Record<QuestionKind, string>> = {
-  permission: 'Запрос одобрения',
-  ask_user_question: 'Вопрос',
-  exit_plan_mode: 'План на одобрение',
-  elicitation: 'Запрос данных',
-  notification: 'Запрос из уведомления',
-  agent_message: 'Вопрос агента',
+  permission: 'Approval request',
+  ask_user_question: 'Question',
+  exit_plan_mode: 'Plan for approval',
+  elicitation: 'Data request',
+  notification: 'Request from a notification',
+  agent_message: 'Agent question',
 }
 
 export const decisionLabel: Readonly<Record<HumanDecision, string>> = {
-  none: 'решения нет',
-  requested: 'ждёт решения',
-  approved: 'одобрено',
-  rejected: 'отклонено',
-  answered: 'отвечен',
-  unknown: 'решение не видно',
+  none: 'no decision',
+  requested: 'awaiting decision',
+  approved: 'approved',
+  rejected: 'rejected',
+  answered: 'answered',
+  unknown: 'decision not visible',
 }
 
 export const outcomeLabel: Readonly<Record<ActionOutcome, string>> = {
-  ok: 'успешно',
-  error: 'ошибка',
-  denied: 'отказ',
-  interrupted: 'прервано',
-  unknown: 'исход неизвестен',
+  ok: 'succeeded',
+  error: 'error',
+  denied: 'denied',
+  interrupted: 'interrupted',
+  unknown: 'outcome unknown',
 }
 
 export const planSourceLabel: Readonly<Record<PlanSource, string>> = {
-  task_tool: 'Задачи решателя',
-  task_hook: 'Задачи из hooks',
-  exit_plan_mode: 'План на одобрение',
-  thread_goal: 'Цель треда',
-  rollout_plan: 'План Codex',
+  task_tool: 'Solver tasks',
+  task_hook: 'Tasks from hooks',
+  exit_plan_mode: 'Plan for approval',
+  thread_goal: 'Thread goal',
+  rollout_plan: 'Codex plan',
 }
 
 export const planItemLabel: Readonly<Record<PlanItemStatus, string>> = {
-  pending: 'ожидает',
-  in_progress: 'в работе',
-  completed: 'выполнен',
-  cancelled: 'отменён',
-  unknown: 'статус неизвестен',
+  pending: 'waiting',
+  in_progress: 'in progress',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  unknown: 'status unknown',
 }
 
 export const launchLabel: Readonly<Record<SessionLaunch, string>> = {
-  startup: 'запуск',
-  resume: 'продолжение',
-  clear: 'после /clear',
-  fork: 'ответвление',
-  unknown: 'запуск без источника',
+  startup: 'startup',
+  resume: 'resume',
+  clear: 'after /clear',
+  fork: 'fork',
+  unknown: 'launch without a source',
 }
 
 export const agentRoleLabel: Readonly<Record<AgentRole, string>> = {
-  main: 'основной',
-  subagent: 'субагент',
+  main: 'main',
+  subagent: 'subagent',
   teammate: 'teammate',
-  service: 'служебный',
+  service: 'service',
 }
 
 export const serviceAgentLabel: Readonly<Record<ServiceAgent, string>> = {
   guardian: 'guardian',
-  compaction: 'сжатие контекста',
-  desktop_summary: 'сводки Desktop',
+  compaction: 'context compaction',
+  desktop_summary: 'Desktop summaries',
 }
 
 export const stageOriginLabel: Readonly<Record<StageOrigin, string>> = {
-  plan: 'из плана',
-  inferred: 'восстановлен aang',
+  plan: 'from the plan',
+  inferred: 'inferred by aang',
 }
 
 export const stageRevisionLabel: Readonly<Record<Exclude<StageLifecycle['state'], 'active'>, string>> = {
-  replaced: 'заменён',
-  merged: 'объединён с другими',
-  split: 'разделён',
+  replaced: 'replaced',
+  merged: 'merged with others',
+  split: 'split',
 }
 
-export const sessionForms = { one: 'сессия', few: 'сессии', many: 'сессий' } as const
-export const sessionInForms = { one: 'сессии', few: 'сессиях', many: 'сессиях' } as const
-export const agentForms = { one: 'агент', few: 'агента', many: 'агентов' } as const
-export const runForms = { one: 'прогон', few: 'прогона', many: 'прогонов' } as const
-export const runInForms = { one: 'прогоне', few: 'прогонах', many: 'прогонах' } as const
-export const factForms = { one: 'факт', few: 'факта', many: 'фактов' } as const
-export const earlyFactForms = { one: 'ранний факт', few: 'ранних факта', many: 'ранних фактов' } as const
-export const fileForms = { one: 'файл', few: 'файла', many: 'файлов' } as const
-export const recordForms = { one: 'запись', few: 'записи', many: 'записей' } as const
-export const versionForms = { one: 'версия', few: 'версии', many: 'версий' } as const
-export const stepForms = { one: 'ранний шаг', few: 'ранних шага', many: 'ранних шагов' } as const
-export const stageForms = { one: 'этап', few: 'этапа', many: 'этапов' } as const
-export const substageForms = { one: 'подэтап', few: 'подэтапа', many: 'подэтапов' } as const
-export const actionForms = { one: 'действие', few: 'действия', many: 'действий' } as const
-export const itemForms = { one: 'пункт', few: 'пункта', many: 'пунктов' } as const
+export const sessionForms = { one: 'session', other: 'sessions' } as const
+export const sessionInForms = { one: 'session', other: 'sessions' } as const
+export const agentForms = { one: 'agent', other: 'agents' } as const
+export const runForms = { one: 'run', other: 'runs' } as const
+export const runInForms = { one: 'run', other: 'runs' } as const
+export const factForms = { one: 'fact', other: 'facts' } as const
+export const earlyFactForms = { one: 'early fact', other: 'early facts' } as const
+export const fileForms = { one: 'file', other: 'files' } as const
+export const recordForms = { one: 'record', other: 'records' } as const
+export const versionForms = { one: 'version', other: 'versions' } as const
+export const stepForms = { one: 'early step', other: 'early steps' } as const
+export const stageForms = { one: 'stage', other: 'stages' } as const
+export const substageForms = { one: 'substage', other: 'substages' } as const
+export const actionForms = { one: 'action', other: 'actions' } as const
+export const itemForms = { one: 'item', other: 'items' } as const
 
 export const sessionsIn = (count: number): string => plural(count, sessionInForms)
 
 export const factKindLabel: Readonly<Record<FactKind, string>> = {
-  session_start: 'начало сессии',
-  session_end: 'конец сессии',
-  turn_start: 'начало хода',
-  turn_settings: 'настройки хода',
-  turn_end: 'конец хода',
-  prompt: 'промпт',
-  message: 'сообщение',
-  agent_start: 'запуск агента',
-  agent_end: 'завершение агента',
-  action_start: 'начало действия',
-  action_end: 'итог действия',
-  tool_batch_end: 'итог группы вызовов',
-  permission_request: 'запрос одобрения',
-  permission_denied: 'отказ в одобрении',
-  permission_decision: 'решение по одобрению',
-  notification: 'уведомление',
-  question_asked: 'вопрос',
-  question_answered: 'ответ на вопрос',
-  plan_update: 'план',
-  compaction: 'сжатие контекста',
-  usage: 'расход токенов',
-  usage_total: 'итог расхода',
-  cost_state: 'состояние стоимости',
-  instructions_loaded: 'загрузка инструкций',
-  hook_run: 'hook решателя',
-  definition_listing: 'перечень определений',
-  agent_prompt: 'системный промпт агента',
-  queue_operation: 'очередь промптов',
-  runtime_error: 'ошибка рантайма',
-  runtime_event: 'событие рантайма',
-  json_snapshot: 'снимок файла',
-  git_snapshot: 'снимок git',
-  context: 'контекст',
-  source_lost: 'потеря источника',
-  process_exited: 'процесс завершился',
+  session_start: 'session start',
+  session_end: 'session end',
+  turn_start: 'turn start',
+  turn_settings: 'turn settings',
+  turn_end: 'turn end',
+  prompt: 'prompt',
+  message: 'message',
+  agent_start: 'agent start',
+  agent_end: 'agent end',
+  action_start: 'action start',
+  action_end: 'action result',
+  tool_batch_end: 'tool batch result',
+  permission_request: 'approval request',
+  permission_denied: 'approval denied',
+  permission_decision: 'approval decision',
+  notification: 'notification',
+  question_asked: 'question',
+  question_answered: 'answer to a question',
+  plan_update: 'plan',
+  compaction: 'context compaction',
+  usage: 'token usage',
+  usage_total: 'usage total',
+  cost_state: 'cost state',
+  instructions_loaded: 'instructions loaded',
+  hook_run: 'solver hook',
+  definition_listing: 'definition listing',
+  agent_prompt: 'agent system prompt',
+  queue_operation: 'prompt queue',
+  runtime_error: 'runtime error',
+  runtime_event: 'runtime event',
+  json_snapshot: 'file snapshot',
+  git_snapshot: 'git snapshot',
+  context: 'context',
+  source_lost: 'source lost',
+  process_exited: 'process exited',
 }
 
 export const speakerLabel: Readonly<Record<Speaker, string>> = {
-  human: 'человек',
-  solver: 'решатель',
-  tool: 'инструмент',
-  runtime: 'рантайм',
+  human: 'human',
+  solver: 'solver',
+  tool: 'tool',
+  runtime: 'runtime',
 }
 
 export const criterionStatusLabel: Readonly<Record<CriterionStatus, string>> = {
-  not_checked: 'не проверен',
-  confirmed: 'подтверждён',
-  passed_unversioned: 'пройден без версии',
-  partial: 'подтверждён частично',
-  failed: 'не выполнен',
-  stale: 'устарел',
-  reported_done: 'выполнен по словам решателя',
+  not_checked: 'not checked',
+  confirmed: 'confirmed',
+  passed_unversioned: 'passed without a version',
+  partial: 'partially confirmed',
+  failed: 'failed',
+  stale: 'stale',
+  reported_done: 'done according to the solver',
 }
 
 export const resolutionLabel: Readonly<Record<AttentionResolution, string>> = {
-  open: 'открыт',
-  answered: 'получен ответ',
-  resolved: 'решён',
-  ended_without_answer: 'ожидание прекращено без ответа',
+  open: 'open',
+  answered: 'answered',
+  resolved: 'resolved',
+  ended_without_answer: 'wait ended without an answer',
 }
 
 export const retentionLabel: Readonly<Record<VersionRetention['kind'], string>> = {
-  action_payload: 'версия сохранена из действия',
-  file_read: 'версия сохранена при чтении файла',
-  commit: 'версия в коммите',
-  hash_only: 'сохранён только хэш содержимого',
-  reference: 'только ссылка',
+  action_payload: 'version saved from an action',
+  file_read: 'version saved on file read',
+  commit: 'version in a commit',
+  hash_only: 'only the content hash is saved',
+  reference: 'reference only',
 }
 
-export const changeForms = { one: 'изменение', few: 'изменения', many: 'изменений' } as const
+export const changeForms = { one: 'change', other: 'changes' } as const

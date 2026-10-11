@@ -43,7 +43,7 @@ export const readState = async (layout: ChecklistLayout): Promise<ChecklistState
   try {
     text = await readFile(layout.state, 'utf8')
   } catch {
-    throw new Error(`${layout.state} не найден: каталог не подготовлен командой prepare или уже очищен`)
+    throw new Error(`${layout.state} not found: the directory was not prepared by prepare or was already cleaned up`)
   }
   return ChecklistState.parse(JSON.parse(text))
 }

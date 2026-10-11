@@ -81,7 +81,7 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
             type="button"
             className="stage-toggle nodrag nopan"
             aria-expanded={open}
-            aria-label={`${open ? 'Свернуть' : 'Развернуть'} «${title}»`}
+            aria-label={`${open ? 'Collapse' : 'Expand'} "${title}"`}
             onClick={(event) => {
               event.stopPropagation()
               onToggle(stage.id, !open)
@@ -98,20 +98,20 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
       </header>
       <ul className="stage-axes">
         <li>
-          <span className="visually-hidden">Выполнение: </span>
+          <span className="visually-hidden">Execution: </span>
           <ExecutionBadge execution={stage.execution.value} />
         </li>
         <li>
-          <span className="visually-hidden">Основание: </span>
+          <span className="visually-hidden">Basis: </span>
           <BasisBadge basis={stage.execution.basis} />
         </li>
         <li>
-          <span className="visually-hidden">Решение человека: </span>
+          <span className="visually-hidden">Human decision: </span>
           <DecisionBadge decision={stage.decision.value} />
         </li>
       </ul>
       <p className="stage-meta">
-        {view.detail === null ? null : <span>{`детализация: ${detailLevelLabel[view.detail]}`}</span>}
+        {view.detail === null ? null : <span>{`detail: ${detailLevelLabel[view.detail]}`}</span>}
         {view.folded === null ? (
           <>
             <span>{stageOriginLabel[stage.origin]}</span>
@@ -119,13 +119,13 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
             {actions === 0 || view.level !== 'all_actions' ? null : <span>{plural(actions, actionForms)}</span>}
             {agents.length === 0 || view.level === 'stages' ? null : (
               <span className="stage-team" title={team}>
-                {`${agents.length === 1 ? 'агент' : 'агенты'}: ${team}`}
+                {`${agents.length === 1 ? 'agent' : 'agents'}: ${team}`}
               </span>
             )}
           </>
         ) : (
           <span className="stage-folded" title={totalsText(view.folded)}>
-            {`свёрнут правилом вида: ${totalsText(view.folded)}`}
+            {`collapsed by a view rule: ${totalsText(view.folded)}`}
           </span>
         )}
       </p>
@@ -144,7 +144,7 @@ export const StageNode = ({ data }: NodeProps<StageFlowNode>): ReactElement => (
 export const GroupNode = ({ data }: NodeProps<GroupFlowNode>): ReactElement => (
   <div className="map-group">
     <p className="map-group-name" title={data.name}>
-      {`Группа «${data.name}» · ${plural(data.members, stageForms)}`}
+      {`Group "${data.name}" · ${plural(data.members, stageForms)}`}
     </p>
   </div>
 )

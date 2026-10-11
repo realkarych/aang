@@ -1,151 +1,151 @@
-# Замер свежести: claude-workload-low-parallel
+# Freshness measurement: claude-workload-low-parallel
 
-- Профиль нагрузки зафиксирован 2026-10-08T18:10:22.380Z, замер начат 2026-10-08T18:29:28.770Z и длился 3782,2 с.
-- Окно замера 120,0 с, масштаб времени записей 1.
-- Демон 0.0.0.
+- Workload profile fixed at 2026-10-08T18:10:22.380Z; the measurement started at 2026-10-08T18:29:28.770Z and lasted 3782.2 s.
+- Measurement window 120.0 s, recording time scale 1.
+- Daemon 0.0.0.
 
-## Записи
+## Recordings
 
-| Запись | Рантайм | Старт, с |
+| Recording | Runtime | Start, s |
 | --- | --- | --- |
-| claude/2.1.292/claude_cli/macos/workload-ledger | claude | 0,0 |
-| claude/2.1.292/claude_cli/macos/workload-logstats | claude | 300,0 |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | claude | 1407,9 |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | claude | 1618,2 |
+| claude/2.1.292/claude_cli/macos/workload-ledger | claude | 0.0 |
+| claude/2.1.292/claude_cli/macos/workload-logstats | claude | 300.0 |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | claude | 1407.9 |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | claude | 1618.2 |
 
-## Итог по backend
+## Backend summary
 
-Нарушение — ожидание не выполнено в окне замера. p95 считается по оценённым событиям, невыполненные события стоят в нём за окном. Выполненные до события и не соответствующие записи события — дефекты разметки, в p95 они не входят. Полная задержка идёт от времени самого события; в скобках — число событий с известным временем. Доля дозапросов — доля времени `needs` в задержке выполненных событий; в скобках — число событий с дозапросом.
+A violation is an expectation not met within the measurement window. p95 is computed over assessed events, with missed events counted as beyond the window. Events met before the event or not matching the recording are annotation defects and are excluded from p95. Full latency runs from the time of the event itself; the number in parentheses is the count of events with a known time. Follow-up share is the share of `needs` time in the latency of met events; the number in parentheses is the count of events with a follow-up.
 
-| Backend | CLI | Модель | Effort | Ориентир p95 | p95 | Ориентир выполнен | В пределах ориентира | Выполнено | Нарушения | Без оценки | Выполнено до события | Не соответствует записи | Полная задержка p95 | Доля дозапросов |
+| Backend | CLI | Model | Effort | Target p95 | p95 | Target met | Within target | Met | Violations | Unassessed | Met before the event | Does not match the recording | Full latency p95 | Follow-up share |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | 2.1.293 | claude-opus-5-5 | low | 30,0 с | 34,9 с | нет | 90 % | 67 из 67 | 0 | 0 | 11 | 11 | — | 2 % (1) |
+| claude | 2.1.293 | claude-opus-5-5 | low | 30.0 s | 34.9 s | no | 90% | 67 of 67 | 0 | 0 | 11 | 11 | — | 2% (1) |
 
-## Контрольные события
+## Control events
 
-| Запись | Событие | Способ | Итог | Задержка, с | Полная, с | Дозапросы, с | Версия | Автор |
+| Recording | Event | Method | Outcome | Latency, s | Full, s | Follow-ups, s | Version | Author |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude/2.1.292/claude_cli/macos/workload-ledger | plan-written | предикат | выполнено | 36,1 | — | 0,0 | 5 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | plan-ready | разметчик | выполнено | 29,6 | — | 0,0 | 5 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | parse-tested | предикат | выполнено | 34,9 | — | 0,0 | 10 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | parse-done | предикат | выполнено | 27,6 | — | 0,0 | 10 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | balances-tested | предикат | выполнено | 32,1 | — | 0,0 | 12 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | balances-done | предикат | выполнено | 25,8 | — | 0,0 | 12 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | rounding-answered | разметчик | выполнено | 11,7 | — | 0,0 | 22 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | conversion-tested | предикат | выполнено до события, разметка некорректна | — | — | — | 24 | — |
-| claude/2.1.292/claude_cli/macos/workload-ledger | conversion-done | предикат | выполнено до события, разметка некорректна | — | — | — | 25 | — |
-| claude/2.1.292/claude_cli/macos/workload-ledger | review-reported | разметчик | выполнено | 12,3 | — | 0,0 | 46 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | review-fixed | разметчик | выполнено | 10,5 | — | 0,0 | 61 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | cli-tested | предикат | выполнено | 14,7 | — | 0,0 | 77 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | cli-done | предикат | выполнено | 14,0 | — | 0,0 | 78 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | export-tested | предикат | выполнено до события, разметка некорректна | — | — | — | 94 | — |
-| claude/2.1.292/claude_cli/macos/workload-ledger | export-done | предикат | выполнено до события, разметка некорректна | — | — | — | 98 | — |
-| claude/2.1.292/claude_cli/macos/workload-ledger | cents-done | предикат | выполнено | 17,7 | — | 0,0 | 122 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | parallel-reported | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.292/claude_cli/macos/workload-ledger | parallel-done | разметчик | выполнено | 2,9 | — | 0,0 | 146 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | committed | разметчик | выполнено | 22,4 | — | 0,0 | 165 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | commit-done | разметчик | выполнено | 18,8 | — | 0,0 | 165 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-ledger | final-tested | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.292/claude_cli/macos/workload-ledger | final-done | разметчик | выполнено | 13,3 | — | 0,0 | 174 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | triage-tested | предикат | выполнено | 9,7 | — | 0,0 | 3 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | triage-done | предикат | выполнено | 6,1 | — | 0,0 | 3 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | plan-written | предикат | выполнено | 22,7 | — | 17,9 | 6 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | plan-ready | разметчик | выполнено | 16,4 | — | 0,0 | 7 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | aggregate-tested | предикат | выполнено | 20,1 | — | 0,0 | 14 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | aggregate-done | предикат | выполнено | 11,8 | — | 0,0 | 14 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | big-log | разметчик | выполнено | 16,8 | — | 0,0 | 22 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | generator-done | предикат | выполнено | 4,8 | — | 0,0 | 22 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | cli-tested | предикат | выполнено | 28,5 | — | 0,0 | 32 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | cli-done | предикат | выполнено | 21,3 | — | 0,0 | 32 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | format-answered | разметчик | выполнено | 11,4 | — | 0,0 | 43 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | report-tested | предикат | выполнено | 18,1 | — | 0,0 | 47 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | report-done | предикат | выполнено | 7,3 | — | 0,0 | 47 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | review-reported | разметчик | выполнено | 6,0 | — | 0,0 | 84 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | review-fixed | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.292/claude_cli/macos/workload-logstats | streaming-tested | предикат | выполнено | 34,8 | — | 0,0 | 124 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | streaming-done | предикат | выполнено | 17,1 | — | 0,0 | 124 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | docs-reported | разметчик | выполнено | 4,2 | — | 0,0 | 145 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | docs-done | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.292/claude_cli/macos/workload-logstats | committed | разметчик | выполнено | 9,4 | — | 0,0 | 166 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | commit-done | разметчик | выполнено | 4,2 | — | 0,0 | 166 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | final-tested | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.292/claude_cli/macos/workload-logstats | final-done | разметчик | выполнено | 17,2 | — | 0,0 | 171 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | plan-written | предикат | выполнено | 33,4 | — | 0,0 | 5 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | plan-ready | разметчик | выполнено | 26,8 | — | 0,0 | 5 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | log-tested | предикат | выполнено | 13,7 | — | 0,0 | 9 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | log-done | предикат | выполнено | 7,8 | — | 0,0 | 9 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | crash-tested | предикат | выполнено до события, разметка некорректна | — | — | — | 11 | — |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | crash-done | предикат | выполнено | 11,4 | — | 0,0 | 13 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | durability-answered | разметчик | выполнено | 12,4 | — | 0,0 | 22 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | compaction-tested | предикат | выполнено | 13,0 | — | 0,0 | 26 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | compaction-done | предикат | выполнено | 6,3 | — | 0,0 | 26 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | batch-tested | предикат | выполнено | 13,4 | — | 0,0 | 31 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | batch-done | предикат | выполнено | 7,9 | — | 0,0 | 31 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | review-reported | разметчик | выполнено | 11,5 | — | 0,0 | 57 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | review-fixed | разметчик | выполнено | 26,3 | — | 0,0 | 83 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | cli-tested | предикат | выполнено | 13,1 | — | 0,0 | 94 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | cli-done | предикат | выполнено | 0,5 | — | 0,0 | 94 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | ttl-planned | предикат | выполнено до события, разметка некорректна | — | — | — | 101 | — |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | ttl-done | предикат | выполнено до события, разметка некорректна | — | — | — | 117 | — |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | parallel-reported | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | parallel-done | разметчик | выполнено до события, разметка некорректна | — | — | — | — | — |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | committed | разметчик | выполнено | 12,7 | — | 0,0 | 217 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | commit-done | разметчик | выполнено | 6,8 | — | 0,0 | 217 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | final-tested | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.292/claude_cli/macos/workload-kvstore | final-done | разметчик | выполнено | 11,9 | — | 0,0 | 229 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | explore-done | разметчик | выполнено | 12,7 | — | 0,0 | 4 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | plan-written | предикат | выполнено | 57,6 | — | 0,0 | 8 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | plan-ready | разметчик | выполнено | 52,1 | — | 0,0 | 9 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | extract-tested | предикат | выполнено | 17,3 | — | 0,0 | 14 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | extract-done | предикат | выполнено | 5,6 | — | 0,0 | 14 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | check-tested | предикат | выполнено до события, разметка некорректна | — | — | — | 27 | — |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | check-done | предикат | выполнено | 10,1 | — | 0,0 | 32 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | slugs-answered | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | report-tested | предикат | выполнено до события, разметка некорректна | — | — | — | 47 | — |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | report-done | предикат | выполнено до события, разметка некорректна | — | — | — | 52 | — |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | review-reported | разметчик | выполнено | 10,2 | — | 0,0 | 91 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | review-fixed | разметчик | выполнено | 9,3 | — | 0,0 | 106 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | fix-tested | предикат | выполнено | 23,6 | — | 0,0 | 147 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | fix-done | предикат | выполнено | 5,7 | — | 0,0 | 147 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | json-done | предикат | выполнено | 14,8 | — | 0,0 | 173 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | docs-reported | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | docs-done | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | committed | разметчик | выполнено | 20,4 | — | 0,0 | 231 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | commit-done | разметчик | выполнено | 16,6 | — | 0,0 | 231 | наблюдатель |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | final-tested | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
-| claude/2.1.293/claude_cli/macos/workload-mdlinks | final-done | разметчик | выполнено | 7,6 | — | 0,0 | 240 | наблюдатель |
+| claude/2.1.292/claude_cli/macos/workload-ledger | plan-written | predicate | met | 36.1 | — | 0.0 | 5 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | plan-ready | annotator | met | 29.6 | — | 0.0 | 5 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | parse-tested | predicate | met | 34.9 | — | 0.0 | 10 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | parse-done | predicate | met | 27.6 | — | 0.0 | 10 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | balances-tested | predicate | met | 32.1 | — | 0.0 | 12 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | balances-done | predicate | met | 25.8 | — | 0.0 | 12 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | rounding-answered | annotator | met | 11.7 | — | 0.0 | 22 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | conversion-tested | predicate | met before the event, annotation invalid | — | — | — | 24 | — |
+| claude/2.1.292/claude_cli/macos/workload-ledger | conversion-done | predicate | met before the event, annotation invalid | — | — | — | 25 | — |
+| claude/2.1.292/claude_cli/macos/workload-ledger | review-reported | annotator | met | 12.3 | — | 0.0 | 46 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | review-fixed | annotator | met | 10.5 | — | 0.0 | 61 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | cli-tested | predicate | met | 14.7 | — | 0.0 | 77 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | cli-done | predicate | met | 14.0 | — | 0.0 | 78 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | export-tested | predicate | met before the event, annotation invalid | — | — | — | 94 | — |
+| claude/2.1.292/claude_cli/macos/workload-ledger | export-done | predicate | met before the event, annotation invalid | — | — | — | 98 | — |
+| claude/2.1.292/claude_cli/macos/workload-ledger | cents-done | predicate | met | 17.7 | — | 0.0 | 122 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | parallel-reported | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.292/claude_cli/macos/workload-ledger | parallel-done | annotator | met | 2.9 | — | 0.0 | 146 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | committed | annotator | met | 22.4 | — | 0.0 | 165 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | commit-done | annotator | met | 18.8 | — | 0.0 | 165 | observer |
+| claude/2.1.292/claude_cli/macos/workload-ledger | final-tested | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.292/claude_cli/macos/workload-ledger | final-done | annotator | met | 13.3 | — | 0.0 | 174 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | triage-tested | predicate | met | 9.7 | — | 0.0 | 3 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | triage-done | predicate | met | 6.1 | — | 0.0 | 3 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | plan-written | predicate | met | 22.7 | — | 17.9 | 6 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | plan-ready | annotator | met | 16.4 | — | 0.0 | 7 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | aggregate-tested | predicate | met | 20.1 | — | 0.0 | 14 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | aggregate-done | predicate | met | 11.8 | — | 0.0 | 14 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | big-log | annotator | met | 16.8 | — | 0.0 | 22 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | generator-done | predicate | met | 4.8 | — | 0.0 | 22 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | cli-tested | predicate | met | 28.5 | — | 0.0 | 32 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | cli-done | predicate | met | 21.3 | — | 0.0 | 32 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | format-answered | annotator | met | 11.4 | — | 0.0 | 43 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | report-tested | predicate | met | 18.1 | — | 0.0 | 47 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | report-done | predicate | met | 7.3 | — | 0.0 | 47 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | review-reported | annotator | met | 6.0 | — | 0.0 | 84 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | review-fixed | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.292/claude_cli/macos/workload-logstats | streaming-tested | predicate | met | 34.8 | — | 0.0 | 124 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | streaming-done | predicate | met | 17.1 | — | 0.0 | 124 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | docs-reported | annotator | met | 4.2 | — | 0.0 | 145 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | docs-done | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.292/claude_cli/macos/workload-logstats | committed | annotator | met | 9.4 | — | 0.0 | 166 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | commit-done | annotator | met | 4.2 | — | 0.0 | 166 | observer |
+| claude/2.1.292/claude_cli/macos/workload-logstats | final-tested | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.292/claude_cli/macos/workload-logstats | final-done | annotator | met | 17.2 | — | 0.0 | 171 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | plan-written | predicate | met | 33.4 | — | 0.0 | 5 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | plan-ready | annotator | met | 26.8 | — | 0.0 | 5 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | log-tested | predicate | met | 13.7 | — | 0.0 | 9 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | log-done | predicate | met | 7.8 | — | 0.0 | 9 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | crash-tested | predicate | met before the event, annotation invalid | — | — | — | 11 | — |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | crash-done | predicate | met | 11.4 | — | 0.0 | 13 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | durability-answered | annotator | met | 12.4 | — | 0.0 | 22 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | compaction-tested | predicate | met | 13.0 | — | 0.0 | 26 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | compaction-done | predicate | met | 6.3 | — | 0.0 | 26 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | batch-tested | predicate | met | 13.4 | — | 0.0 | 31 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | batch-done | predicate | met | 7.9 | — | 0.0 | 31 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | review-reported | annotator | met | 11.5 | — | 0.0 | 57 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | review-fixed | annotator | met | 26.3 | — | 0.0 | 83 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | cli-tested | predicate | met | 13.1 | — | 0.0 | 94 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | cli-done | predicate | met | 0.5 | — | 0.0 | 94 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | ttl-planned | predicate | met before the event, annotation invalid | — | — | — | 101 | — |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | ttl-done | predicate | met before the event, annotation invalid | — | — | — | 117 | — |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | parallel-reported | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | parallel-done | annotator | met before the event, annotation invalid | — | — | — | — | — |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | committed | annotator | met | 12.7 | — | 0.0 | 217 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | commit-done | annotator | met | 6.8 | — | 0.0 | 217 | observer |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | final-tested | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.292/claude_cli/macos/workload-kvstore | final-done | annotator | met | 11.9 | — | 0.0 | 229 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | explore-done | annotator | met | 12.7 | — | 0.0 | 4 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | plan-written | predicate | met | 57.6 | — | 0.0 | 8 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | plan-ready | annotator | met | 52.1 | — | 0.0 | 9 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | extract-tested | predicate | met | 17.3 | — | 0.0 | 14 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | extract-done | predicate | met | 5.6 | — | 0.0 | 14 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | check-tested | predicate | met before the event, annotation invalid | — | — | — | 27 | — |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | check-done | predicate | met | 10.1 | — | 0.0 | 32 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | slugs-answered | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | report-tested | predicate | met before the event, annotation invalid | — | — | — | 47 | — |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | report-done | predicate | met before the event, annotation invalid | — | — | — | 52 | — |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | review-reported | annotator | met | 10.2 | — | 0.0 | 91 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | review-fixed | annotator | met | 9.3 | — | 0.0 | 106 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | fix-tested | predicate | met | 23.6 | — | 0.0 | 147 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | fix-done | predicate | met | 5.7 | — | 0.0 | 147 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | json-done | predicate | met | 14.8 | — | 0.0 | 173 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | docs-reported | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | docs-done | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | committed | annotator | met | 20.4 | — | 0.0 | 231 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | commit-done | annotator | met | 16.6 | — | 0.0 | 231 | observer |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | final-tested | annotator | description does not match the recording, annotation invalid | — | — | — | — | — |
+| claude/2.1.293/claude_cli/macos/workload-mdlinks | final-done | annotator | met | 7.6 | — | 0.0 | 240 | observer |
 
-## Наблюдатель
+## Observer
 
-| Backend | Вызовы | Приняты | Отклонены | Ошибки | С дозапросом |
+| Backend | Calls | Accepted | Rejected | Failed | With follow-up |
 | --- | --- | --- | --- | --- | --- |
 | claude | 369 | 358 | 11 | 0 | 4 |
 
-| Backend | Состояние | Время, с | Доля |
+| Backend | State | Time, s | Share |
 | --- | --- | --- | --- |
-| claude | ok | 11800,6 | 100 % |
+| claude | ok | 11800.6 | 100% |
 
-## Расход
+## Spending
 
-Расход вызовов — по данным CLI в журнале вызовов демона. Час прогона — сумма длительностей проигранных прогонов backend, активный час — время, когда шёл хотя бы один его прогон. Деньги — только у Claude, по прейскуранту; при подписке это не списание.
+Call spending comes from CLI data in the daemon call journal. A run hour is the sum of the durations of the played runs of the backend; an active hour is the time when at least one of its runs was in progress. Money is shown only for Claude, at list prices; under a subscription it is not a charge.
 
-| Backend | Прогоны | Часы прогонов | Активные часы |
+| Backend | Runs | Run hours | Active hours |
 | --- | --- | --- | --- |
-| claude | 4 | 1,77 | 1,02 |
+| claude | 4 | 1.77 | 1.02 |
 
-| Backend | Журнал | Вызовы | Вход без кэша | Чтение кэша | Запись кэша | Вывод | Рассуждения | Всего токенов | Стоимость |
+| Backend | Journal | Calls | Uncached input | Cache read | Cache write | Output | Reasoning | Total tokens | Cost |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | наблюдатель | 369 | 752 | 3 530 729 | 4 426 079 | 247 552 | 7 111 | 8 205 112 | $41,53 |
-| claude | чат | 12 | 24 | 63 173 | 291 441 | 13 239 | 647 | 367 877 | $2,64 |
-| claude | пробы и auth status | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
+| claude | observer | 369 | 752 | 3,530,729 | 4,426,079 | 247,552 | 7,111 | 8,205,112 | $41.53 |
+| claude | chat | 12 | 24 | 63,173 | 291,441 | 13,239 | 647 | 367,877 | $2.64 |
+| claude | probes and auth status | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |
 
-| Backend | Журнал | Вызовов на час прогона | Токенов на час прогона | Стоимость часа прогона | Вызовов на активный час | Токенов на активный час | Стоимость активного часа |
+| Backend | Journal | Calls per run hour | Tokens per run hour | Cost per run hour | Calls per active hour | Tokens per active hour | Cost per active hour |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | наблюдатель | 208,8 | 4 642 259 | $23,50 | 362,8 | 8 067 023 | $40,83 |
-| claude | чат | 6,8 | 208 136 | $1,49 | 11,8 | 361 686 | $2,60 |
+| claude | observer | 208.8 | 4,642,259 | $23.50 | 362.8 | 8,067,023 | $40.83 |
+| claude | chat | 6.8 | 208,136 | $1.49 | 11.8 | 361,686 | $2.60 |
 
-| Backend | Вопросы | Ответы | Ошибки | Не заданы | Недостаточно данных | p50 ответа, с | p95 ответа, с | Токенов на ответ | Стоимость ответа |
+| Backend | Questions | Answers | Failed | Not asked | Insufficient data | Answer p50, s | Answer p95, s | Tokens per answer | Cost per answer |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | 12 | 12 | 0 | 0 | 0 | 12,6 | 19,4 | 30 656 | $0,22 |
+| claude | 12 | 12 | 0 | 0 | 0 | 12.6 | 19.4 | 30,656 | $0.22 |
 
-По учёту расхода демона (U.1) активных часов — 2: это календарные часы, в которых была активность решателя.
+Per the daemon spending accounting (U.1), active hours: 2; these are calendar hours with solver activity.

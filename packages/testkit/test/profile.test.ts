@@ -69,7 +69,7 @@ test('daemons started from parallel profiles keep their tokens, ports, spools an
   onTestFinished,
 }) => {
   const profiles = await Promise.all(
-    ['home', 'Имя Фамилия', 'home with spaces'].map((homeName) => profileFor(onTestFinished, { homeName })),
+    ['home', 'Όνομα Επώνυμο', 'home with spaces'].map((homeName) => profileFor(onTestFinished, { homeName })),
   )
 
   const daemons = await Promise.all(profiles.map((profile) => profile.startDaemon({ entry: daemonEntry })))

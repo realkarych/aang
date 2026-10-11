@@ -25,16 +25,16 @@ const observed = { timeout: 30_000 }
 
 test.use({ config: { watch: { all: true } } })
 
-const map = (page: Page): Locator => page.getByRole('region', { name: 'Карта этапов' })
+const map = (page: Page): Locator => page.getByRole('region', { name: 'Stage map' })
 
 const stage = (page: Page, title: string | RegExp): Locator =>
-  map(page).getByRole('group', { name: typeof title === 'string' ? `Этап «${title}»` : title })
+  map(page).getByRole('group', { name: typeof title === 'string' ? `Stage "${title}"` : title })
 
-const pingerTitle = /^Этап «pinger \(.+\)»$/
+const pingerTitle = /^Stage "pinger \(.+\)"$/
 
 const edge = (page: Page, name: RegExp): Locator => map(page).getByRole('img', { name })
 
-const edges = (page: Page): Locator => edge(page, /использует результат|начат после завершения/)
+const edges = (page: Page): Locator => edge(page, /uses the output|started after /)
 
 const laidOut = async (page: Page): Promise<void> => {
   await expect(map(page).getByRole('application')).toHaveAttribute('aria-busy', 'false')
@@ -80,7 +80,7 @@ const near = (actual: { x: number; y: number }, expected: { x: number; y: number
 const versionShown = async (page: Page): Promise<number> =>
   Number(
     await page
-      .locator('.facts > div', { has: page.getByRole('term').filter({ hasText: 'Версия карты' }) })
+      .locator('.facts > div', { has: page.getByRole('term').filter({ hasText: 'Map version' }) })
       .getByRole('definition')
       .textContent(),
   )
@@ -114,7 +114,7 @@ const stacked = async (page: Page, titles: ReadonlyArray<string | RegExp>): Prom
     const placed = wanted.map((title) => {
       const node = nodes.find((candidate) => {
         const label = candidate.getAttribute('aria-label') ?? ''
-        return typeof title === 'string' ? label === `Этап «${title}»` : title.test(label)
+        return typeof title === 'string' ? label === `Stage "${title}"` : title.test(label)
       })
       const card = node?.querySelector('.stage-card') ?? null
       return node === undefined || card === null
@@ -185,7 +185,7 @@ test('a run without stages explains that the observer builds the map', async ({ 
 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(claudeGoal)
   await expect(map(page)).toContainText(
-    'Этапы строит наблюдатель. Карта появится после его первого ответа по этому прогону.',
+    'The observer builds the stages. The map will appear after its first response for this run.',
   )
   await expect(map(page).getByRole('group')).toHaveCount(0)
 })
@@ -208,9 +208,9 @@ test.describe('with the observer building the map', () => {
 
     await expect(stage(page, preparationStageTitle)).toBeVisible(observed)
     const preparation = stage(page, preparationStageTitle)
-    await expect(preparation).toContainText('Выполнение: завершён')
-    await expect(preparation).toContainText('Основание: интерпретация aang')
-    await expect(preparation).toContainText('Решение человека: решения нет')
+    await expect(preparation).toContainText('Execution: done')
+    await expect(preparation).toContainText('Basis: aang interpretation')
+    await expect(preparation).toContainText('Human decision: no decision')
     await expect(preparation.getByRole('listitem')).toHaveCount(3)
     for (const axis of await preparation.getByRole('listitem').all()) {
       await expect(axis.locator('svg')).toHaveCount(1)
@@ -222,13 +222,13 @@ test.describe('with the observer building the map', () => {
     const pinger = stage(page, pingerTitle)
     const main = stage(page, mainStageTitle)
     await expect(pinger).toBeVisible()
-    await expect(report).toContainText('Выполнение: завершён')
-    await expect(report).toContainText('Основание: заявление решателя')
-    await expect(report).toContainText('Решение человека: ждёт решения')
-    await expect(pinger).toContainText('агент: pinger')
-    await expect(main).toContainText('3 подэтапа')
-    await expect(map(page).getByText('3 этапа', { exact: true })).toHaveCount(0)
-    await expect(map(page).getByText('4 этапа', { exact: true })).toBeVisible()
+    await expect(report).toContainText('Execution: done')
+    await expect(report).toContainText('Basis: solver claim')
+    await expect(report).toContainText('Human decision: awaiting decision')
+    await expect(pinger).toContainText('agent: pinger')
+    await expect(main).toContainText('3 substages')
+    await expect(map(page).getByText('3 stages', { exact: true })).toHaveCount(0)
+    await expect(map(page).getByText('4 stages', { exact: true })).toBeVisible()
 
     await laidOut(page)
     const outer = await box(main)
@@ -242,38 +242,38 @@ test.describe('with the observer building the map', () => {
     expect((await box(preparation)).right).toBeLessThan((await box(pinger)).x)
     expect((await box(pinger)).right).toBeLessThan((await box(report)).x)
 
-    const dependency = edge(page, /^«Report» использует результат «pinger \(.+\)», основание: /)
-    const order = edge(page, /^«pinger \(.+\)» начат после завершения «Preparation»$/)
+    const dependency = edge(page, /^"Report" uses the output of "pinger \(.+\)", basis: /)
+    const order = edge(page, /^"pinger \(.+\)" started after "Preparation" finished$/)
     await expect(dependency).toHaveCount(1)
     await expect(order).toHaveCount(1)
-    await expect(edge(page, /«Report» начат после/)).toHaveCount(0)
+    await expect(edge(page, /"Report" started after/)).toHaveCount(0)
     await expect(edges(page)).toHaveCount(2)
     const dashes = async (line: Locator): Promise<string> =>
       line.locator('path').evaluate((path) => getComputedStyle(path).strokeDasharray)
     expect(await dashes(dependency)).toBe('none')
     expect(await dashes(order)).not.toBe('none')
-    await expect(map(page).getByRole('list', { name: 'Линии карты' })).toHaveText(
-      /использует результат.*позже по времени, без связи/,
+    await expect(map(page).getByRole('list', { name: 'Map lines' })).toHaveText(
+      /uses the output.*later in time, no link/,
     )
 
     const snapshot = await snapshotOf(page, claudeRun)
     for (const title of [mainStageTitle, preparationStageTitle, reportStageTitle]) {
       await expect(map(page).locator(`[data-id="${stageTitled(snapshot, title).id}"]`)).toHaveAttribute(
         'aria-label',
-        `Этап «${title}»`,
+        `Stage "${title}"`,
       )
     }
 
-    const collapse = main.getByRole('button', { name: `Свернуть «${mainStageTitle}»` })
+    const collapse = main.getByRole('button', { name: `Collapse "${mainStageTitle}"` })
     await expect(collapse).toHaveAttribute('aria-expanded', 'true')
     await collapse.click()
-    const expand = main.getByRole('button', { name: `Развернуть «${mainStageTitle}»` })
+    const expand = main.getByRole('button', { name: `Expand "${mainStageTitle}"` })
     await expect(expand).toHaveAttribute('aria-expanded', 'false')
     for (const hidden of [preparation, pinger, report]) {
       await expect(hidden).toHaveCount(0)
     }
     await expect(edges(page)).toHaveCount(0)
-    await expect(main).toContainText('3 подэтапа')
+    await expect(main).toContainText('3 substages')
 
     await expand.click()
     await expect(report).toBeVisible()
@@ -291,9 +291,9 @@ test.describe('with the observer building the map', () => {
     }
     const fittedWidth = await width(report)
     await expect.poll(fitted).toBe(true)
-    await map(page).getByRole('button', { name: 'Приблизить' }).click()
+    await map(page).getByRole('button', { name: 'Zoom in' }).click()
     await expect.poll(async () => width(report)).toBeGreaterThan(fittedWidth)
-    await map(page).getByRole('button', { name: 'Вписать карту' }).click()
+    await map(page).getByRole('button', { name: 'Fit the map' }).click()
     await expect.poll(fitted).toBe(true)
 
     await page.setViewportSize({ width: 390, height: 844 })
@@ -323,8 +323,8 @@ test.describe('with the observer building the map', () => {
     const bash = (await snapshotOf(page, claudeRun)).objects.actions.find(({ key }) => key.call === bashCall)
     expect(bash?.started_at).not.toBeNull()
     expect(bash?.ended_at).toBe(bash?.started_at)
-    await expect(edge(page, /^«pinger \(.+\)» начат после завершения «Preparation»$/)).toHaveCount(1)
-    await expect(edge(page, /^«Report» использует результат «pinger \(.+\)», основание: /)).toHaveCount(1)
+    await expect(edge(page, /^"pinger \(.+\)" started after "Preparation" finished$/)).toHaveCount(1)
+    await expect(edge(page, /^"Report" uses the output of "pinger \(.+\)", basis: /)).toHaveCount(1)
     await expect(edges(page)).toHaveCount(2)
   })
 })
@@ -349,8 +349,8 @@ test.describe('with the observer building two branches', () => {
       await expect(stage(page, title)).toBeVisible()
     }
 
-    const across = edge(page, /^«Test» использует результат «Compile», основание: /)
-    const upward = edge(page, /^«Verify» использует результат «Test», основание: /)
+    const across = edge(page, /^"Test" uses the output of "Compile", basis: /)
+    const upward = edge(page, /^"Verify" uses the output of "Test", basis: /)
     await expect(across).toHaveCount(1)
     await expect(upward).toHaveCount(1)
     await expect(edges(page)).toHaveCount(2)
@@ -362,15 +362,15 @@ test.describe('with the observer building two branches', () => {
     const substage = await box(stage(page, check))
     expect(ownCard.right).toBeLessThan(substage.x)
 
-    await stage(page, verify).getByRole('button', { name: `Свернуть «${verify}»` }).click()
+    await stage(page, verify).getByRole('button', { name: `Collapse "${verify}"` }).click()
     await expect(stage(page, check)).toHaveCount(0)
     await expect(upward).toHaveCount(0)
     await expect(across).toHaveCount(0)
-    await expect(edge(page, /^«Verify» использует результат «Compile», основание: /)).toHaveCount(1)
+    await expect(edge(page, /^"Verify" uses the output of "Compile", basis: /)).toHaveCount(1)
     await expect(edges(page)).toHaveCount(1)
     await expect.poll(async () => crossings(page)).toEqual([])
 
-    await stage(page, verify).getByRole('button', { name: `Развернуть «${verify}»` }).click()
+    await stage(page, verify).getByRole('button', { name: `Expand "${verify}"` }).click()
     await expect(upward).toHaveCount(1)
     await expect(across).toHaveCount(1)
     await expect(edges(page)).toHaveCount(2)
@@ -401,16 +401,16 @@ test.describe('with the observer building three levels', () => {
     await expect(stage(page, release)).toBeVisible()
     await expect(stage(page, sign)).toHaveCount(0)
 
-    const toBundle = edge(page, /^«Bundle» использует результат «Release», основание: /)
-    const toSign = edge(page, /^«Sign» использует результат «Release», основание: /)
+    const toBundle = edge(page, /^"Bundle" uses the output of "Release", basis: /)
+    const toSign = edge(page, /^"Sign" uses the output of "Release", basis: /)
     await expect(toBundle).toHaveCount(1)
     await expect(edges(page)).toHaveCount(1)
 
     await laidOut(page)
     const busy = await busyMarks(page)
-    await stage(page, bundle).getByRole('button', { name: `Развернуть «${bundle}»` }).click()
+    await stage(page, bundle).getByRole('button', { name: `Expand "${bundle}"` }).click()
     await expect(stage(page, sign)).toBeVisible()
-    await expect(map(page).getByText('Карту не удалось разложить', { exact: false })).toHaveCount(0)
+    await expect(map(page).getByText('Could not lay out the map', { exact: false })).toHaveCount(0)
     await expect(toBundle).toHaveCount(1)
     await expect(toSign).toHaveCount(1)
     await expect(edges(page)).toHaveCount(2)
@@ -422,18 +422,18 @@ test.describe('with the observer building three levels', () => {
     expect((await ownCard(release)).right).toBeLessThan((await box(stage(page, bundle))).x)
     expect((await ownCard(bundle)).right).toBeLessThan((await box(stage(page, sign))).x)
 
-    await stage(page, bundle).getByRole('button', { name: `Свернуть «${bundle}»` }).click()
+    await stage(page, bundle).getByRole('button', { name: `Collapse "${bundle}"` }).click()
     await expect(stage(page, sign)).toHaveCount(0)
     await expect(toSign).toHaveCount(0)
     await expect(toBundle).toHaveCount(1)
     await expect(edges(page)).toHaveCount(1)
     await expect.poll(async () => crossings(page)).toEqual([])
 
-    await stage(page, bundle).getByRole('button', { name: `Развернуть «${bundle}»` }).click()
+    await stage(page, bundle).getByRole('button', { name: `Expand "${bundle}"` }).click()
     await expect(toSign).toHaveCount(1)
     await page.setViewportSize({ width: 390, height: 844 })
     await expect.poll(async () => stacked(page, [release, bundle, sign])).toBe(true)
-    await expect(map(page).getByText('Карту не удалось разложить', { exact: false })).toHaveCount(0)
+    await expect(map(page).getByText('Could not lay out the map', { exact: false })).toHaveCount(0)
     await expect.poll(async () => crossings(page)).toEqual([])
     await expect(edges(page)).toHaveCount(2)
   })
@@ -458,8 +458,8 @@ test.describe('with the observer revising the map', () => {
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'false')
     const stageInAddress = (): string | null => new URL(page.url()).searchParams.get('stage')
     expect(stageInAddress()).toBe('gone')
-    await expect(page.getByRole('complementary')).toContainText('В этом прогоне нет этапа gone')
-    await page.getByRole('complementary').getByRole('button', { name: 'Закрыть' }).click()
+    await expect(page.getByRole('complementary')).toContainText('This run has no stage gone')
+    await page.getByRole('complementary').getByRole('button', { name: 'Close' }).click()
     await expect(page.getByRole('complementary')).toHaveCount(0)
     await expect.poll(stageInAddress).toBeNull()
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'false')
@@ -481,7 +481,7 @@ test.describe('with the observer revising the map', () => {
         .toBe(true)
       return last
     }
-    await map(page).getByRole('button', { name: 'Приблизить' }).click()
+    await map(page).getByRole('button', { name: 'Zoom in' }).click()
     const fitted = await settled(main)
     const frame = await box(canvas)
     await drag(page, { x: frame.right - 24, y: frame.y + 24 }, { x: -60 - fitted.x, y: 0 })
@@ -524,7 +524,7 @@ test.describe('with the observer revising the map', () => {
     await expect(continued).toBeVisible(observed)
     await expect(main).toHaveCount(0)
     await expect(pick(continued, continuedStageTitle)).toHaveAttribute('aria-pressed', 'true')
-    const replacedNote = `Этап «${mainStageTitle}» заменён. Выбор перешёл к преемнику «${continuedStageTitle}».`
+    const replacedNote = `Stage "${mainStageTitle}" was replaced. Selection moved to successor "${continuedStageTitle}".`
     await expect(notice).toHaveText(replacedNote)
     const revised = await snapshotOf(page, claudeRun)
     const [mainId, continuedId] = [stageTitled(revised, mainStageTitle).id, stageTitled(revised, continuedStageTitle).id]
@@ -534,11 +534,11 @@ test.describe('with the observer revising the map', () => {
     const handed = await settled(continued)
     near(handed, read)
 
-    await map(page).getByRole('button', { name: 'Скрыть' }).click()
+    await map(page).getByRole('button', { name: 'Hide' }).click()
     await expect(notice).toBeEmpty()
     const predecessor = page
       .getByRole('complementary')
-      .getByRole('region', { name: /^Связи/ })
+      .getByRole('region', { name: /^Links/ })
       .getByRole('link', { name: mainStageTitle, exact: true })
     await predecessor.click()
     await expect(notice).toHaveText(replacedNote)
@@ -571,13 +571,13 @@ test.describe('with the observer revising the map', () => {
     await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'true')
     await expect(pick(checks, checksTitle)).toHaveAttribute('aria-pressed', 'false')
     await expect(notice).toHaveText(
-      `Этап «${mainStageTitle}» заменён, затем разделён. Выбор перешёл к преемнику «${changesTitle}», другие преемники: «${checksTitle}».`,
+      `Stage "${mainStageTitle}" was replaced, then split. Selection moved to successor "${changesTitle}", other successors: "${checksTitle}".`,
     )
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), changesTitle).id)
     await expect(inspected(page)).toHaveText(changesTitle)
     near(await settled(changes), handed)
 
-    await map(page).getByRole('button', { name: 'Скрыть' }).click()
+    await map(page).getByRole('button', { name: 'Hide' }).click()
     await expect(notice).toBeEmpty()
     await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'true')
 
@@ -592,11 +592,11 @@ test.describe('with the observer revising the map', () => {
     await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBeNull()
     await expect(page.getByRole('complementary')).toHaveCount(0)
-    await map(page).getByRole('button', { name: 'Вписать карту' }).click()
+    await map(page).getByRole('button', { name: 'Fit the map' }).click()
     await pinger.getByRole('list').click()
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'true')
     await expect(inspected(page)).toHaveText(/^pinger/)
-    await page.getByRole('complementary').getByRole('button', { name: 'Закрыть' }).click()
+    await page.getByRole('complementary').getByRole('button', { name: 'Close' }).click()
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBeNull()
     await page.goBack()
@@ -624,7 +624,7 @@ test.describe('with the observer revising the map', () => {
     await expect(checks).toHaveCount(0)
     await expect(pick(merged, mergedStageTitle)).toHaveAttribute('aria-pressed', 'true')
     await expect(notice).toHaveText(
-      `Этап «${checksTitle}» объединён с другими. Выбор перешёл к преемнику «${mergedStageTitle}».`,
+      `Stage "${checksTitle}" was merged with others. Selection moved to successor "${mergedStageTitle}".`,
     )
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mergedStageTitle).id)
     await expect(inspected(page)).toHaveText(mergedStageTitle)

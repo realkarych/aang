@@ -8,7 +8,7 @@ const [, , home, root, at, command, ...args] = process.argv
 if (home === undefined || root === undefined || at === undefined || command === undefined) {
   throw new Error('usage: daemon-process <home> <root> <now> <command> [args...]')
 }
-const user = join(root, 'Имя Фамилия')
+const user = join(root, 'Όνομα Επώνυμο')
 const claude = createClaudeLauncher({
   temporaryDirectory: root,
   environment: { ...process.env, HOME: user, USERPROFILE: user },

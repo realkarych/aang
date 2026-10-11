@@ -34,17 +34,17 @@ const RuleItem = ({
       </p>
       <p className="rule-meta">
         <span>{ruleSourceLabel[rule.source]}</span>
-        <span>{`затронуто: ${plural(affected.length, elementForms)}`}</span>
+        <span>{`affected: ${plural(affected.length, elementForms)}`}</span>
         <Moment at={rule.created_at} now={now} />
       </p>
       <button
         type="button"
         className="rule-revoke"
-        aria-label={`Отменить правило: ${text}`}
+        aria-label={`Undo rule: ${text}`}
         disabled={revoking}
         onClick={onRevoke}
       >
-        {revoking ? 'Отменяется…' : 'Отменить'}
+        {revoking ? 'Undoing…' : 'Undo'}
       </button>
     </li>
   )
@@ -83,15 +83,15 @@ export const ViewRules = ({
   return (
     <section className="rules" aria-labelledby={heading}>
       <h2 id={heading} className="section-title">
-        Правила вида
+        View rules
       </h2>
       {rules.length === 0 ? (
         <p className="rules-empty">
-          Активных правил нет. Попросите чат свернуть, скрыть или сгруппировать агентов, этапы или действия — правило
-          появится здесь.
+          No active rules. Ask the chat to collapse, hide or group agents, stages or actions, and the rule will
+          appear here.
         </p>
       ) : (
-        <ol className="rules-list" aria-label="Активные правила">
+        <ol className="rules-list" aria-label="Active rules">
           {rules.map((applied) => (
             <RuleItem
               key={applied.rule.id}
@@ -108,12 +108,12 @@ export const ViewRules = ({
       )}
       {failure === null ? null : (
         <p className="rules-error" role="alert">
-          {`Правило не отменено: ${failure}`}
+          {`Rule not undone: ${failure}`}
         </p>
       )}
       <p className="rules-note">
-        Правила меняют только вид: модель, журнал и расход остаются прежними, а вопросы скрытых элементов остаются в
-        зоне внимания. {`Служебные агенты свёрнуты по умолчанию${folded === 0 ? '' : ` (${plural(folded, agentForms)})`}.`}
+        Rules change only the view: the model, journal and usage stay the same, and questions from hidden elements stay in
+        the attention zone. {`Service agents are collapsed by default${folded === 0 ? '' : ` (${plural(folded, agentForms)})`}.`}
       </p>
     </section>
   )

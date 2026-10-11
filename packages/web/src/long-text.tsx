@@ -36,7 +36,7 @@ export const useLongText = <E extends HTMLElement>(text: string): LongTextState<
           setExpanded(!expanded)
         }}
       >
-        {expanded ? 'Свернуть' : 'Показать полностью'}
+        {expanded ? 'Collapse' : 'Show all'}
       </button>
     ) : null
   return { id, box, expanded, toggle }

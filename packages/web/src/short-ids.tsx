@@ -24,7 +24,7 @@ export const fullHint = (text: string, agents: AgentIds): string | undefined =>
 
 export const StageName = ({ title }: { readonly title: string }): ReactElement => {
   const agents = useKnownAgents()
-  return <span title={fullHint(title, agents)}>{`«${shortIds(title, agents)}»`}</span>
+  return <span title={fullHint(title, agents)}>{`"${shortIds(title, agents)}"`}</span>
 }
 
 export const ShortIds = ({ text }: { readonly text: string }): ReactElement => {

@@ -86,7 +86,7 @@ const deniedInBatch = (events: readonly ChecklistEvent[], start: number, toolUse
 
 export const surfaceOf = (session: Session): string => {
   const entrypoint = session.events.map((event) => event.env.CLAUDE_CODE_ENTRYPOINT).find((value) => value !== undefined)
-  return entrypoint ?? (session.runtime === 'codex' ? 'codex' : 'неизвестно')
+  return entrypoint ?? (session.runtime === 'codex' ? 'codex' : 'unknown')
 }
 
 export const permissionChains = (session: Session): PermissionChain[] => {
@@ -109,12 +109,12 @@ export const permissionChains = (session: Session): PermissionChain[] => {
     const completion = toolUseId === null ? null : completionOf(events, index, toolUseId)
     const outcome =
       toolUseId === null
-        ? 'нет PreToolUse с этим инструментом'
+        ? 'no PreToolUse with this tool'
         : completion !== null
-          ? `разрешено (${completion.event ?? ''})`
+          ? `allowed (${completion.event ?? ''})`
           : deniedInBatch(events, index, toolUseId)
-            ? 'отклонено (есть в PostToolBatch, нет Post*)'
-            : 'исхода нет'
+            ? 'denied (in PostToolBatch, no Post*)'
+            : 'no outcome'
     return [
       {
         request,

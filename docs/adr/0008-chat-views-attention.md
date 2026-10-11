@@ -9,7 +9,7 @@ RFC §2, §4 and §5 require:
 - a chat over the whole run with narrowing to a stage; an answer refers to a map version and cites its grounds or reports insufficient data;
 - view changes as revocable rules that apply to new events and do not rewrite history;
 - preserving the selected stage and the reading position on updates; color is complemented by a label or an icon;
-- an explicit last-viewed mark and a «С последнего просмотра» ("Since last view") mode;
+- an explicit last-viewed mark and a "Since last review" mode;
 - an attention zone with explicit questions, review requests and significant blockers.
 
 Hidden agents keep their contribution to results and cost, important questions stay visible. "Viewed" does not mean "approved" and sends nothing to the solver.
@@ -30,8 +30,8 @@ Hidden agents keep their contribution to results and cost, important questions s
   - The materials pass through the same scope filter as the observer input (ADR-0007).
   - `kind` is a stage, fact, action, artifact version or question.
   - `view_rule` is a proposed view rule or `null`.
-- The daemon checks that the citations exist in the snapshot or in the input. Invalid citations are removed, and the answer is marked «часть ссылок не подтверждена» ("some references are not confirmed").
-- The answer is saved with model version V and shown as «по версии карты V» ("as of map version V"). If the model has changed since, the UI marks it.
+- The daemon checks that the citations exist in the snapshot or in the input. Invalid citations are removed, and the answer is marked "some citations were unconfirmed and removed".
+- The answer is saved with model version V and shown as "as of map version V". If the model has changed since, the UI marks it.
 - The chat does not change the model, except for view rules, and sends nothing to the solver (RFC §4). Chat cost is accounted separately (ADR-0009).
 
 ### View rules
@@ -54,7 +54,7 @@ Hidden agents keep their contribution to results and cost, important questions s
 - Rules are applied when building the view and are recomputed for new elements. They do not change the model or the journal.
 - Invariants:
   - a collapsed or hidden element keeps its contribution to results and cost: the collapse node shows totals;
-  - a rule does not hide questions, approvals, review requests, blockers and failed checks — they stay in the attention zone marked «из скрытого элемента» ("from a hidden element").
+  - a rule does not hide questions, approvals, review requests, blockers and failed checks — they stay in the attention zone marked "from a hidden element".
 
 ### Map on updates
 
@@ -65,7 +65,7 @@ Hidden agents keep their contribution to results and cost, important questions s
 
 ### "Since last view" mode
 
-- The per-run mark is set only by the explicit user action «Отметить просмотренным» ("Mark as viewed"). It atomically records the pair "model version and `change_seq`" (ADR-0005). Opening the page and incoming events do not set it.
+- The per-run mark is set only by the explicit user action "Mark as viewed". It atomically records the pair "model version and `change_seq`" (ADR-0005). Opening the page and incoming events do not set it.
 - The mode shows the difference between the mark and the current state using two cursors:
   - over the model journal from the mark's version:
     - new and changed stages — as the resulting transition, intermediate states collapsed;
@@ -93,16 +93,16 @@ The stage state depends only on an active wait (ADR-0006); the human-decision ax
 
 | Kind | Opened by | Closed by |
 | --- | --- | --- |
-| `permission` | rule: `PermissionRequest` (`Notification(permission_prompt)` is merged into it); a `PermissionRequest` for `AskUserQuestion` and `ExitPlanMode` does not open an item — it is the question of the same call (ADR-0006; addendum approved by the owner on 2026-10-10) | a human decision or a rule (ADR-0006). End of turn, `Interrupt`, `turn_aborted` and end of session end the wait: the item is closed as «ожидание прекращено без ответа» ("wait ended without an answer"), because the call was not executed and no longer awaits a decision |
-| `question` from a rule | `AskUserQuestion`, `ExitPlanMode`, `Elicitation`, `Notification(elicitation_*, agent_needs_input)`, Codex `AgentMessage.questions` | a correlated answer (`answers`, `ElicitationResult`) or dismissal by the user. The observer does not close rule items. If it sees that a human prompt answers the question (for example, an asynchronous Codex question), it adds the mark «вероятно отвечен» ("probably answered") (`attention.likely_resolved`, an interpretation), and the item stays open until dismissed. The next prompt and the end of the session do not close the question: after the work ends it stays in the zone marked «сессия завершена» ("session ended") |
+| `permission` | rule: `PermissionRequest` (`Notification(permission_prompt)` is merged into it); a `PermissionRequest` for `AskUserQuestion` and `ExitPlanMode` does not open an item — it is the question of the same call (ADR-0006; addendum approved by the owner on 2026-10-10) | a human decision or a rule (ADR-0006). End of turn, `Interrupt`, `turn_aborted` and end of session end the wait: the item is closed as "wait ended without an answer", because the call was not executed and no longer awaits a decision |
+| `question` from a rule | `AskUserQuestion`, `ExitPlanMode`, `Elicitation`, `Notification(elicitation_*, agent_needs_input)`, Codex `AgentMessage.questions` | a correlated answer (`answers`, `ElicitationResult`) or dismissal by the user. The observer does not close rule items. If it sees that a human prompt answers the question (for example, an asynchronous Codex question), it adds the mark "likely answered" (`attention.likely_resolved`, an interpretation), and the item stays open until dismissed. The next prompt and the end of the session do not close the question: after the work ends it stays in the zone marked "session ended" |
 | `failed_check` | rule: a failed check per the contract | a successful retry of the same check; dismissal by the user |
 | `question`, `review_request`, `blocker` from the observer | operations `question.add` and `attention.add` | the observer's `attention.resolve` with evidence (an answer, cancellation or replacement of the request, evidence of resolution); dismissal by the user. The end of the session and of the run does not close them |
 
 - An auto-denial without a host (Claude `-p`) opens and immediately closes an item: it is visible in history but not in the zone.
-- **Dismissal by the user** (decision 3) removes an item from the zone with the history entry «снят пользователем» ("dismissed by the user"). This is a view action: it sends nothing to the solver and does not count as a decision or an answer.
-- `Notification(idle_prompt)` does not create an item: it is the session state «ждёт ввода» ("waiting for input").
+- **Dismissal by the user** (decision 3) removes an item from the zone with the history entry "dismissed by the user". This is a view action: it sends nothing to the solver and does not count as a decision or an answer.
+- `Notification(idle_prompt)` does not create an item: it is the session state "waiting for input".
 - A missing check does not create an item.
-- Observation problems (inactive hooks, a lost source, model lag, «Не наблюдаемо» ("Not observable") for Cowork and cloud modes) are shown in the status bar, not in the attention zone.
+- Observation problems (inactive hooks, a lost source, model lag, "Not observable" for Cowork and cloud modes) are shown in the status bar, not in the attention zone.
 
 **Order**
 
@@ -110,7 +110,7 @@ The stage state depends only on an active wait (ADR-0006); the human-decision ax
 2. The number of stages that depend on the item.
 3. Age.
 
-Each item shows an explanation of its order («ждёт ответа» ("waiting for an answer"), «блокирует 2 этапа» ("blocks 2 stages")). A priority from the LLM is shown with a «рекомендация» ("recommendation") label and does not change the order.
+Each item shows an explanation of its order ("awaiting an answer", "blocks 2 stages"). A priority from the LLM is shown with a "recommended" label and does not change the order.
 
 **Viewing.** The user can mark an item as viewed. The item moves down but stays visible until it is closed or dismissed.
 

@@ -569,7 +569,7 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     }
     const asked = ask('What is going on in the run?')
     const answer = answerChat(chat.chatReplies[0], asked)
-    const collapse = answerChat(chat.chatReplies[1], ask('Сверни ревьюеров'))
+    const collapse = answerChat(chat.chatReplies[1], ask('Collapse the reviewers'))
 
     expect(answer).toMatchObject({ needs: [], insufficient_data: false, view_rule: null })
     expect(answer.answer).toContain(`By map version ${String(asked.model.version)}`)

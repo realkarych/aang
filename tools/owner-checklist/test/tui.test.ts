@@ -190,28 +190,28 @@ describe('owner checklist for the interactive Claude TUI', () => {
     }
 
     const summary = files['summary.md'] ?? ''
-    const permission = sectionOf(summary, '### (a) Notification(permission_prompt) после PermissionRequest')
-    expect(lineWith(permission, 'toolu_allow')).toMatch(/\| 6\.00 \| разрешено \(PostToolUse\) \|$/)
-    expect(lineWith(permission, 'toolu_deny')).toMatch(/\| нет \| отклонено \(есть в PostToolBatch, нет Post\*\) \|$/)
-    expect(lineWith(permission, 'toolu_ask')).toMatch(/\| нет \| разрешено \(PostToolUse\) \|$/)
-    expect(lineWith(sectionOf(summary, '### (b) Notification(idle_prompt) после Stop'), '| S1 |')).toMatch(/\| 40\.00 \| 0 \| 60\.00 \|$/)
+    const permission = sectionOf(summary, '### (a) Notification(permission_prompt) after PermissionRequest')
+    expect(lineWith(permission, 'toolu_allow')).toMatch(/\| 6\.00 \| allowed \(PostToolUse\) \|$/)
+    expect(lineWith(permission, 'toolu_deny')).toMatch(/\| none \| denied \(in PostToolBatch, no Post\*\) \|$/)
+    expect(lineWith(permission, 'toolu_ask')).toMatch(/\| none \| allowed \(PostToolUse\) \|$/)
+    expect(lineWith(sectionOf(summary, '### (b) Notification(idle_prompt) after Stop'), '| S1 |')).toMatch(/\| 40\.00 \| 0 \| 60\.00 \|$/)
     expect(lineWith(sectionOf(summary, '### (c) AskUserQuestion'), 'toolu_ask')).toBe(
-      '| S1 | cli | toolu_ask | 2 | да | elicitation_dialog | PostToolUse | да | 10.00 |',
+      '| S1 | cli | toolu_ask | 2 | yes | elicitation_dialog | PostToolUse | yes | 10.00 |',
     )
-    expect(summary).toContain('### (d) Ошибки hook и зависший hook — заполняет владелец')
+    expect(summary).toContain('### (d) Hook errors and a hung hook — filled in by the owner')
     expect(lineWith(sectionOf(summary, '### (e) SessionEnd.reason'), '| S1 |')).toContain('| prompt_input_exit |')
-    expect(lineWith(sectionOf(summary, '### (f) Окружение процесса hook (`results/env-probe.jsonl`)'), '| S1 |')).toMatch(
+    expect(lineWith(sectionOf(summary, '### (f) Hook process environment (`results/env-probe.jsonl`)'), '| S1 |')).toMatch(
       /\| SessionStart \| startup \| 1 \| cli \|/,
     )
-    const notifications = sectionOf(summary, '### (g) Типы Notification')
+    const notifications = sectionOf(summary, '### (g) Notification types')
     expect(lineWith(notifications, '| idle_prompt |')).toContain('| 1 | S1 (cli) |')
     expect(lineWith(notifications, '| permission_prompt |')).toContain('| 1 |')
-    expect(notifications).toContain('- `elicitation_dialog`: встречен.')
-    expect(notifications).toContain('- `agent_needs_input`: не встречен.')
+    expect(notifications).toContain('- `elicitation_dialog`: seen.')
+    expect(notifications).toContain('- `agent_needs_input`: not seen.')
     expect(lineWith(sectionOf(summary, '### (h) ExitPlanMode'), 'toolu_plan')).toBe(
-      `| S1 | cli | toolu_plan | ${String(`${secret} plan: create aang-plan.txt`.length)} | да | да | нет | PostToolUse | 4.00 |`,
+      `| S1 | cli | toolu_plan | ${String(`${secret} plan: create aang-plan.txt`.length)} | yes | yes | none | PostToolUse | 4.00 |`,
     )
-    expect(lineWith(sectionOf(summary, '## Транскрипты Claude'), '| S1 |')).toMatch(/\| 2 \| cli ×2 \| 2\.1\.287 \| 1 \| 1 \|$/)
+    expect(lineWith(sectionOf(summary, '## Claude transcripts'), '| S1 |')).toMatch(/\| 2 \| cli ×2 \| 2\.1\.287 \| 1 \| 1 \|$/)
 
     const repeated = await collect(sandbox)
     expect(repeated.status).toBe(0)
@@ -277,7 +277,7 @@ describe('owner checklist for the interactive Claude TUI', () => {
       expect(text).not.toContain(otherSession)
       expect(text).not.toContain('private-project')
     }
-    expect(scoped['summary.md']).toContain('остальные отброшены: событий 1, сессий 1.')
+    expect(scoped['summary.md']).toContain('the rest were dropped: events 1, sessions 1.')
 
     const all = await runChecklist(sandbox, ['collect', '--dir', sandbox.dir, '--all-sessions', '--claude-desktop-dir', sandbox.desktopDir])
     expect(all.status).toBe(0)

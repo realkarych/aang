@@ -35,7 +35,7 @@ export const briefTemplate = (text: string) => ({
       op: 'brief.update',
       text,
       evidence: { $input: '/batch/facts/*/id' },
-      rationale: 'Сводка по фактам порции',
+      rationale: 'Summary of the batch facts',
     },
   ],
   needs: [],

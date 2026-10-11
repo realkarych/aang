@@ -19,7 +19,7 @@ const writeLines = async (path: string, content: string | Buffer): Promise<void>
 
 const maxRecordsPerBatch = 4096
 
-const line = (index: number, text = 'строка'): string => JSON.stringify({ uuid: `u-${String(index)}`, text: `${text} ${String(index)}` })
+const line = (index: number, text = 'γραμμή'): string => JSON.stringify({ uuid: `u-${String(index)}`, text: `${text} ${String(index)}` })
 
 const lines = (from: number, to: number): string[] => Array.from({ length: to - from + 1 }, (_, index) => line(from + index))
 
@@ -80,7 +80,7 @@ test('an incomplete last line waits for its end, a multibyte character split bet
 }) => {
   const sandbox = await createSandbox(onTestFinished)
   const path = transcriptPath(sandbox)
-  const split = Buffer.from(`${line(2, 'ракета 🚀 полетела')}\r\n`, 'utf8')
+  const split = Buffer.from(`${line(2, 'πύραυλος 🚀 εκτοξεύτηκε')}\r\n`, 'utf8')
   const cut = split.indexOf(Buffer.from('🚀', 'utf8')) + 2
   await writeLines(path, Buffer.concat([Buffer.from(`${line(1)}\r\n`, 'utf8'), split.subarray(0, cut)]))
   const running = runCollector(sandbox)
@@ -93,7 +93,7 @@ test('an incomplete last line waits for its end, a multibyte character split bet
   await appendFile(path, split.subarray(cut))
   await vi.waitFor(
     () => {
-      expect(running.payloads()).toEqual([line(1), line(2, 'ракета 🚀 полетела')])
+      expect(running.payloads()).toEqual([line(1), line(2, 'πύραυλος 🚀 εκτοξεύτηκε')])
     },
     { timeout: 10_000 },
   )
@@ -287,7 +287,7 @@ test('a file replaced at the same path or truncated is read again from its begin
   const original = running.cursor(path)
 
   const replacement = `${path}.next`
-  const longLine = line(10, 'заменённый файл с более длинной первой строкой')
+  const longLine = line(10, 'αντικατεστημένο αρχείο με μεγαλύτερη πρώτη γραμμή')
   await writeFile(replacement, `${longLine}\n`)
   await rename(replacement, path)
   await vi.waitFor(() => {
@@ -362,7 +362,7 @@ test('a backlog larger than a batch and a line longer than a read chunk are deli
     await writeLines(path, `${lines(1, perFile).join('\n')}\n`)
   }
   const long = transcriptPath(sandbox, 'long-line')
-  const longLine = JSON.stringify({ uuid: 'big', text: 'я'.repeat(1_600_000) })
+  const longLine = JSON.stringify({ uuid: 'big', text: 'ω'.repeat(1_600_000) })
   await writeLines(long, `${longLine}\n${line(2)}\n`)
   const running = runCollector(sandbox)
 

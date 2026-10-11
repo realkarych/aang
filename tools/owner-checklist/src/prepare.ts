@@ -42,10 +42,10 @@ const requireSupport = (options: PrepareOptions): void => {
     return
   }
   if (options.claude === 'marketplace') {
-    throw new Error('на Windows чек-лист подключает плагин только флагом --plugin-dir, без изменения пользовательских настроек (ADR-0013); используйте --claude plugin-dir')
+    throw new Error('on Windows the checklist loads the plugin only with the --plugin-dir flag, without changing user settings (ADR-0013); use --claude plugin-dir')
   }
   if (options.codexHooks) {
-    throw new Error('--codex-hooks нужен только для Codex Desktop на macOS; Desktop на Windows в MVP не проверяется (ADR-0013, решение 3)')
+    throw new Error('--codex-hooks is needed only for Codex Desktop on macOS; Desktop on Windows is not checked in the MVP (ADR-0013, decision 3)')
   }
 }
 
@@ -55,14 +55,14 @@ const requireHookSource = async (path: string): Promise<void> => {
     () => false,
   )
   if (!isFile) {
-    throw new Error(`aang-hook не найден: ${path}; соберите репозиторий командой pnpm build или укажите --hook`)
+    throw new Error(`aang-hook not found: ${path}; build the repository with pnpm build or pass --hook`)
   }
 }
 
 const createEmptyDir = async (dir: string): Promise<string> => {
   try {
     if ((await readdir(dir)).length > 0) {
-      throw new Error(`${dir} не пуст: выберите другой --dir или откатите прошлую подготовку командой cleanup`)
+      throw new Error(`${dir} is not empty: choose another --dir or roll back the previous prepare with cleanup`)
     }
   } catch (error) {
     if (!isMissing(error)) {
@@ -76,7 +76,7 @@ const createEmptyDir = async (dir: string): Promise<string> => {
 const claimOutsideDir = async (dir: string): Promise<void> => {
   try {
     if ((await readdir(dir)).length > 0) {
-      throw new Error(`${dir} уже существует и не пуст: для шага 8a нужен пустой каталог`)
+      throw new Error(`${dir} already exists and is not empty: step 8a needs an empty directory`)
     }
     return
   } catch (error) {
@@ -177,7 +177,7 @@ const registerClaude = async (
   const current = await claudePluginState(cli)
   if (current !== 'not_installed') {
     throw new Error(
-      `плагин ${claudePluginId} уже есть в пользовательских настройках Claude (${current}); удалите его или используйте --claude plugin-dir`,
+      `plugin ${claudePluginId} is already in the Claude user settings (${current}); remove it or use --claude plugin-dir`,
     )
   }
   const registered: ChecklistState = { ...state, claude: { ...state.claude, configDir: cli.configDir, registered: true } }
@@ -220,34 +220,34 @@ const memo = (layout: ChecklistLayout, state: ChecklistState): string[] => {
   const tool = (command: string): string => consoleCommand(['node', mainScript, command, '--dir', layout.dir])
   const codex = state.codex
   const steps = [
-    `TUI Claude, пункты (a)–(c), (e)–(g), в пробном репозитории:\n   ${consoleCommand(['cd', layout.probeRepo])}\n   ${claudeLaunch(layout, state, layout.envSettings)}`,
-    `Пункт (d), отдельная сессия там же:\n   ${claudeLaunch(layout, state, layout.failureSettings)}`,
-    `Пункт (h), сессия в режиме плана:\n   ${claudeLaunch(layout, state, layout.envSettings, ['--permission-mode', 'plan'])}`,
+    `Claude TUI, items (a)–(c), (e)–(g), in the probe repository:\n   ${consoleCommand(['cd', layout.probeRepo])}\n   ${claudeLaunch(layout, state, layout.envSettings)}`,
+    `Item (d), a separate session in the same place:\n   ${claudeLaunch(layout, state, layout.failureSettings)}`,
+    `Item (h), a session in plan mode:\n   ${claudeLaunch(layout, state, layout.envSettings, ['--permission-mode', 'plan'])}`,
     ...(state.claude.mode === 'marketplace'
-      ? ['Claude Desktop: перезапустите приложение и откройте новую сессию Code в пробном репозитории.']
+      ? ['Claude Desktop: restart the app and open a new Code session in the probe repository.']
       : []),
-    ...(codex === null ? [] : ['Codex Desktop: перезапустите приложение и подтвердите доверие hooks aang в его интерфейсе.']),
-    `Сбор результатов: ${tool('collect')}`,
-    `Откат: ${tool('cleanup')} (с --keep-results каталог results/ останется)`,
+    ...(codex === null ? [] : ['Codex Desktop: restart the app and confirm trust for the aang hooks in its UI.']),
+    `Collect results: ${tool('collect')}`,
+    `Roll back: ${tool('cleanup')} (with --keep-results the results/ directory stays)`,
   ]
   return [
-    `Рабочий каталог чек-листа подготовлен: ${layout.dir}`,
+    `Checklist working directory prepared: ${layout.dir}`,
     `- aang-hook: ${layout.hookBinary}`,
-    `- spool: ${layout.spool}, аренда до ${state.leaseExpiresAt}`,
-    `- плагин Claude: ${layout.pluginDir}`,
-    `- пробный репозиторий: ${layout.probeRepo}`,
-    `- зонды: ${layout.envSettings}, ${layout.failureSettings}`,
+    `- spool: ${layout.spool}, lease until ${state.leaseExpiresAt}`,
+    `- Claude plugin: ${layout.pluginDir}`,
+    `- probe repository: ${layout.probeRepo}`,
+    `- probes: ${layout.envSettings}, ${layout.failureSettings}`,
     state.claude.mode === 'marketplace'
-      ? `- Claude: плагин ${claudePluginId} установлен в пользовательский scope через локальный маркетплейс; cleanup его удалит`
-      : '- Claude: пользовательские настройки не менялись, плагин подключается флагом --plugin-dir',
+      ? `- Claude: plugin ${claudePluginId} installed in the user scope through a local marketplace; cleanup will remove it`
+      : '- Claude: user settings unchanged, the plugin is loaded with the --plugin-dir flag',
     ...(codex === null
       ? []
       : [
-          `- Codex: записи aang дописаны в конец массивов ${codex.hooksFile}; ${codex.backup === null ? 'файл создан заново' : `резервная копия ${codex.backup}`}`,
-          `- каталог для шага 8a: ${state.outsideDir ?? ''}`,
+          `- Codex: aang entries appended to the arrays of ${codex.hooksFile}; ${codex.backup === null ? 'file created from scratch' : `backup ${codex.backup}`}`,
+          `- directory for step 8a: ${state.outsideDir ?? ''}`,
         ]),
     '',
-    'Дальше:',
+    'Next:',
     ...steps.map((step, index) => `${String(index + 1)}. ${step}`),
   ]
 }
@@ -284,7 +284,7 @@ export const prepare = async (options: PrepareOptions): Promise<string[]> => {
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
     throw new Error(
-      `подготовка прервана: ${reason}\nсделанное откатывает ${consoleCommand(['node', mainScript, 'cleanup', '--dir', dir])}`,
+      `prepare aborted: ${reason}\nto roll back what was done, run ${consoleCommand(['node', mainScript, 'cleanup', '--dir', dir])}`,
       { cause: error },
     )
   }

@@ -16,7 +16,7 @@ The hypothesis concerns primarily the time spent on restoring context, observing
 
 **During work.** The engineer sees the active stages and agents, known waits, recent changes and data freshness. From a stage they open a short explanation, inputs and outputs, timing, available token usage and the source events.
 
-**After a long iteration.** The «С последнего просмотра» ("Since last view") mode shows new results, revised decisions, questions and review requests. The agent's final text is broken down into cards linked to stages; the original remains available. The order of attention is explained by dependencies, and a priority suggested by the LLM is marked as a recommendation.
+**After a long iteration.** The "Since last review" mode shows new results, revised decisions, questions and review requests. The agent's final text is broken down into cards linked to stages; the original remains available. The order of attention is explained by dependencies, and a priority suggested by the LLM is marked as a recommendation.
 
 For example, after an hour of work on a data pipeline the map shows: "Sources studied", "Pipeline implemented", "Checks running", "Publication awaiting decision". Inside the check, two subagents and the result of a specific run are visible. The message "all done" does not hide a failed data check. The request "collapse the reviewers" removes detailed actions while keeping their substantive remarks in the attention zone. This is an illustration of the interface, not a fixed workflow.
 
@@ -68,7 +68,7 @@ Three things are shown independently:
 - **Basis of a conclusion:** an observed event, a solver's claim or aang's interpretation.
 - **Human decision:** requested, accepted or rejected, if this is visible in the original session.
 
-"14 tests passed" confirms a specific check, not the whole goal. Marking a "criterion confirmed" requires the criterion itself, suitable observed evidence and the version of the result. The criterion is taken from the assignment, an explicit plan or a configured verification contract. Automatic confirmation is possible under such a contract; if only the LLM judged the sufficiency of the evidence, it remains its interpretation. Partial confirmation is shown as partial. In the absence of evidence, «агент сообщил о завершении» ("agent reported completion") is kept.
+"14 tests passed" confirms a specific check, not the whole goal. Marking a "criterion confirmed" requires the criterion itself, suitable observed evidence and the version of the result. The criterion is taken from the assignment, an explicit plan or a configured verification contract. Automatic confirmation is possible under such a contract; if only the LLM judged the sufficiency of the evidence, it remains its interpretation. Partial confirmation is shown as partial. In the absence of evidence, "agent reported done" is kept.
 
 A test on old code does not automatically confirm the current changes. If only a mutable path or URL is known, this is indicated; a link does not substitute for a stored version. Likewise, a successful SQL query does not prove that a business conclusion is correct.
 

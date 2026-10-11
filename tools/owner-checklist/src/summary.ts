@@ -72,14 +72,14 @@ const row = (values: readonly string[]): string => `| ${values.map(cell).join(' 
 const table = (header: readonly string[], rows: readonly (readonly string[])[], empty: string): string[] =>
   rows.length === 0 ? [empty] : [row(header), row(header.map(() => '---')), ...rows.map(row)]
 
-const seconds = (milliseconds: number | null): string => (milliseconds === null ? 'нет' : (milliseconds / 1000).toFixed(2))
+const seconds = (milliseconds: number | null): string => (milliseconds === null ? 'none' : (milliseconds / 1000).toFixed(2))
 
 const offset = (session: Session, event: ChecklistEvent): string => {
   const first = session.events[0]
   return first === undefined ? '' : (Number(event.receivedNs - first.receivedNs) / 1e9).toFixed(2)
 }
 
-const yesNo = (value: boolean): string => (value ? 'да' : 'нет')
+const yesNo = (value: boolean): string => (value ? 'yes' : 'no')
 
 const formatValue = (value: FieldValue): string =>
   isBatchCalls(value)
@@ -88,7 +88,7 @@ const formatValue = (value: FieldValue): string =>
 
 const numberText = (event: ChecklistEvent, name: string): string => {
   const value = numberField(event, name)
-  return value === null ? 'нет' : String(value)
+  return value === null ? 'none' : String(value)
 }
 
 const details = (event: ChecklistEvent): string =>
@@ -98,7 +98,7 @@ const details = (event: ChecklistEvent): string =>
       return value === undefined ? [] : [`${name}=${formatValue(value)}`]
     }),
     ...(callsOf(event).length > 0 ? [`tool_calls=${formatValue(callsOf(event))}`] : []),
-    ...(event.problem === null ? [] : [`проблема: ${event.problem}`]),
+    ...(event.problem === null ? [] : [`problem: ${event.problem}`]),
   ].join(', ')
 
 const json = (value: unknown, anonymize: Anonymize): string => anonymize(JSON.stringify(value))
@@ -117,19 +117,19 @@ const isClaudeWorktree = (cwd: string): boolean =>
 
 const scopeLine = (scope: SummaryInput['scope']): string =>
   scope === null
-    ? 'Учтены все сессии из spool (`collect --all-sessions`).'
-    : `Учтены сессии, у которых \`cwd\` лежит в рабочем каталоге или в \`$CODEX_HOME/worktrees\`; остальные отброшены: событий ${String(scope.droppedEvents)}, сессий ${String(scope.droppedSessions)}.`
+    ? 'All sessions from the spool are included (`collect --all-sessions`).'
+    : `Included are sessions whose \`cwd\` is in the working directory or in \`$CODEX_HOME/worktrees\`; the rest were dropped: events ${String(scope.droppedEvents)}, sessions ${String(scope.droppedSessions)}.`
 
 const header = ({ generatedAt, state, events, scope, sessions, anonymize }: SummaryInput): string[] => [
-  '# Чек-лист владельца D.7: сводка',
+  '# Owner checklist D.7: summary',
   '',
-  `Собрано командой \`collect\` ${generatedAt}. ОС: ${process.platform}. Рабочий каталог: ${code(anonymize(state.dir))} (в путях — \`<dir>\`, домашний каталог — \`~\`).`,
-  `Регистрация Claude: \`${state.claude.mode}\`. Hooks Codex: ${state.codex === null ? 'не регистрировались' : 'зарегистрированы'}.`,
+  `Collected by \`collect\` at ${generatedAt}. OS: ${process.platform}. Working directory: ${code(anonymize(state.dir))} (shown as \`<dir>\` in paths; the home directory is \`~\`).`,
+  `Claude registration: \`${state.claude.mode}\`. Codex hooks: ${state.codex === null ? 'not registered' : 'registered'}.`,
   '',
-  `Событий: ${String(events.length)}, из них с проблемой разбора: ${String(events.filter((event) => event.problem !== null).length)}. Сессий: ${String(sessions.length)}.`,
+  `Events: ${String(events.length)}, with a parse problem: ${String(events.filter((event) => event.problem !== null).length)}. Sessions: ${String(sessions.length)}.`,
   scopeLine(scope),
   '',
-  'Пункты с пометкой «заполняет владелец» скрипт не проверяет: их результат записывается в отчёт вручную.',
+  'The script does not check items marked "filled in by the owner": their result is written into the report by hand.',
   '',
 ]
 
@@ -142,10 +142,10 @@ const sessionFacts = (session: Session): (readonly [string, readonly string[]])[
 ]
 
 const sessionsOverview = (labeled: readonly Labeled[], anonymize: Anonymize): string[] => [
-  '## Сессии',
+  '## Sessions',
   '',
   ...table(
-    ['Сессия', 'Рантайм', 'Поверхность', 'Регистрация', 'Начало (UTC)', 'Событий', 'session_id'],
+    ['Session', 'Runtime', 'Surface', 'Registration', 'Start (UTC)', 'Events', 'session_id'],
     labeled.map(({ label, session }) => [
       label,
       session.runtime,
@@ -153,9 +153,9 @@ const sessionsOverview = (labeled: readonly Labeled[], anonymize: Anonymize): st
       [...new Set(session.events.map((event) => event.registration))].join(', '),
       session.events[0] === undefined ? '' : isoTime(session.events[0].receivedNs),
       String(session.events.length),
-      session.sessionId ?? '(нет)',
+      session.sessionId ?? '(none)',
     ]),
-    'В spool нет событий.',
+    'The spool has no events.',
   ),
   '',
   ...labeled.flatMap(({ label, session }) => [
@@ -166,21 +166,21 @@ const sessionsOverview = (labeled: readonly Labeled[], anonymize: Anonymize): st
     ),
     '',
     ...table(
-      ['+t, с', 'Событие', 'Подробности'],
-      session.events.map((event) => [offset(session, event), event.event ?? '(нет)', anonymize(details(event))]),
-      'Событий нет.',
+      ['+t, s', 'Event', 'Details'],
+      session.events.map((event) => [offset(session, event), event.event ?? '(none)', anonymize(details(event))]),
+      'No events.',
     ),
     '',
   ]),
 ]
 
 const permissionSection = (claude: readonly Labeled[]): string[] => [
-  '### (a) Notification(permission_prompt) после PermissionRequest',
+  '### (a) Notification(permission_prompt) after PermissionRequest',
   '',
-  'Ожидание в TUI: около 6 с без ввода, каждое нажатие клавиши откладывает уведомление. Исход берётся по `tool_use_id` предыдущего PreToolUse с тем же инструментом.',
+  'Expected in the TUI: about 6 s without input; every keystroke delays the notification. The outcome is taken from the `tool_use_id` of the preceding PreToolUse with the same tool.',
   '',
   ...table(
-    ['Сессия', 'Поверхность', 'PermissionRequest, +t с', 'Инструмент', 'tool_use_id', 'Задержка permission_prompt, с', 'Исход'],
+    ['Session', 'Surface', 'PermissionRequest, +t s', 'Tool', 'tool_use_id', 'permission_prompt delay, s', 'Outcome'],
     claude.flatMap(({ label, session }) =>
       permissionChains(session).map((chain) => [
         label,
@@ -192,18 +192,18 @@ const permissionSection = (claude: readonly Labeled[]): string[] => [
         chain.outcome,
       ]),
     ),
-    'PermissionRequest не было.',
+    'No PermissionRequest.',
   ),
   '',
 ]
 
 const idleSection = (claude: readonly Labeled[]): string[] => [
-  '### (b) Notification(idle_prompt) после Stop',
+  '### (b) Notification(idle_prompt) after Stop',
   '',
-  'Ожидание: около 60 с после ответа, если пользователь ничего не вводил. Учитывается первое `idle_prompt` до следующего UserPromptSubmit или SessionEnd.',
+  'Expected: about 60 s after the response if the user typed nothing. The first `idle_prompt` before the next UserPromptSubmit or SessionEnd counts.',
   '',
   ...table(
-    ['Сессия', 'Поверхность', 'Stop, +t с', 'background_tasks', 'Задержка idle_prompt, с'],
+    ['Session', 'Surface', 'Stop, +t s', 'background_tasks', 'idle_prompt delay, s'],
     claude.flatMap(({ label, session }) =>
       idleChains(session).map((chain) => [
         label,
@@ -213,7 +213,7 @@ const idleSection = (claude: readonly Labeled[]): string[] => [
         seconds(chain.idleDelayMs),
       ]),
     ),
-    'Stop не было.',
+    'No Stop.',
   ),
   '',
 ]
@@ -223,15 +223,15 @@ const toolSection = (title: string, toolName: string, claude: readonly Labeled[]
   '',
   ...table(
     [
-      'Сессия',
-      'Поверхность',
+      'Session',
+      'Surface',
       'tool_use_id',
-      ...(planColumns ? ['Длина plan', 'planFilePath'] : ['Вопросов']),
+      ...(planColumns ? ['plan length', 'planFilePath'] : ['Questions']),
       'PermissionRequest',
-      'Notification до PostToolUse',
+      'Notification before PostToolUse',
       'PostToolUse',
       ...(planColumns ? [] : ['answers']),
-      'PreToolUse → PostToolUse, с',
+      'PreToolUse → PostToolUse, s',
     ],
     claude.flatMap(({ label, session }) =>
       toolChains(session, toolName).map((chain) => [
@@ -245,13 +245,13 @@ const toolSection = (title: string, toolName: string, claude: readonly Labeled[]
             ]
           : [numberText(chain.pre, 'questions')]),
         yesNo(chain.permission),
-        chain.notifications.join(', ') || 'нет',
-        chain.post === null ? (chain.deniedInBatch ? 'нет, отказ в PostToolBatch' : 'нет') : (chain.post.event ?? ''),
+        chain.notifications.join(', ') || 'none',
+        chain.post === null ? (chain.deniedInBatch ? 'no, denied in PostToolBatch' : 'no') : (chain.post.event ?? ''),
         ...(planColumns ? [] : [yesNo(chain.post?.fields.answers === true)]),
         seconds(chain.durationMs),
       ]),
     ),
-    `PreToolUse(${toolName}) не было.`,
+    `No PreToolUse(${toolName}).`,
   ),
   '',
 ]
@@ -259,16 +259,16 @@ const toolSection = (title: string, toolName: string, claude: readonly Labeled[]
 const sessionEndSection = (claude: readonly Labeled[]): string[] => [
   '### (e) SessionEnd.reason',
   '',
-  'Для сопоставления владелец записывает, как завершалась каждая сессия (`/exit`, двойной Ctrl+C, Ctrl+D, `/clear`, закрытие окна).',
+  'For comparison, the owner records how each session ended (`/exit`, double Ctrl+C, Ctrl+D, `/clear`, closing the window).',
   '',
   ...table(
-    ['Сессия', 'Поверхность', 'SessionEnd, +t с', 'reason'],
+    ['Session', 'Surface', 'SessionEnd, +t s', 'reason'],
     claude.flatMap(({ label, session }) =>
       session.events
         .filter((event) => event.event === 'SessionEnd')
-        .map((event) => [label, surfaceOf(session), offset(session, event), textField(event, 'reason') ?? '(нет)']),
+        .map((event) => [label, surfaceOf(session), offset(session, event), textField(event, 'reason') ?? '(none)']),
     ),
-    'SessionEnd не было.',
+    'No SessionEnd.',
   ),
   '',
 ]
@@ -277,22 +277,22 @@ const envProbeSection = (probes: readonly EnvProbeRecord[], labeled: readonly La
   const labelOf = (sessionId: string | null): string =>
     labeled.find(({ session }) => session.runtime === 'claude' && session.sessionId === sessionId)?.label ??
     sessionId ??
-    '(нет)'
+    '(none)'
   return [
-    '### (f) Окружение процесса hook (`results/env-probe.jsonl`)',
+    '### (f) Hook process environment (`results/env-probe.jsonl`)',
     '',
-    'Пишет зонд `probes/env-settings.json` на SessionStart; подключается флагом `--settings`.',
+    'Written by the `probes/env-settings.json` probe on SessionStart; enabled with the `--settings` flag.',
     '',
     ...table(
-      ['Сессия', 'Время (UTC)', 'Событие', 'source', ...probedEnvNames],
+      ['Session', 'Time (UTC)', 'Event', 'source', ...probedEnvNames],
       probes.map((probe) => [
         labelOf(probe.session_id),
         probe.received_at,
         probe.hook_event_name ?? '',
         probe.source ?? '',
-        ...probedEnvNames.map((name) => probe.env[name] ?? '(нет)'),
+        ...probedEnvNames.map((name) => probe.env[name] ?? '(none)'),
       ]),
-      'Записей зонда нет: TUI не запускался с `--settings probes/env-settings.json`.',
+      'No probe records: the TUI was not started with `--settings probes/env-settings.json`.',
     ),
     '',
   ]
@@ -303,22 +303,22 @@ const notificationSection = (labeled: readonly Labeled[]): string[] => {
   const counts = new Map<string, number>()
   for (const { label, session } of labeled) {
     for (const event of session.events.filter((item) => item.event === 'Notification')) {
-      const type = textField(event, 'notification_type') ?? '(нет)'
+      const type = textField(event, 'notification_type') ?? '(none)'
       types.set(type, (types.get(type) ?? new Set()).add(`${label} (${surfaceOf(session)})`))
       counts.set(type, (counts.get(type) ?? 0) + 1)
     }
   }
   return [
-    '### (g) Типы Notification',
+    '### (g) Notification types',
     '',
     ...table(
-      ['notification_type', 'Количество', 'Сессии'],
+      ['notification_type', 'Count', 'Sessions'],
       [...types].map(([type, sessions]) => [type, String(counts.get(type) ?? 0), [...sessions].join(', ')]),
-      'Notification не было.',
+      'No Notification.',
     ),
     '',
     ...['elicitation_dialog', 'agent_needs_input'].map(
-      (type) => `- \`${type}\`: ${types.has(type) ? 'встречен' : 'не встречен'}.`,
+      (type) => `- \`${type}\`: ${types.has(type) ? 'seen' : 'not seen'}.`,
     ),
     '',
   ]
@@ -327,42 +327,42 @@ const notificationSection = (labeled: readonly Labeled[]): string[] => {
 const pairsLine = (session: Session): string => {
   const pairs = toolPairs(session)
   const unpaired = pairs.unpaired.map(
-    (item) => `${item.toolName ?? '?'} ${item.toolUseId}${item.deniedInBatch ? ' (отказ в PostToolBatch)' : ''}`,
+    (item) => `${item.toolName ?? '?'} ${item.toolUseId}${item.deniedInBatch ? ' (denied in PostToolBatch)' : ''}`,
   )
-  return `- PreToolUse → PostToolUse по \`tool_use_id\`: пар ${String(pairs.paired)}, PostToolUseFailure ${String(pairs.failed)}, без Post*: ${unpaired.length === 0 ? 'нет' : unpaired.join('; ')}`
+  return `- PreToolUse → PostToolUse by \`tool_use_id\`: pairs ${String(pairs.paired)}, PostToolUseFailure ${String(pairs.failed)}, without Post*: ${unpaired.length === 0 ? 'none' : unpaired.join('; ')}`
 }
 
 const permissionLine = (session: Session): string => {
   const chains = permissionChains(session)
-  return `- PermissionRequest: ${chains.length === 0 ? 'нет' : chains.map((chain) => `${chain.toolName ?? '?'} → ${chain.outcome}`).join('; ')}`
+  return `- PermissionRequest: ${chains.length === 0 ? 'none' : chains.map((chain) => `${chain.toolName ?? '?'} → ${chain.outcome}`).join('; ')}`
 }
 
 const transcriptLines = (transcript: ClaudeTranscript | undefined, anonymize: Anonymize): string[] =>
   transcript === undefined || transcript.path === null
-    ? ['- Транскрипт: не найден']
+    ? ['- Transcript: not found']
     : [
-        `- Транскрипт: ${code(anonymize(transcript.path))}, каталог проекта ${code(anonymize(transcript.projectDir ?? ''))}`,
-        `- entrypoint в записях: ${Object.entries(transcript.entrypoints).map(([name, count]) => `${name} ×${String(count)}`).join(', ') || 'нет'}; версии: ${transcript.versions.join(', ') || 'нет'}`,
-        `- compact_boundary: ${String(transcript.compactBoundaries)}; файлов \`subagents/**/*.jsonl\`: ${String(transcript.subagentFiles)}`,
+        `- Transcript: ${code(anonymize(transcript.path))}, project directory ${code(anonymize(transcript.projectDir ?? ''))}`,
+        `- entrypoint in records: ${Object.entries(transcript.entrypoints).map(([name, count]) => `${name} ×${String(count)}`).join(', ') || 'none'}; versions: ${transcript.versions.join(', ') || 'none'}`,
+        `- compact_boundary: ${String(transcript.compactBoundaries)}; \`subagents/**/*.jsonl\` files: ${String(transcript.subagentFiles)}`,
       ]
 
 const desktopSection = (input: SummaryInput, labeled: readonly Labeled[]): string[] => {
   const { files, anonymize } = input
   const desktop = labeled.filter(({ session }) => session.runtime === 'claude' && surfaceOf(session) === 'claude-desktop')
   return [
-    '## Claude Desktop (раздел 11 спайка, шаги 1–6)',
+    '## Claude Desktop (spike section 11, steps 1–6)',
     '',
-    ...(desktop.length === 0 ? ['Сессий с `CLAUDE_CODE_ENTRYPOINT=claude-desktop` нет.', ''] : []),
+    ...(desktop.length === 0 ? ['No sessions with `CLAUDE_CODE_ENTRYPOINT=claude-desktop`.', ''] : []),
     ...desktop.flatMap(({ label, session }) => {
       const cwds = distinctText(session, null, 'cwd')
       return [
         `### ${label}`,
         '',
-        `- CLAUDE_CODE_ENTRYPOINT: ${distinctEnv(session, 'CLAUDE_CODE_ENTRYPOINT').join(', ') || 'нет'}; CLAUDE_CODE_HOST_SESSION_ID: ${distinctEnv(session, 'CLAUDE_CODE_HOST_SESSION_ID').join(', ') || 'нет'}`,
-        `- SessionStart.source: ${distinctText(session, 'SessionStart', 'source').join(', ') || 'нет SessionStart'}`,
+        `- CLAUDE_CODE_ENTRYPOINT: ${distinctEnv(session, 'CLAUDE_CODE_ENTRYPOINT').join(', ') || 'none'}; CLAUDE_CODE_HOST_SESSION_ID: ${distinctEnv(session, 'CLAUDE_CODE_HOST_SESSION_ID').join(', ') || 'none'}`,
+        `- SessionStart.source: ${distinctText(session, 'SessionStart', 'source').join(', ') || 'no SessionStart'}`,
         `- PreCompact: ${String(countEvents(session, 'PreCompact'))}, PostCompact: ${String(countEvents(session, 'PostCompact'))}`,
         `- SubagentStart: ${String(countEvents(session, 'SubagentStart'))}, SubagentStop: ${String(countEvents(session, 'SubagentStop'))}`,
-        `- cwd в \`.claude/worktrees\`: ${yesNo(cwds.some(isClaudeWorktree))}`,
+        `- cwd in \`.claude/worktrees\`: ${yesNo(cwds.some(isClaudeWorktree))}`,
         pairsLine(session),
         permissionLine(session),
         ...transcriptLines(
@@ -372,15 +372,15 @@ const desktopSection = (input: SummaryInput, labeled: readonly Labeled[]): strin
         '',
       ]
     }),
-    '### Метаданные Desktop (`claude-code-sessions/**/local_*.json`)',
+    '### Desktop metadata (`claude-code-sessions/**/local_*.json`)',
     '',
-    'Только файлы сессий из spool. По ADR-0004 (решение 4) значения выводятся только для `cliSessionId`, `spawnSeed` и `lastSpawnRootDetected`; у остальных ключей — только тип. Строки в `spawnSeed` и `lastSpawnRootDetected`, кроме идентификаторов UUID и `local_<uuid>`, заменены длиной.',
+    'Only files of sessions from the spool. Per ADR-0004 (decision 4), values are shown only for `cliSessionId`, `spawnSeed` and `lastSpawnRootDetected`; other keys show only their type. Strings in `spawnSeed` and `lastSpawnRootDetected`, except UUIDs and `local_<uuid>` identifiers, are replaced by their length.',
     '',
-    ...(files.desktopSessions.length === 0 ? ['Метафайлов сессий из spool не найдено.', ''] : []),
+    ...(files.desktopSessions.length === 0 ? ['No metadata files for sessions from the spool.', ''] : []),
     ...files.desktopSessions.flatMap((meta) => [
       `#### ${code(meta.file)}`,
       '',
-      `- sessionId: ${meta.sessionId ?? '(нет)'}; cliSessionId: ${meta.cliSessionId ?? '(нет)'}; сессия в spool: ${labeled.find(({ session }) => session.sessionId === meta.cliSessionId)?.label ?? 'нет'}`,
+      `- sessionId: ${meta.sessionId ?? '(none)'}; cliSessionId: ${meta.cliSessionId ?? '(none)'}; session in spool: ${labeled.find(({ session }) => session.sessionId === meta.cliSessionId)?.label ?? 'none'}`,
       `- lastSpawnRootDetected: ${json(meta.lastSpawnRootDetected, anonymize)}`,
       `- spawnSeed: ${code(json(meta.spawnSeed, anonymize))}`,
       '',
@@ -389,12 +389,12 @@ const desktopSection = (input: SummaryInput, labeled: readonly Labeled[]): strin
       '```',
       '',
     ]),
-    '### Маркеры удаления `deleted_<uuid>`',
+    '### Deletion markers `deleted_<uuid>`',
     '',
     ...table(
-      ['Файл', 'Сессия Desktop', 'Содержимое'],
+      ['File', 'Desktop session', 'Content'],
       files.desktopDeleted.map((marker) => [marker.file, marker.hostSessionId, marker.content]),
-      'Маркеров удаления для сессий из spool нет.',
+      'No deletion markers for sessions from the spool.',
     ),
     '',
   ]
@@ -402,18 +402,18 @@ const desktopSection = (input: SummaryInput, labeled: readonly Labeled[]): strin
 
 const rolloutLines = (rollout: CodexRollout | undefined, anonymize: Anonymize): string[] =>
   rollout === undefined || rollout.path === null
-    ? ['- Rollout: не найден']
+    ? ['- Rollout: not found']
     : [
         `- Rollout: ${code(anonymize(rollout.path))}`,
         `- session_meta: originator ${code(json(rollout.originator, anonymize))}, source ${code(json(rollout.source, anonymize))}, thread_source ${code(json(rollout.thread_source, anonymize))}, parent_thread_id ${code(json(rollout.parent_thread_id, anonymize))}, cli_version ${code(json(rollout.cli_version, anonymize))}`,
         ...rollout.turnContexts.map(
           (context) =>
-            `- turn_context: approval_policy ${code(json(context.approval_policy, anonymize))}, sandbox_policy ${code(json(context.sandbox_policy, anonymize))}, workspace_roots ${code(json(context.workspace_roots, anonymize))}; \`~/aang-desktop-probe-outside\` среди корней записи: ${yesNo(context.outside_probe_writable)}`,
+            `- turn_context: approval_policy ${code(json(context.approval_policy, anonymize))}, sandbox_policy ${code(json(context.sandbox_policy, anonymize))}, workspace_roots ${code(json(context.workspace_roots, anonymize))}; \`~/aang-desktop-probe-outside\` among writable roots: ${yesNo(context.outside_probe_writable)}`,
         ),
       ]
 
 const subagentLines = (rollout: CodexRollout, anonymize: Anonymize): string[] => [
-  `- Субагент ${code(rollout.sessionId)}: parent_thread_id совпадает с session_id сессии: ${yesNo(rollout.parent_thread_id === rollout.subagentOf)}`,
+  `- Subagent ${code(rollout.sessionId)}: parent_thread_id matches the session_id of the session: ${yesNo(rollout.parent_thread_id === rollout.subagentOf)}`,
   ...rolloutLines(rollout, anonymize).map((line) => `  ${line}`),
 ]
 
@@ -421,15 +421,15 @@ const codexSection = (input: SummaryInput, labeled: readonly Labeled[]): string[
   const codex = labeled.filter(({ session }) => session.runtime === 'codex')
   const worktrees = join(input.codexHome, 'worktrees')
   return [
-    '## Codex (раздел 11 спайка, шаги 7–10)',
+    '## Codex (spike section 11, steps 7–10)',
     '',
-    ...(codex.length === 0 ? ['Событий Codex нет.', ''] : []),
+    ...(codex.length === 0 ? ['No Codex events.', ''] : []),
     ...codex.flatMap(({ label, session }) => [
       `### ${label}`,
       '',
-      `- SessionStart.source: ${distinctText(session, 'SessionStart', 'source').join(', ') || 'нет SessionStart'}`,
+      `- SessionStart.source: ${distinctText(session, 'SessionStart', 'source').join(', ') || 'no SessionStart'}`,
       `- SubagentStart: ${String(countEvents(session, 'SubagentStart'))}, SubagentStop: ${String(countEvents(session, 'SubagentStop'))}`,
-      `- cwd в \`$CODEX_HOME/worktrees\`: ${yesNo(distinctText(session, null, 'cwd').some((cwd) => cwd.startsWith(worktrees)))}`,
+      `- cwd in \`$CODEX_HOME/worktrees\`: ${yesNo(distinctText(session, null, 'cwd').some((cwd) => cwd.startsWith(worktrees)))}`,
       pairsLine(session),
       permissionLine(session),
       ...rolloutLines(
@@ -447,38 +447,38 @@ const codexSection = (input: SummaryInput, labeled: readonly Labeled[]): string[
 }
 
 const transcriptsSection = (input: SummaryInput, labeled: readonly Labeled[]): string[] => [
-  '## Транскрипты Claude',
+  '## Claude transcripts',
   '',
   ...table(
-    ['Сессия', 'Файл', 'Записей', 'entrypoint', 'Версии', 'compact_boundary', 'subagents'],
+    ['Session', 'File', 'Records', 'entrypoint', 'Versions', 'compact_boundary', 'subagents'],
     input.files.claudeTranscripts.map((transcript) => [
       labeled.find(({ session }) => session.runtime === 'claude' && session.sessionId === transcript.sessionId)?.label ?? '',
-      transcript.path === null ? 'не найден' : input.anonymize(transcript.path),
+      transcript.path === null ? 'not found' : input.anonymize(transcript.path),
       String(transcript.lines),
       Object.entries(transcript.entrypoints).map(([name, count]) => `${name} ×${String(count)}`).join(', '),
       transcript.versions.join(', '),
       String(transcript.compactBoundaries),
       String(transcript.subagentFiles),
     ]),
-    'Сессий Claude нет.',
+    'No Claude sessions.',
   ),
   '',
 ]
 
 const ownerSection = (): string[] => [
-  '## Заполняет владелец',
+  '## Filled in by the owner',
   '',
-  '- (d) Как TUI показал ошибку hook с кодом 1 на PreToolUse (текст, где выводится, выполнился ли инструмент) и зависший hook на UserPromptSubmit (спиннер, `statusMessage`, сообщение об отмене по таймауту через 2 с).',
-  '- (a), (b) Был ли терминал в фокусе во время ожидания; когда было последнее нажатие клавиши в варианте с вводом.',
-  '- (e) Как завершалась каждая сессия.',
-  '- (g) Удалось ли вызвать `elicitation_dialog` и `agent_needs_input` и чем.',
-  '- Desktop, шаг 3a: доступен ли spawn task или Dispatch; связь с родителем в метаданных.',
-  '- Desktop, шаг 4: закрытие и повторное открытие приложения, продолжение той же сессии.',
-  '- Desktop, шаг 6: что стало с транскриптом после архивации и удаления.',
-  '- Codex, шаг 7: как выполнялся trust в UI, `trustStatus` в логах `~/Library/Logs/com.openai.codex/`.',
-  '- Codex, шаг 8a: появился ли запрос одобрения; создан ли файл.',
-  '- Codex, шаг 10: чат Cloud — нет ли новых rollout и событий в spool.',
-  '- Ограничения Desktop для владельца до этапа 2 (RFC §4).',
+  '- (d) How the TUI showed a hook error with exit code 1 on PreToolUse (text, where it appears, whether the tool ran) and a hung hook on UserPromptSubmit (spinner, `statusMessage`, timeout cancellation message after 2 s).',
+  '- (a), (b) Whether the terminal was focused while waiting; when the last keystroke happened in the variant with input.',
+  '- (e) How each session ended.',
+  '- (g) Whether `elicitation_dialog` and `agent_needs_input` could be triggered, and how.',
+  '- Desktop, step 3a: whether spawn task or Dispatch is available; the link to the parent in the metadata.',
+  '- Desktop, step 4: closing and reopening the app, continuing the same session.',
+  '- Desktop, step 6: what happened to the transcript after archiving and deletion.',
+  '- Codex, step 7: how trust was granted in the UI, `trustStatus` in the `~/Library/Logs/com.openai.codex/` logs.',
+  '- Codex, step 8a: whether an approval request appeared; whether the file was created.',
+  '- Codex, step 10: Cloud chat — whether any new rollouts or spool events appeared.',
+  '- Desktop limitations for the owner until stage 2 (RFC §4).',
   '',
 ]
 
@@ -488,16 +488,16 @@ export const renderSummary = (input: SummaryInput): string => {
   return [
     ...header(input),
     ...sessionsOverview(labeled, input.anonymize),
-    '## Интерактивный TUI Claude (раздел 6 спайка, пункты a–h)',
+    '## Interactive Claude TUI (spike section 6, items a–h)',
     '',
-    'Учитываются все сессии Claude; поверхность указана в колонке. Время — время приёма события `aang-hook` (mtime файла spool).',
+    'All Claude sessions are included; the surface is shown in a column. Time is when `aang-hook` received the event (mtime of the spool file).',
     '',
     ...permissionSection(claude),
     ...idleSection(claude),
     ...toolSection('### (c) AskUserQuestion', 'AskUserQuestion', claude, false),
-    '### (d) Ошибки hook и зависший hook — заполняет владелец',
+    '### (d) Hook errors and a hung hook — filled in by the owner',
     '',
-    'Зонды `probes/failure-settings.json`: PreToolUse завершается с кодом 1, UserPromptSubmit висит дольше `timeout: 2`. Скрипт видит только события aang; что показал TUI, записывает владелец.',
+    'Probes `probes/failure-settings.json`: PreToolUse exits with code 1, UserPromptSubmit hangs longer than `timeout: 2`. The script sees only aang events; the owner records what the TUI showed.',
     '',
     ...sessionEndSection(claude),
     ...envProbeSection(input.envProbes, labeled),

@@ -17,7 +17,7 @@ export const newestFirst = (left: PlanFact, right: PlanFact): number =>
 
 const oldestFirst = (left: PlanFact, right: PlanFact): number => newestFirst(right, left)
 
-const sameRecordForms = { one: 'одинаковая запись', few: 'одинаковые записи', many: 'одинаковых записей' } as const
+const sameRecordForms = { one: 'identical record', other: 'identical records' } as const
 
 type PlanFamily = 'tasks' | 'todos' | 'approval' | 'goal' | 'codex'
 
@@ -176,7 +176,7 @@ const blockLabel = ({ family, records, latest }: PlanBlock): string =>
     : planSourceLabel[latest.payload.source]
 
 const taskText = ({ id, text }: PlanTask): string =>
-  text !== '' ? text : id === null ? 'задача без названия' : `задача ${id}`
+  text !== '' ? text : id === null ? 'untitled task' : `task ${id}`
 
 const TaskList = ({ tasks }: { readonly tasks: readonly PlanTask[] }): ReactElement => (
   <ul className="plan-items">
@@ -219,11 +219,11 @@ const CurrentPlan = ({
       </p>
       <p className="plan-meta">
         {place === null ? null : <span>{place}</span>}
-        {block.records.length === 1 ? null : <span>{`сведено записей: ${String(block.records.length)}`}</span>}
-        {unverified ? <span className="plan-unverified">формат записи не проверен</span> : null}
+        {block.records.length === 1 ? null : <span>{`records merged: ${String(block.records.length)}`}</span>}
+        {unverified ? <span className="plan-unverified">record format not verified</span> : null}
       </p>
       {text === null ? null : <p className="plan-text">{text}</p>}
-      {block.family === 'todos' && tasks.length === 0 ? <p className="plan-text">Список дел пуст</p> : null}
+      {block.family === 'todos' && tasks.length === 0 ? <p className="plan-text">The to-do list is empty</p> : null}
       {tasks.length === 0 ? null : <TaskList tasks={tasks} />}
     </li>
   )
@@ -251,7 +251,7 @@ export const PlanUpdate = ({
       <p className="plan-meta">
         {place === null ? null : <span>{place}</span>}
         {children}
-        {fact.format_verified ? null : <span className="plan-unverified">формат записи не проверен</span>}
+        {fact.format_verified ? null : <span className="plan-unverified">record format not verified</span>}
       </p>
       {payload.text === null ? null : <p className="plan-text">{payload.text}</p>}
       {payload.items.length === 0 ? null : (
@@ -310,7 +310,7 @@ const Repeated = ({
               setOpen(!open)
             }}
           >
-            {`${plural(records.length, sameRecordForms)} подряд`}
+            {`${plural(records.length, sameRecordForms)} in a row`}
           </button>
         )}
       </PlanUpdate>
@@ -341,10 +341,10 @@ const PlanHistory = ({
           setOpen(!open)
         }}
       >
-        {open ? 'Скрыть историю записей' : `История записей: ${String(records.length)}`}
+        {open ? 'Hide record history' : `Record history: ${String(records.length)}`}
       </button>
       {open ? (
-        <ol id={list} className="plan-updates" aria-label="История записей плана">
+        <ol id={list} className="plan-updates" aria-label="Plan record history">
           {repeats(records).map((run) => (
             <Repeated key={run[0].fact.id} records={run} objects={objects} now={now} />
           ))}
@@ -361,16 +361,16 @@ export const PlanFacts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; r
   return (
     <section className="plan" aria-labelledby={heading}>
       <h2 id={heading} className="section-title">
-        План решателя
+        Solver plan
       </h2>
       {records.length === 0 ? (
         <p className="plan-empty">
-          Решатель не объявлял план. Задачи, списки дел и планы на одобрение появятся здесь в том виде, в каком он их
-          записал.
+          The solver has not declared a plan. Tasks, to-do lists and plans for approval will appear here as the solver
+          wrote them.
         </p>
       ) : (
         <>
-          <ol className="plan-updates" aria-label="Текущий план">
+          <ol className="plan-updates" aria-label="Current plan">
             {blocks.map((block) => (
               <CurrentPlan key={block.key} block={block} objects={snapshot.objects} now={now} />
             ))}

@@ -27,11 +27,11 @@ export const BasisLine = ({ basis }: { readonly basis: Basis }): ReactElement =>
     {basis.kind === 'interpreted' ? (
       basis.interpreter.kind === 'rule' ? (
         <span className="basis-source">
-          правило <code>{basis.interpreter.rule}</code>
+          rule <code>{basis.interpreter.rule}</code>
         </span>
       ) : (
         <span className="basis-source">
-          вызов наблюдателя <code>{shortId(basis.interpreter.call)}</code>
+          observer call <code>{shortId(basis.interpreter.call)}</code>
         </span>
       )
     ) : null}
@@ -46,7 +46,7 @@ export const Clipped = ({ text, className }: { readonly text: string; readonly c
       <pre className={className}>{clipped ? text.slice(0, shownLimit) : text}</pre>
       {clipped ? (
         <p className="clip-note">
-          Показаны первые {shownLimit.toLocaleString('ru')} символов из {text.length.toLocaleString('ru')}.{' '}
+          Showing the first {shownLimit.toLocaleString('en-US')} of {text.length.toLocaleString('en-US')} characters.{' '}
           <button
             type="button"
             className="text-button"
@@ -54,7 +54,7 @@ export const Clipped = ({ text, className }: { readonly text: string; readonly c
               setWhole(true)
             }}
           >
-            Показать полностью
+            Show all
           </button>
         </p>
       ) : null}
@@ -87,7 +87,7 @@ export const ReadNote = ({
         <p className="read-note" data-trouble="true">
           {failed}{' '}
           <button type="button" className="text-button" onClick={read.retry}>
-            Повторить
+            Retry
           </button>
         </p>
       )
@@ -107,7 +107,7 @@ const positionOf = (position: RawPosition): ReactNode => {
     case 'line':
       return (
         <>
-          <code>{position.path}</code>, строка {position.line}
+          <code>{position.path}</code>, line {position.line}
         </>
       )
     case 'file':
@@ -115,31 +115,31 @@ const positionOf = (position: RawPosition): ReactNode => {
     case 'file_removed':
       return (
         <>
-          <code>{position.path}</code>, файл удалён
+          <code>{position.path}</code>, file deleted
         </>
       )
     case 'stream_lost':
       return (
         <>
-          <code>{position.path}</code>, поток потерян
+          <code>{position.path}</code>, stream lost
         </>
       )
     case 'process_exited':
       return (
         <>
-          <code>{position.path}</code>, процесс {position.pid} завершился
+          <code>{position.path}</code>, process {position.pid} exited
         </>
       )
     case 'spool':
       return (
         <>
-          файл spool <code>{position.file}</code>
+          spool file <code>{position.file}</code>
         </>
       )
     case 'otel':
-      return 'приёмник OTel'
+      return 'OTel receiver'
     case 'daemon':
-      return 'записано демоном aang'
+      return 'recorded by the aang daemon'
   }
 }
 
@@ -147,28 +147,28 @@ const RawBody = ({ raw }: { readonly raw: RawRecord }): ReactElement => (
   <>
     <dl className="raw-meta">
       <div className="raw-place">
-        <dt>Место</dt>
+        <dt>Location</dt>
         <dd>{positionOf(raw.position)}</dd>
       </div>
       <div>
-        <dt>Канал</dt>
+        <dt>Channel</dt>
         <dd>
           {rawChannelLabel[raw.channel]}
           {raw.runtime === null ? null : `, ${runtimeLabel[raw.runtime]}`}
         </dd>
       </div>
       <div>
-        <dt>Принята</dt>
+        <dt>Received</dt>
         <dd>{absoluteTime(raw.observed_at)}</dd>
       </div>
       {raw.source_ts === null ? null : (
         <div>
-          <dt>Время источника</dt>
+          <dt>Source time</dt>
           <dd>{absoluteTime(raw.source_ts)}</dd>
         </div>
       )}
       <div>
-        <dt>Разбор</dt>
+        <dt>Parsing</dt>
         <dd>
           {parseStateLabel[raw.parse_state]}, {bytes(new TextEncoder().encode(raw.payload).byteLength)}
         </dd>
@@ -188,9 +188,9 @@ const RawView = ({ seq, label }: { readonly seq: RawSeq; readonly label: string 
       ) : (
         <ReadNote
           read={read}
-          loading="Загрузка сырой записи…"
-          missing="Сырой записи больше нет в хранилище aang."
-          failed="Не удалось загрузить сырую запись."
+          loading="Loading raw record…"
+          missing="The raw record is no longer in aang storage."
+          failed="Could not load the raw record."
         />
       )}
     </div>
@@ -224,9 +224,9 @@ const FactView = ({ fact }: { readonly fact: Fact }): ReactElement => {
           setOpen(!open)
         }}
       >
-        {open ? 'Скрыть сырую запись' : 'Сырая запись'}
+        {open ? 'Hide raw record' : 'Raw record'}
       </button>
-      <div id={raw}>{open ? <RawView seq={fact.seq} label={`Сырая запись: ${name}`} /> : null}</div>
+      <div id={raw}>{open ? <RawView seq={fact.seq} label={`Raw record: ${name}`} /> : null}</div>
     </li>
   )
 }
@@ -240,9 +240,9 @@ const LazyFact = ({ id }: { readonly id: FactId }): ReactElement => {
     <li className="rung" data-level="fact">
       <ReadNote
         read={read}
-        loading="Загрузка факта…"
-        missing={`Основание недоступно: факта ${shortId(id)} больше нет.`}
-        failed="Не удалось загрузить факт."
+        loading="Loading fact…"
+        missing={`Ground unavailable: fact ${shortId(id)} no longer exists.`}
+        failed="Could not load the fact."
       />
     </li>
   )
@@ -254,7 +254,7 @@ const FactRung = ({ id }: { readonly id: FactId }): ReactElement => {
 }
 
 const FactLadder = ({ evidence, label }: { readonly evidence: Evidence; readonly label: string }): ReactElement => (
-  <ol className="ladder" aria-label={`Основания: ${label}`}>
+  <ol className="ladder" aria-label={`Grounds: ${label}`}>
     {evidence.map((id) => (
       <FactRung key={id} id={id} />
     ))}
@@ -290,7 +290,7 @@ export const Grounds = ({
               setOpen(!open)
             }}
           >
-            {open ? 'Скрыть основания' : `Основания: ${plural(evidence.length, factForms)}`}
+            {open ? 'Hide grounds' : `Grounds: ${plural(evidence.length, factForms)}`}
           </button>
         )}
       </p>

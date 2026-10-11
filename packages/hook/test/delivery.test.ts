@@ -21,7 +21,7 @@ test.for(registrations)(
     const payload = Buffer.concat([typicalPayload, Buffer.from('\r\n\u0000\u00ff', 'latin1')])
     const env = {
       ...forwardedEnv,
-      CLAUDE_PROJECT_DIR: '/work/Имя Фамилия/a=b',
+      CLAUDE_PROJECT_DIR: '/work/Όνομα Επώνυμο/a=b',
       CLAUDE_CODE_MESSAGING_TOKEN: 'secret',
       AANG_HOME: '/home/user/.aang',
     }
@@ -34,7 +34,7 @@ test.for(registrations)(
         header: {
           runtime,
           registration: tag,
-          env: { ...forwardedEnv, CLAUDE_PROJECT_DIR: '/work/Имя Фамилия/a=b' },
+          env: { ...forwardedEnv, CLAUDE_PROJECT_DIR: '/work/Όνομα Επώνυμο/a=b' },
         },
         payload,
       },
@@ -62,7 +62,7 @@ test('spool path with spaces and non-ASCII characters is used exactly as given',
   expect,
   onTestFinished,
 }) => {
-  const spool = await createSpool(onTestFinished, { location: join('Имя Фамилия', 'aang home', 'spool') })
+  const spool = await createSpool(onTestFinished, { location: join('Όνομα Επώνυμο', 'aang home', 'spool') })
 
   const result = await runHook(spool.args(), { env: typicalEnv })
 

@@ -25,7 +25,7 @@ const watchAll = { watch: { all: true } }
 
 const attentionWithinMs = process.env.CI === undefined ? 1_000 : 3_000
 
-const calmZone = 'Открытых пунктов нет.'
+const calmZone = 'No open items.'
 
 const factRetryMs = 5_000
 
@@ -39,7 +39,7 @@ interface AskedQuestion {
 }
 
 const askUser = (question: string): { readonly questions: readonly AskedQuestion[] } => ({
-  questions: [{ question, header: 'Выбор', options: [{ label: 'Первый' }, { label: 'Второй' }], multiSelect: false }],
+  questions: [{ question, header: 'Choice', options: [{ label: 'First' }, { label: 'Second' }], multiSelect: false }],
 })
 
 const pinger = 'aad616394e806288d'
@@ -60,8 +60,8 @@ test.describe('with the LLM unavailable', () => {
   }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await page.goto(`/?run=${runOf(claudeOriginal)}`)
-    await expect(fact(page, 'Агенты')).toHaveText('2')
-    await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён')
+    await expect(fact(page, 'Agents')).toHaveText('2')
+    await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
     await expect(zone(page)).toContainText(calmZone)
 
     const sent = Date.now()
@@ -70,15 +70,15 @@ test.describe('with the LLM unavailable', () => {
     await item.waitFor({ timeout: attentionWithinMs })
     expect(Date.now() - sent).toBeLessThanOrEqual(attentionWithinMs)
 
-    await expect(item).toContainText('Запрос одобрения')
-    await expect(item).toContainText('ждёт ответа')
-    await expect(item).toContainText('Сессия 86f93ed5, основной агент')
-    await expect(item).toContainText('по правилу aang')
-    await expect(fact(page, 'Внимание')).toHaveText('ждут ответа: 1')
-    await expect(sessionOf(page, claudeOriginal.session)).toContainText('ждёт человека')
-    await expect(step(page, 'Основной агент', 'Запрос одобрения')).toContainText('ждёт решения')
-    await expect(step(page, 'Основной агент', 'Запрос одобрения')).toContainText('Bash: touch probe-perm.txt')
-    await expect(lamp(page, 'Модель')).toHaveText('Модель не строилась')
+    await expect(item).toContainText('Approval request')
+    await expect(item).toContainText('awaiting an answer')
+    await expect(item).toContainText('Session 86f93ed5, main agent')
+    await expect(item).toContainText('by aang rule')
+    await expect(fact(page, 'Attention')).toHaveText('awaiting an answer: 1')
+    await expect(sessionOf(page, claudeOriginal.session)).toContainText('waiting for a human')
+    await expect(step(page, 'Main agent', 'Approval request')).toContainText('awaiting decision')
+    await expect(step(page, 'Main agent', 'Approval request')).toContainText('Bash: touch probe-perm.txt')
+    await expect(lamp(page, 'Model')).toHaveText('Model not built')
   })
 
   test('a Codex permission request reaches the attention zone within a second (E2E 2)', async ({
@@ -91,10 +91,10 @@ test.describe('with the LLM unavailable', () => {
     await page.goto(`/?run=${runOf(codexThread)}`)
     const session = sessionOf(page, codexThread.session)
     await expect(session).toContainText('codex exec 0.159.2')
-    await expect(session).toContainText('режим только файлы')
-    await expect(session).toContainText(/запуск \d+ окт\./)
-    await expect(step(page, 'Основной агент', 'CommandExecution')).toContainText('echo hi')
-    await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён')
+    await expect(session).toContainText('mode files only')
+    await expect(session).toContainText(/startup Oct \d+, /)
+    await expect(step(page, 'Main agent', 'CommandExecution')).toContainText('echo hi')
+    await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
     await expect(zone(page)).toContainText(calmZone)
 
     const sent = Date.now()
@@ -103,12 +103,12 @@ test.describe('with the LLM unavailable', () => {
     await item.waitFor({ timeout: attentionWithinMs })
     expect(Date.now() - sent).toBeLessThanOrEqual(attentionWithinMs)
 
-    await expect(item).toContainText('Запрос одобрения')
-    await expect(item).toContainText('ждёт ответа')
-    await expect(fact(page, 'Внимание')).toHaveText('ждут ответа: 1')
-    await expect(session).toContainText('ждёт человека')
-    await expect(session).toContainText('режим полный')
-    await expect(lamp(page, 'Модель')).toHaveText('Модель не строилась')
+    await expect(item).toContainText('Approval request')
+    await expect(item).toContainText('awaiting an answer')
+    await expect(fact(page, 'Attention')).toHaveText('awaiting an answer: 1')
+    await expect(session).toContainText('waiting for a human')
+    await expect(session).toContainText('mode full')
+    await expect(lamp(page, 'Model')).toHaveText('Model not built')
   })
 })
 
@@ -125,40 +125,40 @@ test.describe('with a short quiet interval', () => {
     await page.goto('/')
     const original = runRowOf(page, runOf(claudeOriginal))
     const fork = runRowOf(page, runOf(claudeFork))
-    await expect(original).toContainText('hooks не активны')
-    await expect(fork).toContainText('hooks не активны')
+    await expect(original).toContainText('hooks inactive')
+    await expect(fork).toContainText('hooks inactive')
 
     await hook.claude('PermissionRequest.Bash.json', hookFields(profile, claudeOriginal))
     await hook.claude('UserPromptSubmit.json', hookFields(profile, claudeFork))
-    await expect(original).toContainText('ждёт человека')
-    await expect(original).toContainText('ждут ответа: 1')
-    await expect(fork).toContainText('выполняется')
-    await expect(fork).toContainText('нет новых событий')
-    await expect(fork).not.toContainText('ждёт человека')
-    await expect(fork).not.toContainText('ждут ответа')
-    await expect(original).toContainText('ждёт человека')
+    await expect(original).toContainText('waiting for a human')
+    await expect(original).toContainText('awaiting an answer: 1')
+    await expect(fork).toContainText('running')
+    await expect(fork).toContainText('no new events')
+    await expect(fork).not.toContainText('waiting for a human')
+    await expect(fork).not.toContainText('awaiting an answer')
+    await expect(original).toContainText('waiting for a human')
 
     await fork.getByRole('link').click()
     const forked = sessionOf(page, claudeFork.session)
-    await expect(forked).toContainText('выполняется')
-    await expect(forked).toContainText('нет новых событий')
-    await expect(fact(page, 'Свежесть')).toHaveText('нет новых событий')
+    await expect(forked).toContainText('running')
+    await expect(forked).toContainText('no new events')
+    await expect(fact(page, 'Freshness')).toHaveText('no new events')
     await expect(zone(page)).toContainText(calmZone)
-    await expect(step(page, 'Основной агент', 'Bash')).toContainText('унаследовано из исходной сессии')
+    await expect(step(page, 'Main agent', 'Bash')).toContainText('inherited from the source session')
 
     await rm(sessionFile(profile, claudeFork))
-    await expect(forked).toContainText('источник потерян')
-    await expect(forked).toContainText('выполняется')
-    await expect(forked).not.toContainText('нет новых событий')
-    await expect(fact(page, 'Свежесть')).toHaveText('источник потерян')
+    await expect(forked).toContainText('source lost')
+    await expect(forked).toContainText('running')
+    await expect(forked).not.toContainText('no new events')
+    await expect(fact(page, 'Freshness')).toHaveText('source lost')
     await expect(zone(page)).toContainText(calmZone)
 
-    await page.getByRole('navigation').getByRole('link', { name: 'Прогоны' }).click()
-    await expect(fork).toContainText('источник потерян')
+    await page.getByRole('navigation').getByRole('link', { name: 'Runs' }).click()
+    await expect(fork).toContainText('source lost')
     await original.getByRole('link').click()
-    await expect(sessionOf(page, claudeOriginal.session)).toContainText('ждёт человека')
-    await expect(sessionOf(page, claudeOriginal.session)).not.toContainText('источник потерян')
-    await expect(zoneItem(page, 'Запрос одобрения')).toContainText('ждёт ответа')
+    await expect(sessionOf(page, claudeOriginal.session)).toContainText('waiting for a human')
+    await expect(sessionOf(page, claudeOriginal.session)).not.toContainText('source lost')
+    await expect(zoneItem(page, 'Approval request')).toContainText('awaiting an answer')
   })
 })
 
@@ -174,7 +174,7 @@ test.describe('with a fast spool scan', () => {
     const replay = await player(sampleScenarioManifest('claude-compaction'), { timeScale: 0 })
     await replay.play({ until: 'compaction' })
     await page.goto(`/?run=${runOf(claudeOriginal)}`)
-    await expect(fact(page, 'Агенты')).toHaveText('2')
+    await expect(fact(page, 'Agents')).toHaveText('2')
 
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('PreCompact.manual.json', fields)
@@ -193,13 +193,13 @@ test.describe('with a fast spool scan', () => {
 
     const agents = agentsOf(page, claudeOriginal.session)
     const echoer = agents.getByRole('listitem', { name: 'echoer', exact: true })
-    await expect(echoer).toContainText('субагент')
-    await expect(echoer).toContainText('завершён')
-    await expect(fact(page, 'Агенты')).toHaveText('3')
+    await expect(echoer).toContainText('subagent')
+    await expect(echoer).toContainText('done')
+    await expect(fact(page, 'Agents')).toHaveText('3')
     await expect(agents.getByRole('listitem', { name: /./ })).toHaveCount(3)
-    const spawned = trace(page).getByRole('list', { name: 'Агенты, запущенные: Основной агент' })
-    await expect(spawned.getByRole('listitem', { name: 'pinger', exact: true })).toContainText('субагент')
-    await expect(sessionOf(page, claudeOriginal.session)).toContainText('режим полный')
+    const spawned = trace(page).getByRole('list', { name: 'Agents launched by: Main agent' })
+    await expect(spawned.getByRole('listitem', { name: 'pinger', exact: true })).toContainText('subagent')
+    await expect(sessionOf(page, claudeOriginal.session)).toContainText('mode full')
     await expect(zone(page)).toContainText(calmZone)
   })
 
@@ -214,18 +214,18 @@ test.describe('with a fast spool scan', () => {
     const session = sessionOf(page, claudeOriginal.session)
     await expect(session).toContainText('Claude Code 2.1.286')
     await expect(session).toContainText(claudeOriginal.cwd)
-    await expect(session).toContainText('ветка HEAD')
-    await expect(session).toContainText('ждёт ввода')
-    await expect(session).toContainText('hooks не активны')
-    await expect(session).toContainText('режим только файлы')
-    const spawned = trace(page).getByRole('list', { name: 'Агенты, запущенные: Основной агент' })
+    await expect(session).toContainText('branch HEAD')
+    await expect(session).toContainText('waiting for input')
+    await expect(session).toContainText('hooks inactive')
+    await expect(session).toContainText('mode files only')
+    const spawned = trace(page).getByRole('list', { name: 'Agents launched by: Main agent' })
     await expect(spawned).toContainText('pinger')
-    await expect(spawned).toContainText('субагент')
+    await expect(spawned).toContainText('subagent')
     await expect(spawned).toContainText('Ping the pinger agent')
-    await expect(step(page, 'Основной агент', 'echo hi')).toContainText('Print hi')
-    await expect(step(page, 'Основной агент', 'echo hi')).toContainText('успешно')
-    await expect(step(page, 'Основной агент', 'Agent')).toContainText('ping')
-    await expect(plan(page)).toContainText('Решатель не объявлял план.')
+    await expect(step(page, 'Main agent', 'echo hi')).toContainText('Print hi')
+    await expect(step(page, 'Main agent', 'echo hi')).toContainText('succeeded')
+    await expect(step(page, 'Main agent', 'Agent')).toContainText('ping')
+    await expect(plan(page)).toContainText('The solver has not declared a plan.')
     await expect(zone(page)).toContainText(calmZone)
 
     const fields = hookFields(profile, claudeOriginal)
@@ -236,9 +236,9 @@ test.describe('with a fast spool scan', () => {
       tool_use_id: 'toolu_h2_todo',
       tool_input: {
         todos: [
-          { content: 'Прочитать план', status: 'completed' },
-          { content: 'Написать тест', status: 'in_progress' },
-          { content: 'Открыть PR', status: 'pending' },
+          { content: 'Read the plan', status: 'completed' },
+          { content: 'Write a test', status: 'in_progress' },
+          { content: 'Open a PR', status: 'pending' },
         ],
       },
     })
@@ -253,44 +253,44 @@ test.describe('with a fast spool scan', () => {
       ...fields,
       tool_name: 'ExitPlanMode',
       tool_use_id: 'toolu_h2_plan',
-      tool_input: { plan: 'Сначала тесты.\nПотом PR.' },
+      tool_input: { plan: 'Tests first.\nThen the PR.' },
     })
     await hook.claude('PermissionRequest.Bash.json', fields)
 
-    const updates = plan(page).getByRole('listitem').filter({ has: page.getByText(/^План на одобрение$|^Задачи решателя$/) })
+    const updates = plan(page).getByRole('listitem').filter({ has: page.getByText(/^Plan for approval$|^Solver tasks$/) })
     await expect(updates).toHaveCount(2)
-    await expect(updates.nth(0)).toContainText('План на одобрение')
-    await expect(updates.nth(0)).toContainText('Сначала тесты.')
-    await expect(updates.nth(0)).not.toContainText('формат записи не проверен')
-    await expect(updates.nth(1)).toContainText('Задачи решателя')
-    await expect(updates.nth(1)).toContainText('Сессия 86f93ed5, основной агент')
-    await expect(updates.nth(1)).toContainText('формат записи не проверен')
+    await expect(updates.nth(0)).toContainText('Plan for approval')
+    await expect(updates.nth(0)).toContainText('Tests first.')
+    await expect(updates.nth(0)).not.toContainText('record format not verified')
+    await expect(updates.nth(1)).toContainText('Solver tasks')
+    await expect(updates.nth(1)).toContainText('Session 86f93ed5, main agent')
+    await expect(updates.nth(1)).toContainText('record format not verified')
     const items = updates.nth(1).getByRole('listitem')
     await expect(items).toHaveCount(3)
-    await expect(items.filter({ hasText: 'Прочитать план' })).toContainText('выполнен')
-    await expect(items.filter({ hasText: 'Написать тест' })).toContainText('в работе')
-    await expect(items.filter({ hasText: 'Открыть PR' })).toContainText('ожидает')
+    await expect(items.filter({ hasText: 'Read the plan' })).toContainText('completed')
+    await expect(items.filter({ hasText: 'Write a test' })).toContainText('in progress')
+    await expect(items.filter({ hasText: 'Open a PR' })).toContainText('waiting')
 
     const zoneItems = openItems(page)
     await expect(zoneItems).toHaveCount(2)
-    await expect(zoneItems.nth(0)).toContainText('Вопрос')
-    await expect(zoneItems.nth(0)).toContainText('Сначала тесты.')
-    await expect(zoneItems.nth(0)).toContainText('ждёт ответа')
-    await expect(zoneItems.nth(1)).toContainText('Запрос одобрения')
+    await expect(zoneItems.nth(0)).toContainText('Question')
+    await expect(zoneItems.nth(0)).toContainText('Tests first.')
+    await expect(zoneItems.nth(0)).toContainText('awaiting an answer')
+    await expect(zoneItems.nth(1)).toContainText('Approval request')
     await expect(zoneItems.nth(1)).toContainText('Bash: touch probe-perm.txt')
-    await expect(fact(page, 'Внимание')).toHaveText('ждут ответа: 2')
-    await expect(session).toContainText('ждёт человека')
-    await expect(session).toContainText('режим полный')
+    await expect(fact(page, 'Attention')).toHaveText('awaiting an answer: 2')
+    await expect(session).toContainText('waiting for a human')
+    await expect(session).toContainText('mode full')
 
-    const steps = stepsOf(page, 'Основной агент').getByRole('listitem')
-    await expect(step(page, 'Основной агент', 'pnpm test --shard=5/5')).toContainText('выполняется')
-    await expect(step(page, 'Основной агент', 'План на одобрение')).toContainText('ждёт решения')
-    await expect(step(page, 'Основной агент', 'echo hi')).toHaveCount(0)
-    await stepsOf(page, 'Основной агент').getByRole('button', { name: 'Показать 2 ранних шага' }).click()
-    await expect(step(page, 'Основной агент', 'echo hi')).toBeVisible()
+    const steps = stepsOf(page, 'Main agent').getByRole('listitem')
+    await expect(step(page, 'Main agent', 'pnpm test --shard=5/5')).toContainText('running')
+    await expect(step(page, 'Main agent', 'Plan for approval')).toContainText('awaiting decision')
+    await expect(step(page, 'Main agent', 'echo hi')).toHaveCount(0)
+    await stepsOf(page, 'Main agent').getByRole('button', { name: 'Show 2 early steps' }).click()
+    await expect(step(page, 'Main agent', 'echo hi')).toBeVisible()
     await expect(steps).toHaveCount(12)
-    await stepsOf(page, 'Основной агент').getByRole('button', { name: 'Скрыть ранние шаги' }).click()
-    await expect(step(page, 'Основной агент', 'echo hi')).toHaveCount(0)
+    await stepsOf(page, 'Main agent').getByRole('button', { name: 'Hide early steps' }).click()
+    await expect(step(page, 'Main agent', 'echo hi')).toHaveCount(0)
   })
 
   test('tasks with one name stay apart by id in the current plan, and an update without a status keeps the last known one', async ({
@@ -301,13 +301,13 @@ test.describe('with a fast spool scan', () => {
   }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await page.goto(`/?run=${runOf(claudeOriginal)}`)
-    await expect(plan(page)).toContainText('Решатель не объявлял план.')
+    await expect(plan(page)).toContainText('The solver has not declared a plan.')
     const fields = hookFields(profile, claudeOriginal)
     const taskHook = (event: string, id: string): Promise<void> =>
       hook.claude('UserPromptSubmit.json', { ...fields, hook_event_name: event, task_id: id, task_subject: 'Review' })
     const taskUpdate = (call: string, input: Readonly<Record<string, string>>): Promise<void> =>
       hook.claude('PreToolUse.Bash.json', { ...fields, tool_name: 'TaskUpdate', tool_use_id: call, tool_input: input })
-    const tasks = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Задачи/) })
+    const tasks = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^(?:Solver tasks|Tasks from hooks)/) })
     const items = tasks.getByRole('listitem')
 
     await taskHook('TaskCreated', '1')
@@ -315,26 +315,26 @@ test.describe('with a fast spool scan', () => {
     await expect(items).toHaveCount(2)
     await taskHook('TaskCompleted', '1')
     await expect(tasks).toHaveCount(1)
-    await expect(tasks).toContainText('Задачи из hooks')
-    await expect(tasks).toContainText('сведено записей: 3')
+    await expect(tasks).toContainText('Tasks from hooks')
+    await expect(tasks).toContainText('records merged: 3')
     await expect(items).toHaveCount(2)
     await expect(items.nth(0)).toContainText('Review')
-    await expect(items.nth(0)).toContainText('выполнен')
+    await expect(items.nth(0)).toContainText('completed')
     await expect(items.nth(1)).toContainText('Review')
-    await expect(items.nth(1)).toContainText('ожидает')
+    await expect(items.nth(1)).toContainText('waiting')
 
     await taskUpdate('toolu_plan_start_2', { taskId: '2', status: 'in_progress' })
-    await expect(items.nth(1)).toContainText('в работе')
-    await expect(tasks).toContainText('Задачи решателя')
+    await expect(items.nth(1)).toContainText('in progress')
+    await expect(tasks).toContainText('Solver tasks')
     await taskUpdate('toolu_plan_rename_2', { taskId: '2', subject: 'Review again' })
     await expect(items.nth(1)).toContainText('Review again')
-    await expect(items.nth(1)).toContainText('в работе')
+    await expect(items.nth(1)).toContainText('in progress')
     await taskUpdate('toolu_plan_note_1', { taskId: '1', description: 'Checked twice' })
     await expect(items.nth(0)).toContainText('Checked twice')
-    await expect(items.nth(0)).toContainText('выполнен')
+    await expect(items.nth(0)).toContainText('completed')
     await expect(items).toHaveCount(2)
-    await expect(tasks).toContainText('сведено записей: 6')
-    await expect(currentPlan(page)).not.toContainText('статус неизвестен')
+    await expect(tasks).toContainText('records merged: 6')
+    await expect(currentPlan(page)).not.toContainText('status unknown')
   })
 
   test('a TaskCreate joins a task with an id only when its name, or its description among equal names, picks exactly one, also when the name comes later', async ({
@@ -345,7 +345,7 @@ test.describe('with a fast spool scan', () => {
   }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await page.goto(`/?run=${runOf(claudeOriginal)}`)
-    await expect(plan(page)).toContainText('Решатель не объявлял план.')
+    await expect(plan(page)).toContainText('The solver has not declared a plan.')
     const fields = hookFields(profile, claudeOriginal)
     const call = (tool: string, id: string, input: Readonly<Record<string, string>>): Promise<void> =>
       hook.claude('PreToolUse.Bash.json', { ...fields, tool_name: tool, tool_use_id: id, tool_input: input })
@@ -357,19 +357,19 @@ test.describe('with a fast spool scan', () => {
         task_subject: subject,
         ...(description === undefined ? {} : { task_description: description }),
       })
-    const items = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Задачи/) }).getByRole('listitem')
-    const done = items.filter({ hasText: 'выполнен' })
+    const items = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^(?:Solver tasks|Tasks from hooks)/) }).getByRole('listitem')
+    const done = items.filter({ hasText: 'completed' })
 
     await call('TaskCreate', 'toolu_plan_parser', { subject: 'Write parser', description: 'Parse hooks' })
     await call('TaskUpdate', 'toolu_plan_parser_start', { taskId: '1', status: 'in_progress' })
     await expect(items).toHaveCount(2)
-    await expect(items.nth(1)).toContainText('задача 1')
-    await expect(items.nth(1)).toContainText('в работе')
+    await expect(items.nth(1)).toContainText('task 1')
+    await expect(items.nth(1)).toContainText('in progress')
     await taskHook('TaskCompleted', '1', 'Write parser')
     await expect(items).toHaveCount(1)
     await expect(items.nth(0)).toContainText('Write parser')
     await expect(items.nth(0)).toContainText('Parse hooks')
-    await expect(items.nth(0)).toContainText('выполнен')
+    await expect(items.nth(0)).toContainText('completed')
 
     const code = items.filter({ hasText: 'Review the code' })
     const docs = items.filter({ hasText: 'Review the docs' })
@@ -377,19 +377,19 @@ test.describe('with a fast spool scan', () => {
     await call('TaskCreate', 'toolu_plan_review_docs', { subject: 'Review', description: 'Review the docs' })
     await taskHook('TaskCompleted', '3', 'Review')
     await expect(items).toHaveCount(4)
-    await expect(code).toContainText('ожидает')
-    await expect(docs).toContainText('ожидает')
+    await expect(code).toContainText('waiting')
+    await expect(docs).toContainText('waiting')
     await expect(done).toHaveCount(2)
     await taskHook('TaskCreated', '2', 'Review', 'Review the code')
     await expect(items).toHaveCount(3)
-    await expect(code).toContainText('ожидает')
-    await expect(docs).toContainText('выполнен')
+    await expect(code).toContainText('waiting')
+    await expect(docs).toContainText('completed')
 
     await taskHook('TaskCompleted', '4', 'Check')
     await taskHook('TaskCompleted', '5', 'Check')
     await call('TaskCreate', 'toolu_plan_check', { subject: 'Check', description: 'Check the build' })
     await expect(items).toHaveCount(6)
-    await expect(items.filter({ hasText: 'Check the build' })).toContainText('ожидает')
+    await expect(items.filter({ hasText: 'Check the build' })).toContainText('waiting')
     await expect(done).toHaveCount(4)
   })
 
@@ -401,7 +401,7 @@ test.describe('with a fast spool scan', () => {
   }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await page.goto(`/?run=${runOf(claudeOriginal)}`)
-    await expect(plan(page)).toContainText('Решатель не объявлял план.')
+    await expect(plan(page)).toContainText('The solver has not declared a plan.')
     const fields = hookFields(profile, claudeOriginal)
     const call = (tool: string, id: string, input: Readonly<Record<string, unknown>>, agent?: string): Promise<void> =>
       hook.claude('PreToolUse.Bash.json', {
@@ -411,7 +411,7 @@ test.describe('with a fast spool scan', () => {
         tool_use_id: id,
         tool_input: input,
       })
-    const todos = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Задачи решателя$/) })
+    const todos = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Solver tasks$/) })
     const items = todos.getByRole('listitem')
 
     await call('TodoWrite', 'toolu_plan_todo_1', {
@@ -424,34 +424,34 @@ test.describe('with a fast spool scan', () => {
     await call('TodoWrite', 'toolu_plan_todo_2', { todos: [{ content: 'Open the PR', status: 'in_progress' }] })
     await expect(items).toHaveCount(1)
     await expect(items.nth(0)).toContainText('Open the PR')
-    await expect(items.nth(0)).toContainText('в работе')
+    await expect(items.nth(0)).toContainText('in progress')
     await expect(todos).not.toContainText('Write the test')
     await call('TodoWrite', 'toolu_plan_todo_3', { todos: [] })
-    await expect(todos).toContainText('Список дел пуст')
+    await expect(todos).toContainText('The to-do list is empty')
     await expect(items).toHaveCount(0)
-    await expect(todos).toContainText('сведено записей: 3')
-    await expect(todos).toContainText('формат записи не проверен')
+    await expect(todos).toContainText('records merged: 3')
+    await expect(todos).toContainText('record format not verified')
 
     await call('TodoWrite', 'toolu_plan_todo_4', { todos: [{ content: 'Check the plan', status: 'pending' }] })
     await call('TaskCreate', 'toolu_plan_create', { subject: 'Check the plan' })
     await call('ExitPlanMode', 'toolu_plan_main', { plan: 'One plan for both' })
     await call('ExitPlanMode', 'toolu_plan_pinger', { plan: 'One plan for both' }, pinger)
-    const approvals = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^План на одобрение$/) })
+    const approvals = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Plan for approval$/) })
     await expect(approvals).toHaveCount(2)
-    await expect(approvals.filter({ hasText: 'Сессия 86f93ed5, основной агент' })).toHaveCount(1)
-    await expect(approvals.filter({ hasText: 'Сессия 86f93ed5, pinger' })).toHaveCount(1)
+    await expect(approvals.filter({ hasText: 'Session 86f93ed5, main agent' })).toHaveCount(1)
+    await expect(approvals.filter({ hasText: 'Session 86f93ed5, pinger' })).toHaveCount(1)
 
-    await plan(page).getByRole('button', { name: 'История записей: 7' }).click()
-    const history = plan(page).getByRole('list', { name: 'История записей плана', exact: true })
-    const records = history.getByRole('listitem').filter({ has: page.getByText(/^План на одобрение$|^Задачи решателя$/) })
+    await plan(page).getByRole('button', { name: 'Record history: 7' }).click()
+    const history = plan(page).getByRole('list', { name: 'Plan record history', exact: true })
+    const records = history.getByRole('listitem').filter({ has: page.getByText(/^Plan for approval$|^Solver tasks$/) })
     await expect(records).toHaveCount(7)
-    await expect(history.getByRole('button', { name: /одинаков/ })).toHaveCount(0)
-    await expect(records.nth(0)).toContainText('Сессия 86f93ed5, pinger')
-    await expect(records.nth(1)).toContainText('Сессия 86f93ed5, основной агент')
+    await expect(history.getByRole('button', { name: /identical/ })).toHaveCount(0)
+    await expect(records.nth(0)).toContainText('Session 86f93ed5, pinger')
+    await expect(records.nth(1)).toContainText('Session 86f93ed5, main agent')
     await expect(records.nth(2)).toContainText('Check the plan')
-    await expect(records.nth(2)).not.toContainText('формат записи не проверен')
+    await expect(records.nth(2)).not.toContainText('record format not verified')
     await expect(records.nth(3)).toContainText('Check the plan')
-    await expect(records.nth(3)).toContainText('формат записи не проверен')
+    await expect(records.nth(3)).toContainText('record format not verified')
     await expect(records.nth(6)).toContainText('Write the test')
   })
 
@@ -463,7 +463,7 @@ test.describe('with a fast spool scan', () => {
   }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await page.goto(`/?run=${runOf(claudeOriginal)}`)
-    await expect(plan(page)).toContainText('Решатель не объявлял план.')
+    await expect(plan(page)).toContainText('The solver has not declared a plan.')
     const fields = hookFields(profile, claudeOriginal)
     for (const index of [1, 2, 3]) {
       await hook.claude('PreToolUse.Bash.json', {
@@ -473,20 +473,20 @@ test.describe('with a fast spool scan', () => {
         tool_input: { plan: 'The same plan' },
       })
     }
-    await expect(currentPlan(page)).toContainText('сведено записей: 3')
+    await expect(currentPlan(page)).toContainText('records merged: 3')
 
-    await plan(page).getByRole('button', { name: 'История записей: 3' }).click()
-    const history = plan(page).getByRole('list', { name: 'История записей плана', exact: true })
+    await plan(page).getByRole('button', { name: 'Record history: 3' }).click()
+    const history = plan(page).getByRole('list', { name: 'Plan record history', exact: true })
     const records = history.getByRole('listitem')
     await expect(records).toHaveCount(1)
-    const folded = history.getByRole('button', { name: '3 одинаковые записи подряд' })
+    const folded = history.getByRole('button', { name: '3 identical records in a row' })
     await expect(folded).toHaveAttribute('aria-expanded', 'false')
     await folded.click()
     await expect(folded).toHaveAttribute('aria-expanded', 'true')
     await expect(records).toHaveCount(3)
     for (const index of [0, 1, 2]) {
       await expect(records.nth(index)).toContainText('The same plan')
-      await expect(records.nth(index)).toContainText('Сессия 86f93ed5, основной агент')
+      await expect(records.nth(index)).toContainText('Session 86f93ed5, main agent')
     }
     await folded.click()
     await expect(records).toHaveCount(1)
@@ -505,7 +505,7 @@ test('a failed input read is retried after a pause while the step stays on scree
     return route.abort('connectionfailed')
   })
   await page.goto(`/?run=${runOf(claudeOriginal)}`)
-  const bash = stepsOf(page, 'Основной агент')
+  const bash = stepsOf(page, 'Main agent')
     .getByRole('listitem')
     .filter({ has: page.getByText('Bash', { exact: true }) })
   await expect(bash).toBeVisible()
@@ -534,33 +534,33 @@ test.describe('with a fast spool scan for decisions and long questions', () => {
   }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await page.goto(`/?run=${runOf(claudeOriginal)}`)
-    await expect(fact(page, 'Агенты')).toHaveText('2')
+    await expect(fact(page, 'Agents')).toHaveText('2')
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('UserPromptSubmit.json', fields)
     await hook.claude('PreToolUse.Bash.json', { ...fields, tool_use_id: 'toolu_h2_probe', tool_input: probe })
     await hook.claude('PermissionRequest.Bash.json', fields)
 
-    const approval = step(page, 'Основной агент', 'Bash: touch probe-perm.txt')
-    await expect(approval).toContainText('ждёт решения')
-    await expect(approval).not.toContainText('интерпретация aang')
+    const approval = step(page, 'Main agent', 'Bash: touch probe-perm.txt')
+    await expect(approval).toContainText('awaiting decision')
+    await expect(approval).not.toContainText('aang interpretation')
 
     await hook.claude('PostToolUse.Bash.json', { ...fields, tool_use_id: 'toolu_h2_probe', tool_input: probe })
-    await expect(approval).toContainText('одобрено')
-    await expect(approval).toContainText('интерпретация aang')
+    await expect(approval).toContainText('approved')
+    await expect(approval).toContainText('aang interpretation')
 
-    const asked = askUser('Какой вариант выбрать?')
+    const asked = askUser('Which option should I pick?')
     const ask = { ...fields, tool_name: 'AskUserQuestion', tool_use_id: 'toolu_h2_ask', tool_input: asked }
     await hook.claude('PreToolUse.Bash.json', ask)
-    const question = step(page, 'Основной агент', 'Какой вариант выбрать?')
-    await expect(question).toContainText('ждёт решения')
+    const question = step(page, 'Main agent', 'Which option should I pick?')
+    await expect(question).toContainText('awaiting decision')
 
     await hook.claude('PostToolUse.Bash.json', {
       ...ask,
-      tool_response: { questions: asked.questions, answers: { 'Какой вариант выбрать?': 'Первый' } },
+      tool_response: { questions: asked.questions, answers: { 'Which option should I pick?': 'First' } },
     })
-    await expect(question).toContainText('отвечен')
-    await expect(question).not.toContainText('интерпретация aang')
-    await expect(approval).toContainText('интерпретация aang')
+    await expect(question).toContainText('answered')
+    await expect(question).not.toContainText('aang interpretation')
+    await expect(approval).toContainText('aang interpretation')
   })
 
   test('a long question opens in full in the attention zone and in the trace', async ({
@@ -571,11 +571,11 @@ test.describe('with a fast spool scan for decisions and long questions', () => {
   }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await page.goto(`/?run=${runOf(claudeOriginal)}`)
-    await expect(fact(page, 'Агенты')).toHaveText('2')
+    await expect(fact(page, 'Agents')).toHaveText('2')
     const fields = hookFields(profile, claudeOriginal)
-    const last = 'Какой из вариантов выбрать в итоге?'
+    const last = 'Which of the options should I pick in the end?'
     const text = [
-      ...Array.from({ length: 10 }, (_, index) => `Пояснение ${String(index + 1)}: подробности о шаге и его ограничениях.`),
+      ...Array.from({ length: 10 }, (_, index) => `Note ${String(index + 1)}: details about the step and its limitations.`),
       last,
     ].join('\n')
     const asked = askUser(text)
@@ -584,28 +584,28 @@ test.describe('with a fast spool scan for decisions and long questions', () => {
     await hook.claude('PermissionRequest.Bash.json', fields)
     await hook.claude('PreToolUse.Bash.json', ask)
 
-    const item = zoneItem(page, 'Пояснение 1:')
+    const item = zoneItem(page, 'Note 1:')
     await expect(item).toContainText(last)
     await expect.poll(() => textShown(item, last)).toBe(false)
     await expect(
-      zoneItem(page, 'Bash: touch probe-perm.txt').getByRole('button', { name: 'Показать полностью' }),
+      zoneItem(page, 'Bash: touch probe-perm.txt').getByRole('button', { name: 'Show all' }),
     ).toHaveCount(0)
-    await item.getByRole('button', { name: 'Показать полностью' }).click()
-    await expect(item.getByRole('button', { name: 'Свернуть' })).toHaveAttribute('aria-expanded', 'true')
+    await item.getByRole('button', { name: 'Show all' }).click()
+    await expect(item.getByRole('button', { name: 'Collapse' })).toHaveAttribute('aria-expanded', 'true')
     await expect.poll(() => textShown(item, last)).toBe(true)
-    await item.getByRole('button', { name: 'Свернуть' }).click()
+    await item.getByRole('button', { name: 'Collapse' }).click()
     await expect.poll(() => textShown(item, last)).toBe(false)
 
     await hook.claude('PostToolUse.Bash.json', {
       ...ask,
-      tool_response: { questions: asked.questions, answers: { [text]: 'Второй' } },
+      tool_response: { questions: asked.questions, answers: { [text]: 'Second' } },
     })
     await expect(item).toHaveCount(0)
-    const question = step(page, 'Основной агент', 'Пояснение 1:')
-    await expect(question).toContainText('отвечен')
+    const question = step(page, 'Main agent', 'Note 1:')
+    await expect(question).toContainText('answered')
     await expect.poll(() => textShown(question, last)).toBe(false)
-    await expect.poll(() => textShown(question, 'Пояснение 1:')).toBe(true)
-    await question.getByRole('button', { name: 'Показать полностью' }).click()
+    await expect.poll(() => textShown(question, 'Note 1:')).toBe(true)
+    await question.getByRole('button', { name: 'Show all' }).click()
     await expect.poll(() => textShown(question, last)).toBe(true)
   })
 })
@@ -623,32 +623,32 @@ test.describe('with a fast spool scan for a recorded plan', () => {
     await page.goto('/')
     await page.getByRole('row').nth(1).getByRole('link').click()
 
-    const blocks = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Задачи решателя$|^План на одобрение$/) })
+    const blocks = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Solver tasks$|^Plan for approval$/) })
     await expect(blocks).toHaveCount(2)
     const tasks = blocks.nth(0)
-    await expect(tasks).toContainText('Задачи решателя')
-    await expect(tasks).toContainText('Сессия')
+    await expect(tasks).toContainText('Solver tasks')
+    await expect(tasks).toContainText('Session')
     const items = tasks.getByRole('listitem')
     await expect(items).toHaveCount(2)
     await expect(items.nth(0)).toContainText('Write checklist')
     await expect(items.nth(0)).toContainText('Create checklist.txt with both steps')
-    await expect(items.nth(0)).toContainText('выполнен')
+    await expect(items.nth(0)).toContainText('completed')
     await expect(items.nth(1)).toContainText('Review checklist')
-    await expect(items.nth(1)).toContainText('выполнен')
-    await expect(blocks.nth(1)).toContainText('План на одобрение')
+    await expect(items.nth(1)).toContainText('completed')
+    await expect(blocks.nth(1)).toContainText('Plan for approval')
     await expect(blocks.nth(1)).toContainText('# Checklist plan')
-    await expect(plan(page).getByText('Задачи из hooks')).toHaveCount(0)
+    await expect(plan(page).getByText('Tasks from hooks')).toHaveCount(0)
 
-    const toggle = plan(page).getByRole('button', { name: /^История записей: \d+$/ })
+    const toggle = plan(page).getByRole('button', { name: /^Record history: \d+$/ })
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    const history = plan(page).getByRole('list', { name: 'История записей плана', exact: true })
+    const history = plan(page).getByRole('list', { name: 'Plan record history', exact: true })
     await expect(history).toHaveCount(0)
     const records = Number((await toggle.textContent())?.replace(/\D/g, ''))
     expect(records).toBeGreaterThan(4)
     await toggle.click()
-    await expect(history).toContainText('Задачи из hooks')
-    await expect(history.getByRole('listitem').filter({ has: page.getByText(/^План на одобрение$/) })).not.toHaveCount(0)
-    await plan(page).getByRole('button', { name: 'Скрыть историю записей' }).click()
+    await expect(history).toContainText('Tasks from hooks')
+    await expect(history.getByRole('listitem').filter({ has: page.getByText(/^Plan for approval$/) })).not.toHaveCount(0)
+    await plan(page).getByRole('button', { name: 'Hide record history' }).click()
     await expect(history).toHaveCount(0)
   })
 })

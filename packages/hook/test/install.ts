@@ -29,7 +29,7 @@ export interface FakeClaude extends FakeCli<ClaudeScenario> {
 
 const execFileAsync = promisify(execFile)
 
-const unusualHome = join('Имя Фамилия', "it's $HOME")
+const unusualHome = join('Όνομα Επώνυμο', "it's $HOME")
 
 export const sampleText = (path: string): Promise<string> =>
   readFile(new URL(`../../../docs/research/samples/${path}`, import.meta.url), 'utf8')

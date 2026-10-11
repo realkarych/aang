@@ -54,15 +54,15 @@ const watchAll = { watch: { all: true } }
 
 const usageLink = (run: RunId): string => `?view=usage&run=${run}`
 
-const finalTotal = 'Итог окончательный: Claude Code записал его, когда запуск завершился.'
-const continuedTotal = 'Итог промежуточный: сессия продолжилась после его записи, Claude Code обновит итог при выходе.'
-const inheritedTotal = 'Итог Claude Code включает историю, унаследованную при ответвлении; в «Учтено aang» её нет.'
+const finalTotal = 'Final total: Claude Code wrote it when the launch ended.'
+const continuedTotal = 'Interim total: the session continued after it was written; Claude Code will update it on exit.'
+const inheritedTotal = 'The Claude Code total includes history inherited on fork; "Counted by aang" does not.'
 const desktopSummaries =
-  'Расход вспомогательной модели сводок Claude Desktop недоступен: её вызовы видны только в потоке движка Desktop, который aang не читает. Входит ли этот расход в итог Claude Code, не установлено.'
+  'Usage of the Claude Desktop summary helper model is unavailable: its calls are visible only in the Desktop engine stream, which aang does not read. Whether this usage is part of the Claude Code total is unknown.'
 const guessedSource =
-  /^Общее происхождение\. Предположительный источник — прогон .+: из видимых сессий ту же историю содержит только он, но и он может оказаться ответвлением\. Унаследованная история здесь не учитывается\.$/
+  /^Common origin\. Likely source: run .+\. Among visible sessions only it holds the same history, but it may be a fork too\. Inherited history is not counted here\.$/
 const unsettledSource =
-  /^Общее происхождение с прогонами .+, .+; источник не установлен\. Унаследованная история здесь не учитывается\.$/
+  /^Common origin with runs .+, .+; source unknown\. Inherited history is not counted here\.$/
 
 test.use({ config: watchAll })
 
@@ -219,10 +219,10 @@ const callFact = (scope: Locator, term: string): Locator =>
 const headFact = (page: Page, term: string): Locator => callFact(page.getByRole('article').locator('header'), term)
 
 const runRows = (page: Page): Locator =>
-  page.getByRole('table', { name: 'Расход по прогонам' }).getByRole('row').filter({ has: page.getByRole('cell') })
+  page.getByRole('table', { name: 'Usage by run' }).getByRole('row').filter({ has: page.getByRole('cell') })
 
 const session = (page: Page, short: string): Locator =>
-  page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: `Сессия ${short}`, exact: true }) })
+  page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: `Session ${short}`, exact: true }) })
 
 const expectSolverTokens = async (scope: Locator, rows: Record<string, readonly string[]>): Promise<void> => {
   for (const [label, cells] of Object.entries(rows)) {
@@ -450,127 +450,127 @@ test.describe('with the LLM unavailable', () => {
       .toBe(7)
 
     await page.goto('/')
-    await page.getByRole('navigation').getByRole('link', { name: 'Расход', exact: true }).click()
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Расход')
-    await expect(headFact(page, 'Период')).toHaveText('за всё время')
-    await expect(headFact(page, 'Активные часы решателя')).toHaveText('1 активный час')
+    await page.getByRole('navigation').getByRole('link', { name: 'Usage', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Usage')
+    await expect(headFact(page, 'Period')).toHaveText('for all time')
+    await expect(headFact(page, 'Solver active hours')).toHaveText('1 active hour')
 
-    const solver = ledger(page, 'Решатель')
-    await expect(solver.getByText('7 ответов модели', { exact: true })).toBeVisible()
+    const solver = ledger(page, 'Solver')
+    await expect(solver.getByText('7 model responses', { exact: true })).toBeVisible()
     await expectSolverTokens(solver, {
-      'Ввод без кэша': ['14', '14'],
-      'Чтение кэша': ['100 625', '100 625'],
-      'Запись в кэш': ['10 415', '10 415'],
-      Вывод: ['228', '228'],
+      'Uncached input': ['14', '14'],
+      'Cache read': ['100,625', '100,625'],
+      'Cache write': ['10,415', '10,415'],
+      Output: ['228', '228'],
     })
-    await expect(ledger(page, 'Наблюдатель').getByText('0 вызовов', { exact: true })).toBeVisible()
-    await expect(ledger(page, 'Чат').getByText('0 вызовов', { exact: true })).toBeVisible()
+    await expect(ledger(page, 'Observer').getByText('0 calls', { exact: true })).toBeVisible()
+    await expect(ledger(page, 'Chat').getByText('0 calls', { exact: true })).toBeVisible()
     await expect(runRows(page)).toHaveCount(2)
-    await expect(runRows(page).nth(0)).toContainText('ввод 92 284, вывод 223')
-    await expect(runRows(page).nth(0)).toContainText('6 ответов модели')
-    await expect(runRows(page).nth(1)).toContainText('ввод 18 770, вывод 5')
-    await expect(runRows(page).nth(1)).toContainText('1 ответ модели')
+    await expect(runRows(page).nth(0)).toContainText('input 92,284, output 223')
+    await expect(runRows(page).nth(0)).toContainText('6 model responses')
+    await expect(runRows(page).nth(1)).toContainText('input 18,770, output 5')
+    await expect(runRows(page).nth(1)).toContainText('1 model response')
 
     const runsRoute = `**${endpoints.runs.path}`
     await page.route(runsRoute, (route) => route.abort('connectionfailed'))
     await runRows(page).nth(1).getByRole('link').click()
     await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${forkRun}$`))
-    await expect(page.getByText('Расход прогона', { exact: true })).toBeVisible()
-    const origin = page.getByText(/^Общее происхождение/)
+    await expect(page.getByText('Run usage', { exact: true })).toBeVisible()
+    const origin = page.getByText(/^Common origin/)
     await expect(origin).toHaveText(
-      'Общее происхождение с другими сессиями. Унаследованная история здесь не учитывается.',
+      'Common origin with other sessions. Inherited history is not counted here.',
     )
     await page.unroute(runsRoute)
     await expect(origin).toHaveText(guessedSource)
     await expect(origin.getByRole('link')).toHaveAttribute('href', usageLink(originalRun))
-    await expect(ledger(page, 'Решатель').getByText('1 ответ модели', { exact: true })).toBeVisible()
+    await expect(ledger(page, 'Solver').getByText('1 model response', { exact: true })).toBeVisible()
     const fork = session(page, 'cdfb3544')
-    await expect(fork.getByRole('columnheader')).toHaveText(['Учтено aang', 'Итог Claude Code'])
+    await expect(fork.getByRole('columnheader')).toHaveText(['Counted by aang', 'Claude Code total'])
     await expectSolverTokens(fork, {
-      'Ввод без кэша': ['2', '14'],
-      'Чтение кэша': ['18 341', '100 625'],
-      'Запись в кэш': ['427', '10 415'],
-      Вывод: ['5', '228'],
-      'Ответов модели': ['1', '—'],
-      Деньги: ['—', '0,1026 $'],
+      'Uncached input': ['2', '14'],
+      'Cache read': ['18,341', '100,625'],
+      'Cache write': ['427', '10,415'],
+      Output: ['5', '228'],
+      'Model responses': ['1', '—'],
+      Money: ['—', '$0.1026'],
     })
     await expect(fork.getByRole('listitem')).toHaveText([finalTotal, inheritedTotal])
-    const stages = page.getByRole('table', { name: 'Решатель по этапам' })
-    await expect(page.getByText(/пока карты нет, весь расход решателя не привязан\.$/)).toBeVisible()
-    await expect(amounts(stages, 'Не привязано к этапам')).toHaveText(['2', '18 341', '427', '5', '1'])
+    const stages = page.getByRole('table', { name: 'Solver by stage' })
+    await expect(page.getByText(/until there is a map, all solver usage is unassigned\.$/)).toBeVisible()
+    await expect(amounts(stages, 'Not assigned to stages')).toHaveText(['2', '18,341', '427', '5', '1'])
 
     await origin.getByRole('link').click()
     await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${originalRun}$`))
-    await expect(page.getByText(/^Общее происхождение/)).toHaveCount(0)
+    await expect(page.getByText(/^Common origin/)).toHaveCount(0)
     const original = session(page, '86f93ed5')
     await expectSolverTokens(original, {
-      'Ввод без кэша': ['12', '12'],
-      'Чтение кэша': ['82 284', '82 284'],
-      'Запись в кэш': ['9 988', '9 988'],
-      Вывод: ['223', '223'],
-      'Ответов модели': ['6', '—'],
-      Деньги: ['—', '0,0954 $'],
+      'Uncached input': ['12', '12'],
+      'Cache read': ['82,284', '82,284'],
+      'Cache write': ['9,988', '9,988'],
+      Output: ['223', '223'],
+      'Model responses': ['6', '—'],
+      Money: ['—', '$0.0954'],
     })
     await expect(original.getByRole('listitem')).toHaveText([finalTotal])
-    await expect(page.getByText(/^Деньги — по прейскуранту/)).toHaveText(
-      'Деньги — по прейскуранту, как их сообщает рантайм; при подписке это не списание. Codex сообщает только токены.',
+    await expect(page.getByText(/^Money is at list price/)).toHaveText(
+      'Money is at list price, as the runtime reports it; under a subscription it is not a charge. Codex reports only tokens.',
     )
 
     await stopped(daemon)
     await expect(page.getByRole('status')).toHaveText(
-      'Не удалось обновить отчёт о расходе. Показаны прежние данные, они могут устареть.',
+      'Could not refresh the usage report. Showing earlier data, which may be stale.',
       { timeout: 15_000 },
     )
     recordCalls(profile.aangHome)
     const restarted = await restart(daemon, profile)
 
-    await page.getByRole('navigation').getByRole('link', { name: 'Расход', exact: true }).click()
-    const observer = ledger(page, 'Наблюдатель')
-    await expect(observer.getByText('1 вызов и 1 проверка допуска', { exact: true })).toBeVisible({ timeout: 15_000 })
+    await page.getByRole('navigation').getByRole('link', { name: 'Usage', exact: true }).click()
+    const observer = ledger(page, 'Observer')
+    await expect(observer.getByText('1 call and 1 admission probe', { exact: true })).toBeVisible({ timeout: 15_000 })
     await expect(page.getByRole('status')).toHaveCount(0)
     await expectSolverTokens(observer, {
-      'Ввод без кэша': ['110', '110'],
-      'Чтение кэша': ['2 000', '2 000'],
-      'Запись в кэш': ['300', '300'],
-      Вывод: ['55', '55'],
+      'Uncached input': ['110', '110'],
+      'Cache read': ['2,000', '2,000'],
+      'Cache write': ['300', '300'],
+      Output: ['55', '55'],
     })
-    await expect(amounts(observer, 'Деньги').first()).toHaveText('0,3125 $')
-    await expect(callFact(observer, 'Задержка вызова')).toHaveText('медиана 12,0 с, p95 12,0 с, максимум 12,0 с')
-    await expect(callFact(observer, 'Отставание карты')).toHaveText(
-      'медиана 50 мин 10 с, p95 50 мин 10 с, максимум 50 мин 10 с',
+    await expect(amounts(observer, 'Money').first()).toHaveText('$0.3125')
+    await expect(callFact(observer, 'Call latency')).toHaveText('median 12.0 s, p95 12.0 s, max 12.0 s')
+    await expect(callFact(observer, 'Map lag')).toHaveText(
+      'median 50 min 10 s, p95 50 min 10 s, max 50 min 10 s',
     )
-    await expect(callFact(observer, 'Проверки допуска')).toHaveText('1 вызов вне прогонов: ввод 10, вывод 5, 0,0625 $')
-    const chat = ledger(page, 'Чат')
-    await expect(chat.getByText('1 вызов', { exact: true })).toBeVisible()
+    await expect(callFact(observer, 'Admission probes')).toHaveText('1 call outside runs: input 10, output 5, $0.0625')
+    const chat = ledger(page, 'Chat')
+    await expect(chat.getByText('1 call', { exact: true })).toBeVisible()
     await expectSolverTokens(chat, {
-      'Ввод без кэша': ['70', '70'],
-      Вывод: ['66', '66'],
-      Деньги: ['0,2813 $', '0,2813 $'],
+      'Uncached input': ['70', '70'],
+      Output: ['66', '66'],
+      Money: ['$0.2813', '$0.2813'],
     })
-    await expect(callFact(chat, 'Задержка ответа')).toHaveText('медиана 15,0 с, p95 15,0 с, максимум 15,0 с')
-    await expect(ledger(page, 'Решатель').getByText('7 ответов модели', { exact: true })).toBeVisible()
+    await expect(callFact(chat, 'Response latency')).toHaveText('median 15.0 s, p95 15.0 s, max 15.0 s')
+    await expect(ledger(page, 'Solver').getByText('7 model responses', { exact: true })).toBeVisible()
 
-    await page.getByRole('navigation', { name: 'Период' }).getByRole('link', { name: '24 часа' }).click()
+    await page.getByRole('navigation', { name: 'Period' }).getByRole('link', { name: '24 hours' }).click()
     await expect(page).toHaveURL(/\?view=usage&period=day$/)
-    await expect(headFact(page, 'Период')).toHaveText(/^с /)
-    await expect(headFact(page, 'Активные часы решателя')).toHaveText('нет: расход на активный час не считается')
-    await expect(ledger(page, 'Решатель').getByText('0 ответов модели', { exact: true })).toBeVisible()
-    await expect(amounts(ledger(page, 'Решатель'), 'Вывод')).toHaveText(['0'])
-    await expect(amounts(ledger(page, 'Наблюдатель'), 'Вывод')).toHaveText(['55'])
-    await expect(amounts(ledger(page, 'Чат'), 'Вывод')).toHaveText(['66'])
+    await expect(headFact(page, 'Period')).toHaveText(/^since /)
+    await expect(headFact(page, 'Solver active hours')).toHaveText('none: per-active-hour usage is not computed')
+    await expect(ledger(page, 'Solver').getByText('0 model responses', { exact: true })).toBeVisible()
+    await expect(amounts(ledger(page, 'Solver'), 'Output')).toHaveText(['0'])
+    await expect(amounts(ledger(page, 'Observer'), 'Output')).toHaveText(['55'])
+    await expect(amounts(ledger(page, 'Chat'), 'Output')).toHaveText(['66'])
     await expect(runRows(page)).toHaveCount(2)
-    await expect(runRows(page).nth(0)).toContainText('нет активности решателя')
-    await expect(runRows(page).nth(0)).toContainText('ввод 2 400, вывод 50, 0,25 $')
-    await expect(runRows(page).nth(1)).toContainText('ввод 1 020, вывод 66, 0,2813 $')
+    await expect(runRows(page).nth(0)).toContainText('no solver activity')
+    await expect(runRows(page).nth(0)).toContainText('input 2,400, output 50, $0.25')
+    await expect(runRows(page).nth(1)).toContainText('input 1,020, output 66, $0.2813')
 
     await runRows(page).nth(1).getByRole('link').click()
     await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${forkRun}&period=day$`))
-    await expect(headFact(page, 'Длительность')).toHaveText('нет активности решателя')
-    await expect(page.getByText(/^Итог Claude Code и итог треда относятся/)).toHaveText(
-      'Итог Claude Code и итог треда относятся ко всей сессии или треду, а не только к выбранному периоду.',
+    await expect(headFact(page, 'Duration')).toHaveText('no solver activity')
+    await expect(page.getByText(/^The Claude Code total and the thread total cover/)).toHaveText(
+      'The Claude Code total and the thread total cover the whole session or thread, not just the selected period.',
     )
-    await expect(ledger(page, 'Чат').getByText('1 вызов', { exact: true })).toBeVisible()
-    await expect(ledger(page, 'Наблюдатель').getByText('0 вызовов', { exact: true })).toBeVisible()
+    await expect(ledger(page, 'Chat').getByText('1 call', { exact: true })).toBeVisible()
+    await expect(ledger(page, 'Observer').getByText('0 calls', { exact: true })).toBeVisible()
     await stopped(restarted)
   })
 })
@@ -587,32 +587,32 @@ test('a Claude total waits for the exit, and a reply without its closing record 
     .toBeGreaterThan(0)
 
   await page.goto(`/?run=${originalRun}`)
-  await page.getByRole('article').getByRole('link', { name: 'три журнала' }).click()
+  await page.getByRole('article').getByRole('link', { name: 'three journals' }).click()
   await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${originalRun}$`))
   const original = session(page, '86f93ed5')
-  await expect(original.getByRole('columnheader')).toHaveText(['Учтено aang'])
+  await expect(original.getByRole('columnheader')).toHaveText(['Counted by aang'])
   await expect(original.getByRole('listitem')).toHaveText([
-    'Итога Claude Code пока нет: интерактивная сессия записывает его только при выходе. До выхода нет денег и расхода на сжатие контекста.',
+    'No Claude Code total yet: an interactive session writes it only on exit. Until then there is no money and no context compaction usage.',
   ])
-  await expect(page.getByText(/^Деньги — по прейскуранту/)).toHaveCount(0)
+  await expect(page.getByText(/^Money is at list price/)).toHaveCount(0)
 
   await sample.play()
-  await expect(original.getByRole('columnheader')).toHaveText(['Учтено aang', 'Итог Claude Code'], {
+  await expect(original.getByRole('columnheader')).toHaveText(['Counted by aang', 'Claude Code total'], {
     timeout: 15_000,
   })
 
-  await page.getByRole('navigation', { name: 'Навигация' }).getByRole('link', { name: 'Расход', exact: true }).click()
+  await page.getByRole('navigation', { name: 'Navigation' }).getByRole('link', { name: 'Usage', exact: true }).click()
   await expect(runRows(page)).toHaveCount(2, { timeout: 15_000 })
   await runRows(page).nth(1).getByRole('link').click()
   await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${forkRun}$`))
   const fork = session(page, 'cdfb3544')
-  await expect(amounts(fork, 'Вывод')).toHaveText(['5', '228'])
+  await expect(amounts(fork, 'Output')).toHaveText(['5', '228'])
   await appendFile(join(profile.claude, claudeProject, `${forkSession}.jsonl`), `${await unfinishedReply()}\n`)
-  await expect(amounts(fork, 'Вывод')).toHaveText(['не меньше 12', '228'], { timeout: 15_000 })
+  await expect(amounts(fork, 'Output')).toHaveText(['at least 12', '228'], { timeout: 15_000 })
   await expect(fork.getByRole('listitem').first()).toHaveText(continuedTotal)
-  await expect(amounts(ledger(page, 'Решатель'), 'Вывод').first()).toHaveText('не меньше 12')
-  await expect(page.getByText(/^«Не меньше»/)).toHaveText(
-    '«Не меньше» — нижняя оценка вывода: у части ответов нет завершающей записи, и модель могла вывести больше.',
+  await expect(amounts(ledger(page, 'Solver'), 'Output').first()).toHaveText('at least 12')
+  await expect(page.getByText(/^"At least"/)).toHaveText(
+    '"At least" is a lower bound on output: some responses have no final record, and the model may have produced more.',
   )
 })
 
@@ -623,12 +623,12 @@ test('a Codex run reports tokens only and a thread without usage records its thr
 }) => {
   await page.route(`**${endpoints.usage.path}*`, (route) => route.abort('connectionfailed'))
   await page.goto(`/?view=usage&run=${'0'.repeat(32)}`)
-  await expect(page.getByRole('heading', { name: 'Прогон не найден' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Run not found' })).toBeVisible()
 
-  await page.getByRole('navigation', { name: 'Навигация' }).getByRole('link', { name: 'Расход', exact: true }).click()
-  await expect(page.getByRole('status')).toHaveText('Не удалось загрузить отчёт о расходе. aang повторяет запрос.')
+  await page.getByRole('navigation', { name: 'Navigation' }).getByRole('link', { name: 'Usage', exact: true }).click()
+  await expect(page.getByRole('status')).toHaveText('Could not load the usage report. aang keeps retrying.')
   await page.unrouteAll()
-  await expect(page.getByText('За этот период нет ни активности решателя, ни вызовов наблюдателя и чата.')).toBeVisible(
+  await expect(page.getByText('No solver activity and no observer or chat calls in this period.')).toBeVisible(
     { timeout: 15_000 },
   )
 
@@ -638,33 +638,33 @@ test('a Codex run reports tokens only and a thread without usage records its thr
     .poll(async () => (await reportOf(page.request)).totals.solver.records, { timeout: 30_000 })
     .toBe(responses)
   const [usage] = (await reportOf(page.request, codexRun)).runs
-  const output = new Intl.NumberFormat('ru').format(usage?.solver.totals.tokens.output_tokens ?? -1)
+  const output = new Intl.NumberFormat('en-US').format(usage?.solver.totals.tokens.output_tokens ?? -1)
 
   await expect(runRows(page)).toHaveCount(1, { timeout: 15_000 })
   await runRows(page).getByRole('link').click()
   await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${codexRun}$`))
   await expect(page.getByRole('article').locator('header').getByText('Codex', { exact: true })).toBeVisible()
   const codex = session(page, '01a0f752')
-  await expect(codex.getByRole('columnheader')).toHaveText(['Учтено aang'])
-  await expect(amounts(codex, 'Вывод')).toHaveText([output])
+  await expect(codex.getByRole('columnheader')).toHaveText(['Counted by aang'])
+  await expect(amounts(codex, 'Output')).toHaveText([output])
   await expect(codex.getByRole('listitem')).toHaveCount(0)
-  await expect(page.getByText(/^Деньги — по прейскуранту/)).toHaveCount(0)
+  await expect(page.getByText(/^Money is at list price/)).toHaveCount(0)
 
   const rollout = `sessions/2026/10/01/rollout-2026-10-01T12-00-00-${legacyThread}.jsonl`
   await profile.write('codex', rollout, await threadWithoutRecords())
-  await page.getByRole('navigation', { name: 'Навигация' }).getByRole('link', { name: 'Расход', exact: true }).click()
+  await page.getByRole('navigation', { name: 'Navigation' }).getByRole('link', { name: 'Usage', exact: true }).click()
   await expect(runRows(page)).toHaveCount(2, { timeout: 15_000 })
-  await runRows(page).filter({ hasNotText: 'ответ' }).getByRole('link').click()
+  await runRows(page).filter({ hasNotText: 'response' }).getByRole('link').click()
   const legacy = session(page, legacyThread.slice(0, 8))
-  await expect(legacy.getByRole('columnheader')).toHaveText(['Учтено aang', 'Итог треда'])
+  await expect(legacy.getByRole('columnheader')).toHaveText(['Counted by aang', 'Thread total'])
   await expectSolverTokens(legacy, {
-    'Ввод без кэша': ['0', '4 366'],
-    'Чтение кэша': ['0', '38 656'],
-    'Запись в кэш': ['0', '0'],
-    Вывод: ['0', '38'],
+    'Uncached input': ['0', '4,366'],
+    'Cache read': ['0', '38,656'],
+    'Cache write': ['0', '0'],
+    Output: ['0', '38'],
   })
   await expect(legacy.getByRole('listitem')).toHaveText([
-    'Итог треда — накопительный итог Codex для треда без записей usage; журнал решателя его не включает.',
+    'Thread total is the cumulative Codex total for a thread without usage records; the solver journal does not include it.',
   ])
 })
 
@@ -678,17 +678,17 @@ test('two Claude forks of an unseen session name each other only as a guessed so
     .toBe(1)
 
   await page.goto(`/${usageLink(forkRun)}`)
-  const origin = page.getByText(/^Общее происхождение/)
+  const origin = page.getByText(/^Common origin/)
   await expect(origin).toHaveText(
-    'Общее происхождение: сессий с той же историей aang пока не видит. Унаследованная история здесь не учитывается.',
+    'Common origin: aang does not see sessions with the same history yet. Inherited history is not counted here.',
   )
 
   await profile.write('claude', transcriptOf(secondForkSession), await secondFork())
   await expect(origin).toHaveText(guessedSource, { timeout: 15_000 })
   await expect(origin.getByRole('link')).toHaveAttribute('href', usageLink(secondForkRun))
-  await expect(ledger(page, 'Решатель').getByText('1 ответ модели', { exact: true })).toBeVisible()
+  await expect(ledger(page, 'Solver').getByText('1 model response', { exact: true })).toBeVisible()
   const fork = session(page, 'cdfb3544')
-  await expect(amounts(fork, 'Вывод')).toHaveText(['5', '228'])
+  await expect(amounts(fork, 'Output')).toHaveText(['5', '228'])
   await expect(fork.getByRole('listitem')).toHaveText([finalTotal, inheritedTotal])
 
   await origin.getByRole('link').click()
@@ -696,7 +696,7 @@ test('two Claude forks of an unseen session name each other only as a guessed so
   await expect(origin).toHaveText(guessedSource)
   await expect(origin.getByRole('link')).toHaveAttribute('href', usageLink(forkRun))
   const second = session(page, secondForkSession.slice(0, 8))
-  await expect(amounts(second, 'Вывод')).toHaveText(['5', '228'])
+  await expect(amounts(second, 'Output')).toHaveText(['5', '228'])
   await expect(second.getByRole('listitem')).toHaveText([finalTotal, inheritedTotal])
 
   await profile.write('claude', transcriptOf(originalSession), await readFile(originalSample, 'utf8'))
@@ -705,8 +705,8 @@ test('two Claude forks of an unseen session name each other only as a guessed so
   for (const relative of [forkRun, originalRun]) {
     await expect(origin.locator(`a[href="${usageLink(relative)}"]`)).toHaveCount(1)
   }
-  await expect(ledger(page, 'Решатель').getByText('1 ответ модели', { exact: true })).toBeVisible()
-  await expect(amounts(second, 'Вывод')).toHaveText(['5', '228'])
+  await expect(ledger(page, 'Solver').getByText('1 model response', { exact: true })).toBeVisible()
+  await expect(amounts(second, 'Output')).toHaveText(['5', '228'])
 })
 
 test('a fork parent named by the user takes precedence over the guessed source', async ({
@@ -733,12 +733,12 @@ test('a fork parent named by the user takes precedence over the guessed source',
   const runsRoute = `**${endpoints.runs.path}`
   await page.route(runsRoute, (route) => route.abort('connectionfailed'))
   await page.goto(`/${usageLink(forkRun)}`)
-  const origin = page.getByText(/^Ответвлён/)
-  await expect(origin).toHaveText('Ответвлён от другого прогона. Унаследованная история здесь не учитывается.')
+  const origin = page.getByText(/^Forked from/)
+  await expect(origin).toHaveText('Forked from another run. Inherited history is not counted here.')
   await page.unroute(runsRoute)
-  await expect(origin).toHaveText(/^Ответвлён от прогона .+\. Унаследованная история здесь не учитывается\.$/)
+  await expect(origin).toHaveText(/^Forked from run .+\. Inherited history is not counted here\.$/)
   await expect(origin.getByRole('link')).toHaveAttribute('href', usageLink(originalRun))
-  await expect(page.getByText(/^Общее происхождение/)).toHaveCount(0)
+  await expect(page.getByText(/^Common origin/)).toHaveCount(0)
   await stopped(restarted)
 })
 
@@ -776,23 +776,23 @@ test('session notes follow the runtime and surface of the session itself: Claude
   await page.goto(`/${usageLink(codexRun)}`)
   await expect(page.getByRole('article').locator('header').getByText('Codex', { exact: true })).toBeVisible()
   const original = session(page, '86f93ed5')
-  await expect(original.getByRole('columnheader')).toHaveText(['Учтено aang', 'Итог Claude Code'])
+  await expect(original.getByRole('columnheader')).toHaveText(['Counted by aang', 'Claude Code total'])
   await expectSolverTokens(original, {
-    Вывод: ['223', '223'],
-    'Ответов модели': ['6', '—'],
-    Деньги: ['—', '0,0954 $'],
+    Output: ['223', '223'],
+    'Model responses': ['6', '—'],
+    Money: ['—', '$0.0954'],
   })
   await expect(original.getByRole('listitem')).toHaveText([finalTotal])
   await expect(session(page, codexSession.slice(0, 8))).toHaveCount(0)
 
-  await page.getByRole('navigation', { name: 'Навигация' }).getByRole('link', { name: 'Расход', exact: true }).click()
+  await page.getByRole('navigation', { name: 'Navigation' }).getByRole('link', { name: 'Usage', exact: true }).click()
   await page.locator(`a[href="${usageLink(forkRun)}"]`).click()
   await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${forkRun}$`))
   const codex = session(page, codexSession.slice(0, 8))
-  await expect(codex.getByRole('columnheader')).toHaveText(['Учтено aang'])
+  await expect(codex.getByRole('columnheader')).toHaveText(['Counted by aang'])
   await expect(codex.getByRole('listitem')).toHaveCount(0)
   const fork = session(page, 'cdfb3544')
-  await expect(fork.getByRole('columnheader')).toHaveText(['Учтено aang', 'Итог Claude Code'])
+  await expect(fork.getByRole('columnheader')).toHaveText(['Counted by aang', 'Claude Code total'])
   await expect(fork.getByRole('listitem')).toHaveText([continuedTotal, inheritedTotal, desktopSummaries])
   await stopped(restarted)
 })
@@ -809,24 +809,24 @@ test('the solver journal of a run splits into the exact usage of its stages and 
     .toBe(7)
 
   await stopped(daemon)
-  assignStage(profile.aangHome, originalRun, 'Проверка окружения', [
+  assignStage(profile.aangHome, originalRun, 'Environment check', [
     objectId({ kind: 'action', runtime: 'claude', session: originalSession, call: 'toolu_017B7FeHZ4yDzFdvKQMwDJB8' }),
   ])
   const restarted = await restart(daemon, profile)
 
   await page.goto(`/${usageLink(originalRun)}`)
-  await expect(ledger(page, 'Решатель').getByText('6 ответов модели', { exact: true })).toBeVisible()
-  const stages = page.getByRole('table', { name: 'Решатель по этапам' })
+  await expect(ledger(page, 'Solver').getByText('6 model responses', { exact: true })).toBeVisible()
+  const stages = page.getByRole('table', { name: 'Solver by stage' })
   await expect(stages.getByRole('columnheader')).toHaveText([
-    'Этап',
-    'Ввод без кэша',
-    'Чтение кэша',
-    'Запись в кэш',
-    'Вывод',
-    'Ответов модели',
+    'Stage',
+    'Uncached input',
+    'Cache read',
+    'Cache write',
+    'Output',
+    'Model responses',
   ])
-  await expect(stages.getByRole('rowheader')).toHaveText(['Проверка окружения', 'Не привязано к этапам'])
-  await expect(amounts(stages, 'Проверка окружения')).toHaveText(['2', '10 341', '7 337', '74', '1'])
-  await expect(amounts(stages, 'Не привязано к этапам')).toHaveText(['10', '71 943', '2 651', '149', '5'])
+  await expect(stages.getByRole('rowheader')).toHaveText(['Environment check', 'Not assigned to stages'])
+  await expect(amounts(stages, 'Environment check')).toHaveText(['2', '10,341', '7,337', '74', '1'])
+  await expect(amounts(stages, 'Not assigned to stages')).toHaveText(['10', '71,943', '2,651', '149', '5'])
   await stopped(restarted)
 })

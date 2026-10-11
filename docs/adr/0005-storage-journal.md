@@ -53,7 +53,7 @@ Each layer is derived only from the previous one and its own inputs.
 - `aang reparse` reruns the adapters over the raw records after `normalizer_version` changes (ADR-0010).
   - Facts with the same keys keep their ids, so model references stay correct.
   - New facts get the `pending` status.
-  - A reference to a vanished fact is shown as «Основание недоступно» ("Grounds unavailable").
+  - A reference to a vanished fact is shown as "Ground unavailable".
 
 ### Migrations and deletion
 
@@ -64,10 +64,10 @@ Each layer is derived only from the previous one and its own inputs.
     - Claude: the offset and the hash of the file prefix up to that offset.
   - Any re-read — backfill, `rescan`, recovery after a move, archive or inode change — skips the stream records up to the boundary.
     - For Claude, the boundary applies only if the prefix hash matched, that is, it is the same sequence of records.
-    - If a file with the same `sessionId` shrank or was replaced and the prefix does not match, the boundary is not applied blindly. Intake of the stream stops, a gap «поток изменён после удаления» ("stream changed after deletion") is written, and `aang status` offers the user to re-accept the whole stream or leave it stopped.
+    - If a file with the same `sessionId` shrank or was replaced and the prefix does not match, the boundary is not applied blindly. Intake of the stream stops, a gap "stream changed after pruning" is written, and `aang status` offers the user to re-accept the whole stream or leave it stopped.
   - Spool files of deleted sessions with an intake time earlier than the deletion are discarded.
   - Cursors are kept.
-  - Records past the boundary form the run anew with the mark «начало удалено» ("start deleted").
+  - Records past the boundary form the run anew with the mark "start pruned".
 
 ## Consequences
 

@@ -222,7 +222,7 @@ export interface SceneOptions {
 
 export const createScene = async ({ onTestFinished }: TestContext, options: SceneOptions = {}) => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-scheduler-')))
-  const home = join(root, 'Имя Фамилия')
+  const home = join(root, 'Όνομα Επώνυμο')
   const workspace = join(root, 'workspace')
   await mkdir(home)
   await mkdir(workspace)

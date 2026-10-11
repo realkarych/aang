@@ -759,12 +759,12 @@ describe('view rules from the chat', () => {
     const before = review.snapshot()
     const head = store.model.head(run)
     const reviewStage = review.stage('Review the parser')
-    const answer = askChat(review, 'Сверни ревьюеров', 50)
+    const answer = askChat(review, 'Collapse the reviewers', 50)
 
     const answered = storedAnswer(
       answer(
         chatOutput({
-          answer: 'Ревьюер свёрнут в один узел.',
+          answer: 'Reviewers collapsed into one node.',
           citations: [{ kind: 'stage', id: reviewStage }],
           view_rule: collapseReviewers,
         }),
@@ -775,7 +775,7 @@ describe('view rules from the chat', () => {
     const id = ruleOf(answered)
     expect(answered).toMatchObject({
       status: 'answered',
-      answer: 'Ревьюер свёрнут в один узел.',
+      answer: 'Reviewers collapsed into one node.',
       citations: [{ kind: 'stage', id: reviewStage }],
       unconfirmed_citations: false,
       insufficient_data: false,
@@ -831,8 +831,8 @@ describe('view rules from the chat', () => {
 
     const answers = proposed.map(([rule], index) =>
       storedAnswer(
-        askChat(review, 'Спрячь этап ревью', 50 + index)(
-          chatOutput({ answer: 'Этап скрыт.', citations: [{ kind: 'stage', id: reviewStage }], view_rule: rule }),
+        askChat(review, 'Hide the review stage', 50 + index)(
+          chatOutput({ answer: 'Stage hidden.', citations: [{ kind: 'stage', id: reviewStage }], view_rule: rule }),
           60 + index,
         ),
       ),
@@ -849,7 +849,7 @@ describe('view rules from the chat', () => {
     ).toEqual(
       proposed.map(([, reason]) => ({
         status: 'answered',
-        answer: 'Этап скрыт.',
+        answer: 'Stage hidden.',
         citations: [{ kind: 'stage', id: reviewStage }],
         rule: null,
         reason,
@@ -864,8 +864,8 @@ describe('view rules from the chat', () => {
   test('a question that is no longer pending applies no rule', async () => {
     const review = await reviewRun()
     const { store, run } = review
-    const answer = askChat(review, 'Сверни ревьюеров', 50)
-    const first = storedAnswer(answer(chatOutput({ answer: 'Ревьюер свёрнут.', view_rule: collapseReviewers }), 51))
+    const answer = askChat(review, 'Collapse the reviewers', 50)
+    const first = storedAnswer(answer(chatOutput({ answer: 'Reviewers collapsed.', view_rule: collapseReviewers }), 51))
     const position = store.changes.head()
 
     expect(

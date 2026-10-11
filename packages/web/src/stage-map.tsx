@@ -50,9 +50,9 @@ const nodeTypes = { stage: StageNode, frame: GroupNode }
 const edgeTypes = { route: RouteEdge }
 
 const ariaLabelConfig = {
-  'controls.ariaLabel': 'Масштаб карты',
-  'controls.zoomIn.ariaLabel': 'Приблизить',
-  'controls.zoomOut.ariaLabel': 'Отдалить',
+  'controls.ariaLabel': 'Map zoom',
+  'controls.zoomIn.ariaLabel': 'Zoom in',
+  'controls.zoomOut.ariaLabel': 'Zoom out',
 }
 
 const proOptions = { hideAttribution: true }
@@ -191,11 +191,11 @@ const stageViews = (graph: StageGraph, placement: PlacementOf): ReadonlyMap<Stag
 }
 
 const edgeLabel = ({ kind, from, to, bases }: MapEdge, titles: ReadonlyMap<string, string>): string => {
-  const source = `«${titles.get(from) ?? from}»`
-  const target = `«${titles.get(to) ?? to}»`
+  const source = `"${titles.get(from) ?? from}"`
+  const target = `"${titles.get(to) ?? to}"`
   return kind === 'dependency'
-    ? `${target} использует результат ${source}, основание: ${bases.map((basis) => basisLabel[basis]).join(', ')}`
-    : `${target} начат после завершения ${source}`
+    ? `${target} uses the output of ${source}, basis: ${bases.map((basis) => basisLabel[basis]).join(', ')}`
+    : `${target} started after ${source} finished`
 }
 
 interface NodeActions {
@@ -229,7 +229,7 @@ const groupNode = (layout: MapLayout, { id, name, parent, members }: VisibleGrou
     selectable: false,
     connectable: false,
     ariaRole: 'group',
-    ariaLabel: `Группа этапов «${name}»`,
+    ariaLabel: `Stage group "${name}"`,
   }
 }
 
@@ -272,7 +272,7 @@ const flowNodes = (
       selectable: false,
       connectable: false,
       ariaRole: 'group',
-      ariaLabel: `Этап «${shortIds(node.stage.title, agents)}»`,
+      ariaLabel: `Stage "${shortIds(node.stage.title, agents)}"`,
     }
     return group === undefined ? [stage] : [groupNode(layout, group), stage]
   })
@@ -327,18 +327,18 @@ const Markers = (): ReactElement => (
 )
 
 const Legend = (): ReactElement => (
-  <ul className="map-legend" aria-label="Линии карты">
+  <ul className="map-legend" aria-label="Map lines">
     <li>
       <svg viewBox="0 0 34 10" width="34" height="10" aria-hidden="true" focusable="false">
         <path className="map-route" data-kind="dependency" d="M1 5H24" markerEnd="url(#map-arrow-dependency)" />
       </svg>
-      использует результат
+      uses the output
     </li>
     <li>
       <svg viewBox="0 0 34 10" width="34" height="10" aria-hidden="true" focusable="false">
         <path className="map-route" data-kind="order" d="M1 5H25" markerEnd="url(#map-arrow-order)" />
       </svg>
-      позже по времени, без связи
+      later in time, no link
     </li>
   </ul>
 )
@@ -386,10 +386,10 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
     [layout, agents],
   )
   if (layout === null) {
-    return <p className="map-note">Раскладка карты…</p>
+    return <p className="map-note">Laying out the map…</p>
   }
   if (layout instanceof Error) {
-    return <p className="map-note">{`Карту не удалось разложить: ${layout.message}`}</p>
+    return <p className="map-note">{`Could not lay out the map: ${layout.message}`}</p>
   }
   return (
     <>
@@ -439,8 +439,8 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
           >
             <ControlButton
               className="react-flow__controls-fitview"
-              aria-label="Вписать карту"
-              title="Вписать карту"
+              aria-label="Fit the map"
+              title="Fit the map"
               onClick={() => {
                 setFollowing(true)
                 setFitRequest((count) => count + 1)

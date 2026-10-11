@@ -160,7 +160,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
         plugins = await admitClaude(invocation, options)
       } else await admitCodex(invocation, options)
       if (versionOf(await probe.run(['--version'])) !== version) throw new LaunchError('version_not_admitted', 'CLI version changed during admission')
-      record = { ...record, admitted: true, reason: null, warning: runtime === 'claude' && !verified.includes(version) ? 'изоляция от сообщений других сессий на этой версии не проверена' : null, isolationViolated: false, builtinPlugins: plugins }
+      record = { ...record, admitted: true, reason: null, warning: runtime === 'claude' && !verified.includes(version) ? "isolation from other sessions' messages is not verified on this version" : null, isolationViolated: false, builtinPlugins: plugins }
       await save()
       unsubscribe()
       launcher = makeLauncher(version, plugins)

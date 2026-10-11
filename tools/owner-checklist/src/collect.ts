@@ -118,11 +118,11 @@ export const collect = async ({ dir, roots: overrides, allSessions }: CollectOpt
     })}\n`,
   )
   return [
-    `Учтено событий: ${String(events.length)}; вне рабочего каталога отброшено событий: ${String(droppedEvents)} (сессий: ${String(droppedSessions)})`,
+    `Events included: ${String(events.length)}; events dropped outside the working directory: ${String(droppedEvents)} (sessions: ${String(droppedSessions)})`,
     `- ${eventsFile}`,
     `- ${filesFile}`,
     `- ${summaryFile}`,
     `- ${layout.envProbeLog}`,
-    'Перед переносом в docs/research/ просмотрите файлы: пути обезличены, промпты и вывод инструментов не сохраняются.',
+    'Review the files before moving them to docs/research/: paths are anonymized, prompts and tool output are not saved.',
   ]
 }

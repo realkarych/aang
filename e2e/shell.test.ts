@@ -28,44 +28,44 @@ test('a Claude session without hook events shows inactive hooks and the files-on
   await page.goto('/')
 
   const row = runRowOf(page, claudeRun)
-  await expect(row).toContainText('hooks не активны')
-  await expect(row).toContainText('только файлы')
+  await expect(row).toContainText('hooks inactive')
+  await expect(row).toContainText('files only')
   await expect(row.getByRole('link')).toHaveText(claudeGoal)
-  await expect(lamp(page, 'Hooks')).toHaveText('Hooks не активны в 1 сессии')
+  await expect(lamp(page, 'Hooks')).toHaveText('Hooks inactive in 1 session')
   await lamp(page, 'Hooks').getByRole('button').click()
-  await expect(page.getByRole('region', { name: 'Hooks: подробности' })).toContainText(
-    'Claude Code: hooks не активны в 1 сессии, режим «только файлы».',
+  await expect(page.getByRole('region', { name: 'Hooks: details' })).toContainText(
+    'Claude Code: hooks inactive in 1 session, "files only" mode.',
   )
-  await expect(lamp(page, 'Версии')).toHaveText('Версии 1 версия без полной поддержки')
-  await lamp(page, 'Версии').getByRole('button').click()
-  await expect(page.getByRole('region', { name: 'Версии: подробности' })).toHaveText(
-    /^Claude Code \d+\.\d+\.\d+ \(поверхность не определена\), (macos|linux|windows), local: не проверена, 1 сессия\.$/,
+  await expect(lamp(page, 'Versions')).toHaveText('Versions 1 version without full support')
+  await lamp(page, 'Versions').getByRole('button').click()
+  await expect(page.getByRole('region', { name: 'Versions: details' })).toHaveText(
+    /^Claude Code \d+\.\d+\.\d+ \(surface unknown\), (macos|linux|windows), local: unverified, 1 session\.$/,
   )
 
   await row.getByRole('link').click()
   await expect(page).toHaveURL(new RegExp(`\\?run=${claudeRun}$`))
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(claudeGoal)
-  await expect(fact(page, 'Свежесть')).toHaveText('hooks не активны')
-  await expect(fact(page, 'Режим')).toHaveText('только файлы')
-  await expect(lamp(page, 'Режим')).toHaveText('Режим только файлы')
-  await lamp(page, 'Режим').getByRole('button').click()
-  await expect(page.getByRole('region', { name: 'Режим: подробности' })).toHaveText(
-    'Сессия 86f93ed5: только файлы — hooks не активны, события берутся из файлов сессии.',
+  await expect(fact(page, 'Freshness')).toHaveText('hooks inactive')
+  await expect(fact(page, 'Mode')).toHaveText('files only')
+  await expect(lamp(page, 'Mode')).toHaveText('Mode files only')
+  await lamp(page, 'Mode').getByRole('button').click()
+  await expect(page.getByRole('region', { name: 'Mode: details' })).toHaveText(
+    'Session 86f93ed5: files only: hooks inactive, events come from session files.',
   )
 
-  await expect(fact(page, 'Внимание')).toHaveText('нет')
+  await expect(fact(page, 'Attention')).toHaveText('none')
 
   await hook.claude('PermissionRequest.Bash.json', hookFields(profile, claudeOriginal))
 
-  await expect(lamp(page, 'Режим')).toHaveText('Режим полный')
-  await expect(fact(page, 'Режим')).toHaveText('полный')
-  await expect(fact(page, 'Внимание')).toHaveText('ждут ответа: 1')
-  await expect(lamp(page, 'Hooks')).not.toContainText('не активны')
+  await expect(lamp(page, 'Mode')).toHaveText('Mode full')
+  await expect(fact(page, 'Mode')).toHaveText('full')
+  await expect(fact(page, 'Attention')).toHaveText('awaiting an answer: 1')
+  await expect(lamp(page, 'Hooks')).not.toContainText('inactive in')
 
-  await page.getByRole('navigation').getByRole('link', { name: 'Прогоны' }).click()
-  await expect(runRowOf(page, claudeRun)).toContainText('полный')
-  await expect(runRowOf(page, claudeRun)).toContainText('ждут ответа: 1')
-  await expect(runRowOf(page, claudeRun)).not.toContainText('hooks не активны')
+  await page.getByRole('navigation').getByRole('link', { name: 'Runs' }).click()
+  await expect(runRowOf(page, claudeRun)).toContainText('full')
+  await expect(runRowOf(page, claudeRun)).toContainText('awaiting an answer: 1')
+  await expect(runRowOf(page, claudeRun)).not.toContainText('hooks inactive')
 })
 
 test('a Codex session without hook events shows inactive hooks and the files-only mode (E2E 9)', async ({
@@ -73,21 +73,21 @@ test('a Codex session without hook events shows inactive hooks and the files-onl
   player,
 }) => {
   await page.goto(`/?run=${codexRun}`)
-  await expect(page.getByRole('heading', { name: 'Прогон не найден' })).toBeVisible()
-  await expect(lamp(page, 'Связь')).toHaveText('Связь прогон не найден')
+  await expect(page.getByRole('heading', { name: 'Run not found' })).toBeVisible()
+  await expect(lamp(page, 'Link')).toHaveText('Link run not found')
 
   await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(codexGoal)
-  await expect(fact(page, 'Свежесть')).toHaveText('hooks не активны')
-  await expect(lamp(page, 'Режим')).toHaveText('Режим только файлы')
-  await expect(lamp(page, 'Hooks')).toHaveText('Hooks не активны в 1 сессии')
-  await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён')
+  await expect(fact(page, 'Freshness')).toHaveText('hooks inactive')
+  await expect(lamp(page, 'Mode')).toHaveText('Mode files only')
+  await expect(lamp(page, 'Hooks')).toHaveText('Hooks inactive in 1 session')
+  await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
 
   await page.getByRole('link', { name: 'aang' }).click()
   const row = runRowOf(page, codexRun)
-  await expect(row).toContainText('hooks не активны')
-  await expect(row).toContainText('только файлы')
+  await expect(row).toContainText('hooks inactive')
+  await expect(row).toContainText('files only')
 })
 
 test.describe('a session that loses its hooks mid-session', () => {
@@ -102,9 +102,9 @@ test.describe('a session that loses its hooks mid-session', () => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await hook.claude('UserPromptSubmit.json', { ...hookFields(profile, claudeOriginal), prompt_id: 'hooked-turn' })
     await page.goto(`/?run=${claudeRun}`)
-    await expect(fact(page, 'Режим')).toHaveText('полный')
-    await expect(fact(page, 'Свежесть')).not.toHaveText('hooks не активны')
-    await expect(lamp(page, 'Hooks')).not.toContainText('не активны')
+    await expect(fact(page, 'Mode')).toHaveText('full')
+    await expect(fact(page, 'Freshness')).not.toHaveText('hooks inactive')
+    await expect(lamp(page, 'Hooks')).not.toContainText('inactive in')
 
     const prompt = {
       type: 'user',
@@ -118,19 +118,19 @@ test.describe('a session that loses its hooks mid-session', () => {
     }
     await appendFile(sessionFile(profile, claudeOriginal), `${JSON.stringify(prompt)}\n`)
 
-    await expect(fact(page, 'Свежесть')).toHaveText('hooks не активны')
-    await expect(fact(page, 'Режим')).toHaveText('только файлы')
-    await expect(lamp(page, 'Hooks')).toHaveText('Hooks не активны в 1 сессии')
-    await lamp(page, 'Режим').getByRole('button').click()
-    await expect(page.getByRole('region', { name: 'Режим: подробности' })).toHaveText(
-      'Сессия 86f93ed5: только файлы — hooks не активны, события берутся из файлов сессии.',
+    await expect(fact(page, 'Freshness')).toHaveText('hooks inactive')
+    await expect(fact(page, 'Mode')).toHaveText('files only')
+    await expect(lamp(page, 'Hooks')).toHaveText('Hooks inactive in 1 session')
+    await lamp(page, 'Mode').getByRole('button').click()
+    await expect(page.getByRole('region', { name: 'Mode: details' })).toHaveText(
+      'Session 86f93ed5: files only: hooks inactive, events come from session files.',
     )
 
     await hook.claude('Stop.json', hookFields(profile, claudeOriginal))
 
-    await expect(fact(page, 'Режим')).toHaveText('полный')
-    await expect(fact(page, 'Свежесть')).not.toHaveText('hooks не активны')
-    await expect(lamp(page, 'Hooks')).not.toContainText('не активны')
+    await expect(fact(page, 'Mode')).toHaveText('full')
+    await expect(fact(page, 'Freshness')).not.toHaveText('hooks inactive')
+    await expect(lamp(page, 'Hooks')).not.toContainText('inactive in')
   })
 })
 
@@ -154,18 +154,18 @@ test('the run page follows the stream live and re-reads the run when the stream 
   await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.agents).toBe(1)
 
   await page.goto(`/?run=${claudeRun}`)
-  await expect(fact(page, 'Состояние')).toHaveText('выполняется')
-  await expect(fact(page, 'Агенты')).toHaveText('1')
-  await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён')
+  await expect(fact(page, 'State')).toHaveText('running')
+  await expect(fact(page, 'Agents')).toHaveText('1')
+  await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
 
   await claude.play()
-  await expect(fact(page, 'Агенты')).toHaveText('2')
-  await expect(fact(page, 'Состояние')).toHaveText('ждёт ввода')
+  await expect(fact(page, 'Agents')).toHaveText('2')
+  await expect(fact(page, 'State')).toHaveText('waiting for input')
   const complete = await readFile(transcript)
 
   await context.setOffline(true)
   expect(await daemon.stop(), daemon.output()).toEqual({ code: 0, signal: null })
-  await expect(lamp(page, 'Связь')).toHaveText('Связь нет связи с демоном')
+  await expect(lamp(page, 'Link')).toHaveText('Link no connection to the daemon')
 
   for (const file of ['aang.db', 'aang.db-wal', 'aang.db-shm']) {
     await rm(join(profile.aangHome, file), { force: true })
@@ -179,12 +179,12 @@ test('the run page follows the stream live and re-reads the run when the stream 
   await expect.poll(async () => (await readRunSummary(restarted.request, claudeRun))?.agents).toBe(1)
 
   await context.setOffline(false)
-  await expect(fact(page, 'Агенты')).toHaveText('1')
-  await expect(fact(page, 'Состояние')).toHaveText('выполняется')
-  await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён')
+  await expect(fact(page, 'Agents')).toHaveText('1')
+  await expect(fact(page, 'State')).toHaveText('running')
+  await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
 
   await appendFile(transcript, complete.subarray(beforeSubagent.length))
-  await expect(fact(page, 'Состояние')).toHaveText('ждёт ввода')
+  await expect(fact(page, 'State')).toHaveText('waiting for input')
   expect(await restarted.stop(), restarted.output()).toEqual({ code: 0, signal: null })
 })
 
@@ -199,29 +199,29 @@ test('the run list says when only the list request fails and shows the run once 
 
   await page.route(runsRoute, dropRuns)
   await page.goto('/')
-  await expect(trouble).toHaveText('Не удалось загрузить список прогонов. aang повторяет запрос.')
-  await expect(lamp(page, 'Связь')).toHaveText('Связь список не обновляется')
+  await expect(trouble).toHaveText('Could not load the run list. aang keeps retrying.')
+  await expect(lamp(page, 'Link')).toHaveText('Link list not updating')
 
   await page.unroute(runsRoute, dropRuns)
-  await expect(page.getByRole('heading', { name: 'Прогонов пока нет' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
   await expect(trouble).toHaveCount(0)
-  await expect(lamp(page, 'Связь')).toHaveText('Связь есть')
+  await expect(lamp(page, 'Link')).toHaveText('Link connected')
 
   await page.route(runsRoute, dropRuns)
-  await expect(trouble).toHaveText('Не удалось обновить список прогонов. Показаны прежние данные, они могут устареть.')
+  await expect(trouble).toHaveText('Could not refresh the run list. Showing earlier data, which may be stale.')
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.agents).toBe(2)
-  await expect(page.getByRole('heading', { name: 'Прогонов пока нет' })).toBeVisible()
-  await expect(lamp(page, 'Связь')).toHaveText('Связь список не обновляется')
-  await lamp(page, 'Связь').getByRole('button').click()
-  await expect(page.getByRole('region', { name: 'Связь: подробности' })).toHaveText(
-    'Демон не отдал список прогонов. aang повторяет запрос; список на экране может устареть.',
+  await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
+  await expect(lamp(page, 'Link')).toHaveText('Link list not updating')
+  await lamp(page, 'Link').getByRole('button').click()
+  await expect(page.getByRole('region', { name: 'Link: details' })).toHaveText(
+    'The daemon did not return the run list. aang keeps retrying; the list on screen may be stale.',
   )
 
   await page.unroute(runsRoute, dropRuns)
   await expect(runRowOf(page, claudeRun)).toBeVisible()
   await expect(trouble).toHaveCount(0)
-  await expect(lamp(page, 'Связь')).toHaveText('Связь есть')
+  await expect(lamp(page, 'Link')).toHaveText('Link connected')
 })
 
 test.describe('the status strip', () => {
@@ -233,42 +233,42 @@ test.describe('the status strip', () => {
     profile,
   }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'Прогонов пока нет' })).toBeVisible()
-    await expect(page.getByText('aang наблюдает все каталоги.', { exact: false })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
+    await expect(page.getByText('aang watches all directories.', { exact: false })).toBeVisible()
 
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await expect(runRowOf(page, claudeRun)).toBeVisible()
-    await expect(lamp(page, 'Записи')).toHaveText('Записи все распознаны')
-    await expect(lamp(page, 'Источники')).toHaveText('Источники в порядке')
-    await expect(lamp(page, 'Spool')).toHaveText('Spool пуст')
+    await expect(lamp(page, 'Records')).toHaveText('Records all recognized')
+    await expect(lamp(page, 'Sources')).toHaveText('Sources fine')
+    await expect(lamp(page, 'Spool')).toHaveText('Spool empty')
 
     const transcript = sessionFile(profile, claudeOriginal)
     const unknownRecord = { type: 'h1-future-record', sessionId: claudeSession, cwd: claudeOriginal.cwd }
     await appendFile(transcript, `${JSON.stringify(unknownRecord)}\n`)
-    await expect(lamp(page, 'Записи')).toHaveText('Записи всего 1 нераспознанная')
-    await lamp(page, 'Записи').getByRole('button').click()
-    await expect(page.getByRole('region', { name: 'Записи: подробности' })).toContainText(
-      'Записи неизвестного формата сохранены в журнале',
+    await expect(lamp(page, 'Records')).toHaveText('Records 1 unrecognized record in total')
+    await lamp(page, 'Records').getByRole('button').click()
+    await expect(page.getByRole('region', { name: 'Records: details' })).toContainText(
+      'Records in an unknown format are kept in the journal',
     )
 
     await rm(transcript)
-    await expect(runRowOf(page, claudeRun)).toContainText('источник потерян')
-    await expect(lamp(page, 'Источники')).toHaveText('Источники 1 источник потерян')
+    await expect(runRowOf(page, claudeRun)).toContainText('source lost')
+    await expect(lamp(page, 'Sources')).toHaveText('Sources 1 source lost')
 
     await runRowOf(page, claudeRun).getByRole('link').click()
-    await expect(fact(page, 'Свежесть')).toHaveText('источник потерян')
-    await expect(lamp(page, 'Источники')).toHaveText('Источники 1 источник потерян')
-    await lamp(page, 'Источники').getByRole('button').click()
-    await expect(page.getByRole('region', { name: 'Источники: подробности' })).toContainText('источник потерян')
-    await expect(lamp(page, 'Записи')).toHaveText('Записи в этом прогоне 1 нераспознанная')
+    await expect(fact(page, 'Freshness')).toHaveText('source lost')
+    await expect(lamp(page, 'Sources')).toHaveText('Sources 1 source lost')
+    await lamp(page, 'Sources').getByRole('button').click()
+    await expect(page.getByRole('region', { name: 'Sources: details' })).toContainText('source lost')
+    await expect(lamp(page, 'Records')).toHaveText('Records 1 unrecognized record in this run')
 
     const { spoolReady } = aangHomePaths(profile.aangHome)
     await mkdir(spoolReady, { recursive: true })
     await writeFile(join(spoolReady, 'h1-overflow.evt'), 'x'.repeat(5_000))
-    await expect(lamp(page, 'Spool')).toHaveText('Spool превышен порог')
+    await expect(lamp(page, 'Spool')).toHaveText('Spool over threshold')
     await lamp(page, 'Spool').getByRole('button').click()
-    await expect(page.getByRole('region', { name: 'Spool: подробности' })).toContainText(
-      'Аренда снята: hooks не пишут в spool.',
+    await expect(page.getByRole('region', { name: 'Spool: details' })).toContainText(
+      'Lease released: hooks do not write to the spool.',
     )
   })
 })
@@ -280,7 +280,7 @@ test.describe('an empty list with watched directories', () => {
 
   test('names the directories where a run would come from', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'Прогонов пока нет' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
     await expect(page.getByRole('listitem').filter({ hasText: watched })).toBeVisible()
   })
 })

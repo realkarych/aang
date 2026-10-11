@@ -45,7 +45,7 @@ const playing = (runtime: SurfaceVariant['runtime'], scenario: string): readonly
 
 const viewMark = 'view-mark'
 
-const nothingChanged = 'С отметки ничего не изменилось.'
+const nothingChanged = 'Nothing changed since the mark.'
 
 const observed = { timeout: 60_000 }
 
@@ -113,10 +113,10 @@ const continuedAfterTheMark = async (
   await replay.play({ until: viewMark })
 
   await page.goto(`/?run=${run}&mode=changes`)
-  await expect(since(page)).toContainText('Прогон ещё не отмечен просмотренным.')
+  await expect(since(page)).toContainText('The run is not marked as reviewed yet.')
   await expect.poll(() => mapped(page.request, run), observed).toBe(true)
   await markButton(page).click()
-  await expect(mark(page)).toContainText('Просмотрен только что')
+  await expect(mark(page)).toContainText('Reviewed just now')
   await expect(since(page)).toContainText(nothingChanged)
 
   observer.setScenario(observerScenarios['since-last-view'].after)
@@ -125,54 +125,54 @@ const continuedAfterTheMark = async (
 }
 
 const expectReplacedStage = async (page: Page): Promise<void> => {
-  const replaced = change(page, 'Пересмотренные решения', `Этап «${mainStageTitle}»`)
-  await expect(replaced).toContainText(`заменён этапом «${continuedStageTitle}»`, observed)
-  await expect(replaced).toContainText('интерпретация aang')
-  await replaced.getByRole('button', { name: /^Основания: / }).click()
-  await expect(replaced).toContainText(/сырая запись № \d+/)
-  await expect(change(page, 'Этапы', `«${continuedStageTitle}»`)).toContainText('новый')
+  const replaced = change(page, 'Revised decisions', `Stage "${mainStageTitle}"`)
+  await expect(replaced).toContainText(`replaced by stage "${continuedStageTitle}"`, observed)
+  await expect(replaced).toContainText('aang interpretation')
+  await replaced.getByRole('button', { name: /^Grounds: / }).click()
+  await expect(replaced).toContainText(/raw record #\d+/)
+  await expect(change(page, 'Stages', `"${continuedStageTitle}"`)).toContainText('new')
 }
 
 const expectNewResult = async (page: Page, session: string, file: string, tool: string): Promise<void> => {
-  const result = change(page, 'Результаты', file).filter({ hasText: `записал ${tool}` })
-  await expect(result).toContainText('новая версия', observed)
-  await expect(result).toContainText(`Сессия ${session.slice(0, 8)}, основной агент`)
-  await result.getByRole('button', { name: /^Основания: / }).click()
-  await expect(result).toContainText(/сырая запись № \d+/)
+  const result = change(page, 'Outputs', file).filter({ hasText: `written by ${tool}` })
+  await expect(result).toContainText('new version', observed)
+  await expect(result).toContainText(`Session ${session.slice(0, 8)}, main agent`)
+  await result.getByRole('button', { name: /^Grounds: / }).click()
+  await expect(result).toContainText(/raw record #\d+/)
 }
 
 const expectObserverQuestion = async (page: Page): Promise<void> => {
-  const question = change(page, 'Вопросы и запросы', continuationQuestionText)
-  await expect(question).toContainText('открыт', observed)
-  await expect(question).toContainText('от наблюдателя')
+  const question = change(page, 'Questions and requests', continuationQuestionText)
+  await expect(question).toContainText('opened', observed)
+  await expect(question).toContainText('from the observer')
 }
 
 const factsPath = endpoints.fact.path.replace(':id', '')
 
 const expectCardsToOriginal = async (page: Page, text: string, count = 1): Promise<(string | null)[]> => {
-  const cards = change(page, 'Итоги решателя', text)
+  const cards = change(page, 'Solver results', text)
   await expect(cards).toHaveCount(count, observed)
   const messages: (string | null)[] = []
   for (const card of await cards.all()) {
-    await expect(card).toContainText('новая')
-    await expect(card).toContainText(`этап «${continuedStageTitle}»`)
+    await expect(card).toContainText('new')
+    await expect(card).toContainText(`stage "${continuedStageTitle}"`)
     const read = page.waitForResponse((response) => new URL(response.url()).pathname.startsWith(factsPath))
-    await card.getByRole('button', { name: 'Показать в оригинале' }).click()
+    await card.getByRole('button', { name: 'Show original' }).click()
     const { fact } = endpoints.fact.response.parse(await (await read).json())
     const original = card.getByRole('figure')
     await expect(original.locator('mark')).toHaveText(text)
-    await expect(original).toContainText('сообщение')
-    await expect(original).toContainText('решатель')
-    await expect(original).toContainText(`сырая запись № ${String(fact.seq)}`)
+    await expect(original).toContainText('message')
+    await expect(original).toContainText('solver')
+    await expect(original).toContainText(`raw record #${String(fact.seq)}`)
     messages.push(fact.runtime_ids.message_id)
-    await card.getByRole('button', { name: 'Скрыть оригинал' }).click()
+    await card.getByRole('button', { name: 'Hide original' }).click()
     await expect(original).toHaveCount(0)
   }
   return messages
 }
 
 const expectCountedChanges = async (page: Page): Promise<void> => {
-  await expect(sinceTab(page)).toHaveAccessibleName(/^С последнего просмотра, \d+ изменени/)
+  await expect(sinceTab(page)).toHaveAccessibleName(/^Since last review, \d+ changes?/)
 }
 
 const checkedOnThisOs = (variant: SurfaceVariant): void => {
@@ -207,10 +207,10 @@ test.describe('with the observer', () => {
           await expectNewResult(page, session, 'result.txt', 'Write')
           await expectNewResult(page, session, 'result.txt', 'Edit')
           for (const tool of ['Write', 'Edit']) {
-            const approval = change(page, 'Вопросы и запросы', `${tool}: `)
-            await expect(approval).toContainText('Запрос одобрения')
-            await expect(approval).toContainText('по правилу aang')
-            await expect(approval).toContainText('закрыт')
+            const approval = change(page, 'Questions and requests', `${tool}: `)
+            await expect(approval).toContainText('Approval request')
+            await expect(approval).toContainText('by aang rule')
+            await expect(approval).toContainText('closed')
           }
           await expectObserverQuestion(page)
           await expectCardsToOriginal(page, claudeFinalText)
@@ -261,10 +261,10 @@ test.describe('with the observer', () => {
           })
 
           await expectReplacedStage(page)
-          const asked = change(page, 'Вопросы и запросы', codexQuestionText)
-          await expect(asked).toContainText('открыт', observed)
-          await expect(asked).toContainText('Вопрос')
-          await expect(asked).toContainText('по правилу aang')
+          const asked = change(page, 'Questions and requests', codexQuestionText)
+          await expect(asked).toContainText('opened', observed)
+          await expect(asked).toContainText('Question')
+          await expect(asked).toContainText('by aang rule')
           await expectObserverQuestion(page)
           await expectCardsToOriginal(page, codexQuestionMessage)
           const finalAnswers = finalAnswerMessagesAfterTheQuestion[variant.surface] ?? []

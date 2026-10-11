@@ -72,13 +72,13 @@ The hook handler from ADR-0004 is written in POSIX sh, which does not exist on W
     - on macOS and Linux, paths in POSIX single quotes. Codex runs the command through the account's shell from the user database, not `sh` and not `$SHELL`: `/bin/zsh -c` on macOS, `/bin/bash -c` on Linux (D.5). There is no `-l` flag, but zsh reads the user's `~/.zshenv` on every event, and its time is included in the hook latency.
   - Launching PowerShell on every event costs 0.25–0.4 s (D.8), 25–40 times above the macOS and Linux budget. The owner's decision is in section "Codex on Windows".
   - `pwsh -Command` turns a command exit code other than 0 and 1 into 1. So on Windows a hook's `exit 2` does not block a Codex action. A Codex hook timeout terminates the hook process together with its descendants and does not block the action (D.8).
-  - Paths with spaces and non-ASCII characters (a profile like `C:\Users\Имя Фамилия`) were verified by D.8 for both runtimes: in Claude's exec form and in Codex's `&` form they arrive without corruption.
+  - Paths with spaces and non-ASCII characters (a profile like `C:\Users\Όνομα Επώνυμο`) were verified by D.8 for both runtimes: in Claude's exec form and in Codex's `&` form they arrive without corruption.
 
 ### Codex on Windows
 
 Decision 7 was approved by the owner on 2026-10-06, option "b" of the D.8 report:
 
-- `aang install` without flags on Windows installs only the Claude plugin. Codex hooks are not installed, and Codex sessions run in «только файлы» ("files only") mode (ADR-0004): content, links and usage are visible, approval waits are not. `aang install` prints this together with the cost of Codex hooks and the flag that enables them.
+- `aang install` without flags on Windows installs only the Claude plugin. Codex hooks are not installed, and Codex sessions run in "files only" mode (ADR-0004): content, links and usage are visible, approval waits are not. `aang install` prints this together with the cost of Codex hooks and the flag that enables them.
 - The explicit flag `aang install --codex` installs Codex hooks on Windows with a command in PowerShell form (section "Hook handler") and warns about the slowdown: Codex launches PowerShell on every event, which is 0.25–0.4 s per event.
 - `aang status` on Windows repeats the same: with `not_installed`, that Codex sessions are visible only through files; with entries installed (`untrusted`, `disabled`, `active`), the cost of each event.
 
@@ -99,7 +99,7 @@ How installation implements decision 7:
 
   Paths are built via `os.homedir()` and the `path` module, not by concatenating strings.
 - Claude finds its root via `USERPROFILE`, and Codex via the OS account profile: it ignores the `HOME` and `USERPROFILE` variables (D.8). For a user both match `%USERPROFILE%`. Where the profile is substituted (tests, tools), `CODEX_HOME` is set explicitly.
-- Claude's project directory name encodes `cwd` lossily: every character other than Latin letters and digits (including `:`, `\`, space and Cyrillic) is replaced with `-` (D.8). The adapter takes transcript paths from the hook payload (`transcript_path`) and from the root scan, and does not reconstruct the project directory name from `cwd`. Desktop data on Windows is not verified (decision 3).
+- Claude's project directory name encodes `cwd` lossily: every character other than Latin letters and digits (including `:`, `\`, space and non-Latin letters) is replaced with `-` (D.8). The adapter takes transcript paths from the hook payload (`transcript_path`) and from the root scan, and does not reconstruct the project directory name from `cwd`. Desktop data on Windows is not verified (decision 3).
 - File identity is `fs.stat` with `bigint`: `dev` (volume serial number) and `ino` (NTFS file index).
 - Reading a file held by another process: Node opens files with share access. If the writing process holds an exclusive lock, the read is retried after a pause; a prolonged failure becomes a gap.
 - Both CLIs write JSONL with `\n` on Windows too (D.8); line parsing still accepts `\r\n`.
@@ -196,7 +196,7 @@ How installation implements decision 7:
 
 - The repository has two languages: TypeScript and Go (one small component). CI needs a Go toolchain.
 - External termination of the handler and a fatal Go runtime error remain possible: the event is lost and marked as a gap, as with an unavailable spool.
-- D.8 verified the CLIs of both runtimes on Windows (`docs/research/windows-runtimes.md`). Desktop (decision 3), OAuth authorization storage (decision 4) and the interactive TUI remain unverified. The Claude hook budget on Windows is 25 ms (decision 6). Codex hooks on Windows cost 0.25–0.4 s per event, so by default Codex sessions on Windows run in «только файлы» mode (decision 7).
+- D.8 verified the CLIs of both runtimes on Windows (`docs/research/windows-runtimes.md`). Desktop (decision 3), OAuth authorization storage (decision 4) and the interactive TUI remain unverified. The Claude hook budget on Windows is 25 ms (decision 6). Codex hooks on Windows cost 0.25–0.4 s per event, so by default Codex sessions on Windows run in "files only" mode (decision 7).
 - The daemon is stopped via the API on all OSes, without signals. An intentional stop is durable: the marker is removed only by `aang start`, and a live daemon that sees it shuts itself down.
 - A CLI call whose tree stop cannot be confirmed occupies a slot until confirmation or a daemon restart. This is a deliberate choice of safety at the expense of observer availability.
 - The Go binary has two modes: hook on all OSes and launcher on Windows.
@@ -218,7 +218,7 @@ Accepted by the owner on 2026-10-02:
 Accepted by the owner on 2026-10-06 based on the D.8 report ([`docs/research/windows-runtimes.md`](../research/windows-runtimes.md), section 2):
 
 6. The budget of `aang-hook.exe` for Claude on Windows is p95 up to 25 ms per event from the runtime side. On macOS and Linux the budget is still 10 ms.
-7. Codex hooks on Windows are not installed by default: Codex sessions run in «только файлы» mode (ADR-0004), approval waits are not visible. An explicit flag enables the hooks, and `aang install` and `aang status` warn about the slowdown of 0.25–0.4 s per event.
+7. Codex hooks on Windows are not installed by default: Codex sessions run in "files only" mode (ADR-0004), approval waits are not visible. An explicit flag enables the hooks, and `aang install` and `aang status` warn about the slowdown of 0.25–0.4 s per event.
 
 ## Owner decisions on technical questions
 

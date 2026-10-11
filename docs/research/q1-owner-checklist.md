@@ -24,7 +24,7 @@ Record the versions before the start and after the end (Desktop updates its engi
 
 - `claude --version` and `codex --version`;
 - "About" of Claude Desktop and ChatGPT;
-- the version of the built-in Claude Desktop engine — the «Версии» ("Versions") field of the transcript table of the D.7 summary, or `version` of the lines of a Desktop session transcript;
+- the version of the built-in Claude Desktop engine — the "Versions" field of the transcript table of the D.7 summary, or `version` of the lines of a Desktop session transcript;
 - `cli_version` from `session_meta` of a Codex Desktop session rollout.
 
 These are the released versions: matrix rows are created exactly for them. If a version differs from the one recorded in `support/matrix.json` (Claude 2.1.289, Desktop engine 2.1.286, Codex 0.160.0, Codex Desktop engine 0.159.2), note this in the report: a new version needs reference recordings (ADR-0010, decision 1).
@@ -102,12 +102,12 @@ For each surface: Claude Desktop Code in Local and worktree modes, Codex in Chat
    - the action and the subagent are visible on the map or in the action list; the subagent has its own place on the map (if the observer is working);
    - the model's question is visible in the attention zone until you answer.
 2. **Reconnection.** While the model is waiting for the answer to the question, run `aang stop`, then `aang start`. Answer the question. There are no duplicate actions or questions in the UI, the question is closed.
-3. **After an iteration (E2E 4).** Press «Отметить просмотренным» ("Mark as viewed") in the UI. Continue the session: for Claude Desktop and Codex, close and reopen the application and continue the same chat (resume); for the TUI, `claude --resume`. Prompt: "Append a second line to notes.txt". Then in the «С последнего просмотра» ("Since last view") tab:
+3. **After an iteration (E2E 4).** Press "Mark as viewed" in the UI. Continue the session: for Claude Desktop and Codex, close and reopen the application and continue the same chat (resume); for the TUI, `claude --resume`. Prompt: "Append a second line to notes.txt". Then in the "Since last review" tab:
    - the new version of `notes.txt` and the new action are among the changes;
    - the cards lead to the source record (transcript or rollout).
 4. **Compaction.** `/compact` in Claude Desktop and the TUI. In the UI the session continues without a gap; record what is visible about the compaction.
 
-Record for each surface: whether each item passed, the surface label in the UI (for example, Codex Desktop is labeled «предположительно» ("presumably") — the adapter distinguishes it only by `originator`), the session support mode (hooks and files), the version status in the status bar, screenshots.
+Record for each surface: whether each item passed, the surface label in the UI (for example, Codex Desktop is labeled "(assumed)" — the adapter distinguishes it only by `originator`), the session support mode (hooks and files), the version status in the status bar, screenshots.
 
 ### 3.4. Rolling back part 2
 
@@ -159,7 +159,7 @@ On the Mac: `ssh -N -L 4290:127.0.0.1:4290 <user>@<host>`, on the host `aang ope
 ### 4.2. Claude Desktop
 
 1. Code → SSH environment → your host → folder `~/aang-q1-ssh/probe-repo`. Record what Desktop installed on the host: `ls -la ~/.claude` and the directories that appeared in the home directory, the path and version of the running engine (`ps -eo pid,args | grep -i claude` on the host during the session) and its environment (`tr '\0' '\n' < /proc/<pid>/environ | grep -E 'CLAUDE|ANTHROPIC|PATH'`; do not copy token values into the report).
-2. Scenarios 1–4 from section 3.3. In the aang UI on the host the session must appear labeled Claude Desktop with the version row `desktop_ssh`. If the label is different (for example, CLI or SDK) or hooks do not arrive (the «только файлы» ("files only") mode), record this: it determines whether the SSH mode is supported by the same adapter (`docs/research/integrations.md`, "Recommended collection approach for aang").
+2. Scenarios 1–4 from section 3.3. In the aang UI on the host the session must appear labeled Claude Desktop with the version row `desktop_ssh`. If the label is different (for example, CLI or SDK) or hooks do not arrive (the "files only" mode), record this: it determines whether the SSH mode is supported by the same adapter (`docs/research/integrations.md`, "Recommended collection approach for aang").
 3. If the aang plugin does not load, check the engine's settings sources in its command line (`--setting-sources`) and record them.
 
 ### 4.3. Codex Desktop

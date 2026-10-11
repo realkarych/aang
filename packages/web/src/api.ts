@@ -43,7 +43,7 @@ export class RequestFailed extends Error {
 }
 
 export const failureText = (error: unknown): string =>
-  error instanceof Unreachable ? 'нет связи с демоном' : error instanceof Error ? error.message : String(error)
+  error instanceof Unreachable ? 'no connection to the daemon' : error instanceof Error ? error.message : String(error)
 
 interface Decoder<T> {
   readonly parse: (value: unknown) => T

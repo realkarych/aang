@@ -11,10 +11,10 @@ const Snapshots = ({ snapshots, label }: { readonly snapshots: readonly GitSnaps
   <table className="snapshots" aria-label={label}>
     <thead>
       <tr>
-        <th scope="col">Снят</th>
-        <th scope="col">Когда</th>
+        <th scope="col">Taken</th>
+        <th scope="col">When</th>
         <th scope="col">HEAD</th>
-        <th scope="col">Под масками</th>
+        <th scope="col">Under masks</th>
       </tr>
     </thead>
     <tbody>
@@ -26,9 +26,9 @@ const Snapshots = ({ snapshots, label }: { readonly snapshots: readonly GitSnaps
             </time>
           </td>
           <td>{snapshotTriggerLabel[snapshot.trigger]}</td>
-          <td>{snapshot.head === null ? 'неизвестен' : <code>{shortSha(snapshot.head)}</code>}</td>
+          <td>{snapshot.head === null ? 'unknown' : <code>{shortSha(snapshot.head)}</code>}</td>
           <td data-clean={snapshot.clean}>
-            {snapshot.clean ? 'чисто' : 'есть изменения'}
+            {snapshot.clean ? 'clean' : 'has changes'}
             {snapshot.masks.length === 0 ? null : (
               <span className="snapshot-masks">
                 {snapshot.masks.map((mask) => (
@@ -48,19 +48,19 @@ const VersionNote = ({ criterion }: { readonly criterion: Criterion }): ReactEle
   if (checked !== null) {
     return (
       <p className="criterion-version">
-        {status.value === 'stale' ? 'Проверен на коммите' : 'Проверенная версия — коммит'} <code>{shortSha(checked)}</code>
-        {status.value === 'stale' ? ', текущее состояние уже другое' : null}
+        {status.value === 'stale' ? 'Checked at commit' : 'Checked version: commit'} <code>{shortSha(checked)}</code>
+        {status.value === 'stale' ? ', the current state is already different' : null}
       </p>
     )
   }
   if (status.value === 'passed_unversioned') {
     return (
       <p className="criterion-version">
-        Проверка прошла, но какую версию она проверила, неизвестно: подтверждением это не считается.
+        The check passed, but which version it checked is unknown: this does not count as confirmation.
         {clean === null ? null : (
           <>
             {' '}
-            Справочно: дерево было чистым на коммите <code>{shortSha(clean)}</code> в обоих снимках.
+            For reference: the tree was clean at commit <code>{shortSha(clean)}</code> in both snapshots.
           </>
         )}
       </p>
@@ -90,18 +90,18 @@ const CriterionItem = ({ checked }: { readonly checked: CheckedCriterion }): Rea
         </span>
       </p>
       {criterion.stage === null ? (
-        <p className="criterion-scope">Критерий всего прогона: здесь он показан, потому что к этапу привязана его проверка.</p>
+        <p className="criterion-scope">A whole-run criterion: it is shown here because its check is linked to the stage.</p>
       ) : null}
       <VersionNote criterion={criterion} />
-      {snapshots.length === 0 ? null : <Snapshots snapshots={snapshots} label={`Снимки рабочего дерева: ${criterion.text}`} />}
-      <Grounds basis={criterion.status.basis} evidence={criterion.status.evidence} label={`Статус критерия «${criterion.text}»`} />
+      {snapshots.length === 0 ? null : <Snapshots snapshots={snapshots} label={`Working tree snapshots: ${criterion.text}`} />}
+      <Grounds basis={criterion.status.basis} evidence={criterion.status.evidence} label={`Status of criterion "${criterion.text}"`} />
     </li>
   )
 }
 
 export const StageCriteria = ({ criteria }: { readonly criteria: readonly CheckedCriterion[] }): ReactElement =>
   criteria.length === 0 ? (
-    <p className="section-empty">У этапа нет критериев: их берут из задания, явного плана или контракта проверки.</p>
+    <p className="section-empty">The stage has no criteria: they come from the task, an explicit plan or a check contract.</p>
   ) : (
     <ul className="criteria">
       {criteria.map((checked) => (

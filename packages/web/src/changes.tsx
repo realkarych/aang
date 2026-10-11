@@ -94,7 +94,7 @@ const StageNames = ({ ids, context }: { readonly ids: readonly StageId[]; readon
       return (
         <Fragment key={id}>
           {index === 0 ? null : ', '}
-          {stage === undefined ? 'этап без названия' : <StageName title={stage.title} />}
+          {stage === undefined ? 'untitled stage' : <StageName title={stage.title} />}
         </Fragment>
       )
     })}
@@ -113,7 +113,7 @@ const AttentionChange = ({
   const place = attentionPlace(context.objects, item)
   return (
     <li className="change-item" data-change={change}>
-      <Mark change={change} label={change === 'new' ? 'открыт' : 'закрыт'} />
+      <Mark change={change} label={change === 'new' ? 'opened' : 'closed'} />
       <div className="change-body">
         <p className="change-title">
           <span className="change-kind">
@@ -129,11 +129,11 @@ const AttentionChange = ({
           {place === null ? null : <span>{place}</span>}
           <span>{attentionAuthorLabel[item.author]}</span>
           <span>
-            открыт <Moment at={item.opened_at} now={context.now} />
+            opened <Moment at={item.opened_at} now={context.now} />
           </span>
           {item.closed_at === null ? null : (
             <span>
-              закрыт <Moment at={item.closed_at} now={context.now} />
+              closed <Moment at={item.closed_at} now={context.now} />
             </span>
           )}
         </p>
@@ -160,13 +160,13 @@ const lifecycleChange = (lifecycle: Revised): Revision => {
     case 'replaced':
       return {
         change: 'replaced',
-        label: 'заменён',
-        by: lifecycle.by.length === 1 ? 'заменён этапом' : 'заменён этапами',
+        label: 'replaced',
+        by: lifecycle.by.length === 1 ? 'replaced by stage' : 'replaced by stages',
       }
     case 'merged':
-      return { change: 'merged', label: 'объединён', by: 'объединён в этап' }
+      return { change: 'merged', label: 'merged', by: 'merged into stage' }
     case 'split':
-      return { change: 'split', label: 'разделён', by: 'разделён на этапы' }
+      return { change: 'split', label: 'split', by: 'split into stages' }
   }
 }
 
@@ -197,7 +197,7 @@ const RevisedStage = ({
       <Mark change={change} label={label} />
       <div className="change-body">
         <p className="change-title">
-          Этап <StageName title={after.title} />
+          Stage <StageName title={after.title} />
         </p>
         <p className="change-line">
           {by} <StageNames ids={successors(lifecycle)} context={context} />
@@ -239,11 +239,11 @@ const Transition = ({ before, after }: { readonly before: ReactNode; readonly af
     {before === null ? null : (
       <>
         <span className="was">
-          <span className="visually-hidden">было: </span>
+          <span className="visually-hidden">before: </span>
           {before}
         </span>
         <ChangeGlyph change="changed" />
-        <span className="visually-hidden">стало: </span>
+        <span className="visually-hidden">after: </span>
       </>
     )}
     {after}
@@ -261,9 +261,9 @@ const CriterionChange = ({
   const fresh = before === null
   return (
     <li className="change-item" data-change={fresh ? 'new' : 'changed'}>
-      <Mark change={fresh ? 'new' : 'changed'} label={fresh ? 'новый' : 'изменён'} />
+      <Mark change={fresh ? 'new' : 'changed'} label={fresh ? 'new' : 'changed'} />
       <div className="change-body">
-        <p className="change-title">Критерий «{after.text}»</p>
+        <p className="change-title">Criterion "{after.text}"</p>
         <p className="change-line">
           <Transition
             before={
@@ -338,7 +338,7 @@ const StageChange = ({
   ]
   return (
     <li className="change-item" data-change={fresh ? 'new' : 'changed'}>
-      <Mark change={fresh ? 'new' : 'changed'} label={fresh ? 'новый' : 'изменён'} />
+      <Mark change={fresh ? 'new' : 'changed'} label={fresh ? 'new' : 'changed'} />
       <div className="change-body">
         <p className="change-title">
           {renamed ? (
@@ -363,7 +363,7 @@ const StageChange = ({
 
 const CardChange = ({ card, context }: { readonly card: Card; readonly context: Context }): ReactElement => (
   <li className="change-item" data-change="new">
-    <Mark change="new" label="новая" />
+    <Mark change="new" label="new" />
     <div className="change-body">
       <div className="change-quote">
         <LongText text={card.text} className="change-quote-text" />
@@ -371,7 +371,7 @@ const CardChange = ({ card, context }: { readonly card: Card; readonly context: 
       {card.stages.length === 0 ? null : (
         <p className="change-meta">
           <span>
-            {card.stages.length === 1 ? 'этап' : 'этапы'} <StageNames ids={card.stages} context={context} />
+            {card.stages.length === 1 ? 'stage' : 'stages'} <StageNames ids={card.stages} context={context} />
           </span>
         </p>
       )}
@@ -411,13 +411,13 @@ const ArtifactChange = ({
   const evidence = action === undefined ? [] : [action.input_fact, action.output_fact].filter((fact) => fact !== null)
   return (
     <li className="change-item" data-change="new">
-      <Mark change="new" label="новая версия" />
+      <Mark change="new" label="new version" />
       <div className="change-body">
         <p className="change-title">
           <code className="change-artifact">{artifactName(version.ref)}</code>
         </p>
         <p className="change-meta">
-          {action === undefined ? null : <span>записал {action.tool}</span>}
+          {action === undefined ? null : <span>written by {action.tool}</span>}
           {place === null ? null : <span>{place}</span>}
           <Moment at={version.observed_at} now={context.now} />
           <span>{retentionLabel[version.retention.kind]}</span>
@@ -448,7 +448,7 @@ const Activity = ({
   const place = agent === undefined ? null : placeOf(objects, agent.session, null)
   return (
     <li className="activity">
-      <span className="activity-agent">{agent === undefined ? 'Без известного агента' : agentTitle(agent)}</span>
+      <span className="activity-agent">{agent === undefined ? 'No known agent' : agentTitle(agent)}</span>
       {place === null ? null : <span className="activity-place">{place}</span>}
       <span className="activity-count">{plural(activity.actions, actionForms)}</span>
       <span className="activity-tools">{toolCounts(activity)}</span>
@@ -473,7 +473,7 @@ const ChangeList = ({
   return (
     <>
       {opened.length + closed.length === 0 ? null : (
-        <Section title="Вопросы и запросы">
+        <Section title="Questions and requests">
           <ol className="changes">
             {opened.map((item) => (
               <AttentionChange key={item.id} item={item} change="new" context={context} />
@@ -485,7 +485,7 @@ const ChangeList = ({
         </Section>
       )}
       {decisions.length + changes.criteria.length === 0 ? null : (
-        <Section title="Пересмотренные решения">
+        <Section title="Revised decisions">
           <ol className="changes">
             {decisions.map(({ transition, lifecycle }) => (
               <RevisedStage
@@ -502,7 +502,7 @@ const ChangeList = ({
         </Section>
       )}
       {stages.length === 0 ? null : (
-        <Section title="Этапы">
+        <Section title="Stages">
           <ol className="changes">
             {stages.map((transition) => (
               <StageChange key={transition.after.id} transition={transition} context={context} />
@@ -511,7 +511,7 @@ const ChangeList = ({
         </Section>
       )}
       {changes.cards.length === 0 ? null : (
-        <Section title="Итоги решателя">
+        <Section title="Solver results">
           <ol className="changes">
             {changes.cards.map((card) => (
               <CardChange key={card.id} card={card} context={context} />
@@ -520,7 +520,7 @@ const ChangeList = ({
         </Section>
       )}
       {changes.artifact_versions.length === 0 ? null : (
-        <Section title="Результаты">
+        <Section title="Outputs">
           <ol className="changes">
             {changes.artifact_versions.map((version) => (
               <ArtifactChange key={version.id} version={version} context={context} />
@@ -529,7 +529,7 @@ const ChangeList = ({
         </Section>
       )}
       {plans.length === 0 ? null : (
-        <Section title="План решателя">
+        <Section title="Solver plan">
           <ol className="plan-updates">
             {plans.map((fact) => (
               <PlanUpdate key={fact.id} fact={fact} objects={context.objects} now={context.now} />
@@ -538,7 +538,7 @@ const ChangeList = ({
         </Section>
       )}
       {changes.activity.length === 0 ? null : (
-        <Section title="Действия агентов">
+        <Section title="Agent actions">
           <ul className="activities">
             {changes.activity.map((activity) => (
               <Activity key={activity.agent ?? 'none'} activity={activity} objects={context.objects} />
@@ -570,11 +570,11 @@ const Body = ({ snapshot, mark, changes, failing, now, onSignedOut }: ChangesVie
     return (
       <div className="since-empty">
         <p>
-          Прогон ещё не отмечен просмотренным. Отметьте его, когда разберёте текущее состояние: при возвращении здесь
-          будет видно, что изменилось после отметки.
+          The run is not marked as reviewed yet. Mark it once you have gone through the current state: when you come back,
+          this shows what changed since the mark.
         </p>
         <p className="since-hint">
-          Отметка нужна только вам: она не одобряет результат и ничего не отправляет решателю.
+          The mark is just for you: it does not approve the result and sends nothing to the solver.
         </p>
       </div>
     )
@@ -582,16 +582,16 @@ const Body = ({ snapshot, mark, changes, failing, now, onSignedOut }: ChangesVie
   if (changes === null) {
     return failing ? (
       <p className="since-trouble" role="alert">
-        Изменения не получены: демон не ответил. Повтор через 2 с.
+        Changes not received: the daemon did not respond. Retrying in 2 s.
       </p>
     ) : (
-      <p className="loading">Загрузка изменений…</p>
+      <p className="loading">Loading changes…</p>
     )
   }
   if (changeCount(changes) === 0) {
     return (
       <p className="since-empty">
-        С отметки ничего не изменилось. Новые результаты, вопросы и пересмотренные решения появятся здесь.
+        Nothing changed since the mark. New outputs, questions and revised decisions will show up here.
       </p>
     )
   }
@@ -611,17 +611,17 @@ export const ChangesView = (props: ChangesViewProps): ReactElement => {
   return (
     <section className="since" aria-labelledby={heading}>
       <h2 id={heading} className="visually-hidden">
-        С последнего просмотра
+        Since last review
       </h2>
       {mark === null ? null : (
         <p className="since-span">
-          Изменения после отметки <Moment at={mark.marked_at} now={now} />: версия карты {mark.version}
+          Changes since the mark <Moment at={mark.marked_at} now={now} />: map version {mark.version}
           {changes === null || changes.to.version === mark.version ? null : ` → ${String(changes.to.version)}`}
         </p>
       )}
       {failing && changes !== null ? (
         <p className="since-trouble" role="alert">
-          Изменения не обновляются: демон не ответил. Повтор через 2 с.
+          Changes are not updating: the daemon did not respond. Retrying in 2 s.
         </p>
       ) : null}
       <Body {...props} />

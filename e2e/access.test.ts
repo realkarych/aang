@@ -24,8 +24,8 @@ test.describe('a browser without the session cookie', () => {
     const link = await signInLink()
     await page.goto(link)
     await expect(page).toHaveURL(`${baseURL ?? ''}/`)
-    await expect(page.getByRole('heading', { name: 'Прогонов пока нет' })).toBeVisible()
-    await expect(page.getByText('Ни один каталог не отслеживается.', { exact: false })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
+    await expect(page.getByText('No directory is being watched.', { exact: false })).toBeVisible()
     expect(await page.context().cookies()).toEqual([
       expect.objectContaining({ name: 'aang_token', httpOnly: true, sameSite: 'Strict' }),
     ])
@@ -38,13 +38,13 @@ test.describe('a browser without the session cookie', () => {
 
 test('an open page asks to sign in again once the token is rotated', async ({ page, aang, daemon }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Прогонов пока нет' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
 
   await aang('token', 'rotate')
 
-  await expect(page.getByRole('heading', { name: 'Вход не выполнен' })).toBeVisible()
-  await expect(page.getByRole('main')).toContainText('Выполните в терминале aang open')
-  await expect(page).toHaveTitle('Вход не выполнен — aang')
+  await expect(page.getByRole('heading', { name: 'Signed out' })).toBeVisible()
+  await expect(page.getByRole('main')).toContainText('Run aang open in a terminal')
+  await expect(page).toHaveTitle('Signed out — aang')
 
   await aang('stop')
   expect(await daemon.exited, daemon.output()).toEqual({ code: 0, signal: null })
@@ -80,7 +80,7 @@ test('a page on another port of 127.0.0.1 cannot change anything with the sessio
   expect(daemon.running()).toBe(true)
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Прогонов пока нет' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
   const post = (type: string): Promise<number> =>
     page.evaluate(async ([path, contentType]) => {
       const response = await fetch(path, { method: 'POST', headers: { 'content-type': contentType }, body: '{}' })

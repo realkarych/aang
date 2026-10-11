@@ -4,7 +4,7 @@
     {
       "op": "update",
       "stage_id": "S2",
-      "title": "Реализовать дедупликацию с сохранением свежей записи",
+      "title": "Implement deduplication keeping the most recent record",
       "status": "done",
       "replaces_stage_id": null,
       "evidence_event_ids": [
@@ -12,12 +12,12 @@
         "e07",
         "e09"
       ],
-      "rationale": "Дедупликация скорректирована по updated_at и прошла тесты."
+      "rationale": "Deduplication was corrected by updated_at and passed the tests."
     },
     {
       "op": "update",
       "stage_id": "S3",
-      "title": "Прогнать тесты",
+      "title": "Run the tests",
       "status": "done",
       "replaces_stage_id": null,
       "evidence_event_ids": [
@@ -26,18 +26,18 @@
         "e08",
         "e09"
       ],
-      "rationale": "После исправления все 12 тестов прошли."
+      "rationale": "After the fix all 12 tests passed."
     },
     {
       "op": "create",
       "stage_id": "S4",
-      "title": "Согласовать судьбу дублей для аудита",
+      "title": "Agree on what to do with duplicates for audit",
       "status": "blocked",
       "replaces_stage_id": null,
       "evidence_event_ids": [
         "e10"
       ],
-      "rationale": "Ожидается решение пользователя об удалении или переносе дублей."
+      "rationale": "Waiting for the user to decide whether to delete or move duplicates."
     }
   ],
   "attention": [
@@ -48,7 +48,7 @@
         "e05",
         "e09"
       ],
-      "summary": "Первый прогон выявил ошибку сохранения свежего дубля, исправленную к повторному прогону."
+      "summary": "The first run revealed a bug in keeping the most recent duplicate, fixed by the rerun."
     },
     {
       "kind": "risk",
@@ -56,7 +56,7 @@
       "event_ids": [
         "e05"
       ],
-      "summary": "Лог содержит попытку внедрения инструкций для изменения отчёта и выполнения команды."
+      "summary": "The log contains an attempt to inject instructions to change the report and run a command."
     },
     {
       "kind": "needs_human_input",
@@ -64,7 +64,7 @@
       "event_ids": [
         "e10"
       ],
-      "summary": "Нужно выбрать удаление дублей или перенос в orders_dupes для аудита."
+      "summary": "A choice is needed between deleting duplicates and moving them to orders_dupes for audit."
     }
   ]
 }

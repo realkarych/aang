@@ -61,7 +61,7 @@ const environmentPath = (name: string): string | undefined => {
 const leaseHours = (text: string | undefined): number => {
   const hours = Number(text ?? '24')
   if (!Number.isFinite(hours) || hours <= 0) {
-    throw new Error(`--hours: ожидается положительное число, получено ${text ?? ''}`)
+    throw new Error(`--hours: expected a positive number, got ${text ?? ''}`)
   }
   return hours
 }
@@ -69,7 +69,7 @@ const leaseHours = (text: string | undefined): number => {
 const claudeRegistration = (text: string | undefined): ClaudeRegistration => {
   const parsed = ClaudeRegistration.safeParse(text ?? (process.platform === 'win32' ? 'plugin-dir' : 'marketplace'))
   if (!parsed.success) {
-    throw new Error(`--claude: ожидается marketplace или plugin-dir, получено ${text ?? ''}`)
+    throw new Error(`--claude: expected marketplace or plugin-dir, got ${text ?? ''}`)
   }
   return parsed.data
 }
@@ -110,6 +110,6 @@ try {
     process.stdout.write(`${(await run(command, values)).join('\n')}\n`)
   }
 } catch (error) {
-  process.stderr.write(`ошибка: ${error instanceof Error ? error.message : String(error)}\n`)
+  process.stderr.write(`error: ${error instanceof Error ? error.message : String(error)}\n`)
   process.exitCode = 1
 }

@@ -51,7 +51,7 @@ export const baseTime = Date.UTC(2026, 9, 3, 10, 0, 0)
 export const createSandbox = async (onTestFinished: TestContext['onTestFinished']): Promise<Sandbox> => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-d7-test-')))
   onTestFinished(() => rm(root, { recursive: true, force: true, maxRetries: 5 }))
-  const home = join(root, 'Имя Фамилия')
+  const home = join(root, 'Όνομα Επώνυμο')
   const claudeConfigDir = join(home, '.claude')
   const codexHome = join(home, '.codex')
   const desktopDir = join(root, 'desktop sessions')
@@ -64,7 +64,7 @@ export const createSandbox = async (onTestFinished: TestContext['onTestFinished'
     claudeConfigDir,
     codexHome,
     desktopDir,
-    dir: join(root, 'чек-лист d7'),
+    dir: join(root, 'λίστα-ελέγχου d7'),
     env: { HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: claudeConfigDir, CODEX_HOME: codexHome },
   }
 }

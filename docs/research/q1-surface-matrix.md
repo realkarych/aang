@@ -95,7 +95,7 @@ RFC §4 requires bringing Desktop limitations to the owner rather than silently 
 1. **Desktop on Windows is not checked** in the MVP (ADR-0013, decision 3); the rows are `unverified` with a reason.
 2. **The live GUI of both Desktops is not checked automatically.** Reference recordings and Desktop E2E run on the Desktop engines in emulation (R.2, R.3); ADR-0010 requires a manual checklist. The matrix now keeps the reason "no owner checklist" in the Desktop rows (section 7); the D.7 checklist has not yet been completed by the owner.
 3. **SSH mode of both Desktops is checked only in emulation.** It is unknown which engine, of which version and with which settings sources Desktop launches on a remote host; this determines whether the aang user plugin loads and how sessions are labeled. There are no Desktop engine recordings for Linux, so the `desktop_ssh` rows will remain without contract columns even after the checklist, until such recordings appear (the plan, R.2, does not provide for them).
-4. **The adapter distinguishes Codex Desktop only by `originator`**; the UI labels it «предположительно» ("presumably") (H.12).
+4. **The adapter distinguishes Codex Desktop only by `originator`**; the UI labels it "(assumed)" (H.12).
 5. **Sessions spawned by Desktop** (spawn task, Dispatch, scheduled tasks) are linked to the parent only through Desktop metadata; the link format is checked by the D.7 checklist, step 3a.
 6. **Desktop engine versions are updated by the application itself** and lag behind the CLI (currently 2.1.286 for Claude Desktop and 0.159.2 for Codex Desktop with CLI 2.1.289 and 0.160.0). Each new version requires reference recordings (ADR-0010, decision 1), otherwise the row is `unverified`.
 

@@ -55,8 +55,8 @@ interface ItemContext {
 }
 
 const failedAct: Readonly<Record<Act, string>> = {
-  view: 'Не удалось отметить пункт',
-  dismiss: 'Не удалось снять пункт',
+  view: 'Could not mark the item',
+  dismiss: 'Could not dismiss the item',
 }
 
 const noticeLength = 48
@@ -83,7 +83,7 @@ const pastEntries = (snapshot: RunSnapshot, views: ReadonlyMap<AttentionItemId, 
     .flatMap((item): PastEntry[] => {
       const dismissedAt = views.get(item.id)?.dismissed_at ?? null
       if (dismissedAt !== null) {
-        return [{ item, outcome: 'снят пользователем', dismissed: true, at: dismissedAt }]
+        return [{ item, outcome: 'dismissed by the user', dismissed: true, at: dismissedAt }]
       }
       return item.resolution === 'open'
         ? []
@@ -117,9 +117,9 @@ const sessionEnded = (objects: ObservationObjects, item: AttentionItem): boolean
 
 const failureReason = (error: unknown): string =>
   error instanceof Unreachable
-    ? 'нет связи с демоном'
+    ? 'no connection to the daemon'
     : error instanceof NotFound
-      ? 'пункт или его прогон удалён'
+      ? 'the item or its run was deleted'
       : error instanceof Error
         ? error.message
         : String(error)
@@ -140,29 +140,29 @@ const OrderReasons = ({
   const blocking = place.dependent_stages.length
   return (
     <span className="zone-why">
-      <span className="visually-hidden">Порядок: </span>
+      <span className="visually-hidden">Order: </span>
       {viewed ? (
         <span className="badge" data-tone="idle">
           <ZoneGlyph mark="viewed" />
-          просмотрен
+          viewed
         </span>
       ) : null}
       {place.waiting_for_human ? (
         <span className="badge" data-tone="ask">
           <LevelGlyph level="caution" />
-          ждёт ответа
+          awaiting an answer
         </span>
       ) : null}
       {blocking > 0 ? (
         <span className="badge" data-tone="hold" title={stageTitles.join('\n')}>
           <ZoneGlyph mark="blocks" />
-          {`блокирует ${plural(blocking, stageForms)}`}
+          {`blocks ${plural(blocking, stageForms)}`}
         </span>
       ) : null}
       {place.waiting_for_human || blocking > 0 ? null : (
         <span className="badge" data-tone="idle">
           <ZoneGlyph mark="age" />
-          по времени открытия
+          by time opened
         </span>
       )}
     </span>
@@ -188,7 +188,7 @@ const ItemNotes = ({
       {likely === null ? null : (
         <span className="badge" data-tone="done">
           <ZoneGlyph mark="likely" />
-          вероятно отвечен
+          likely answered
           {likely.basis.kind === 'observed' ? null : (
             <span className="badge-basis">{basisLabel[likely.basis.kind]}</span>
           )}
@@ -197,19 +197,19 @@ const ItemNotes = ({
       {ended ? (
         <span className="badge" data-tone="idle">
           <ZoneGlyph mark="ended" />
-          сессия завершена
+          session ended
         </span>
       ) : null}
       {hidden ? (
         <span className="badge" data-tone="idle">
           <ZoneGlyph mark="hidden" />
-          из скрытого элемента
+          from a hidden element
         </span>
       ) : null}
       {priority === null ? null : (
-        <span className="badge zone-advice" data-tone="idle" title="Оценка наблюдателя. Порядок зоны она не меняет.">
+        <span className="badge zone-advice" data-tone="idle" title="Observer estimate. It does not change the zone order.">
           <ZoneGlyph mark="recommended" />
-          {`рекомендация: ${attentionPriorityLabel[priority.value]}`}
+          {`recommended: ${attentionPriorityLabel[priority.value]}`}
         </span>
       )}
     </p>
@@ -257,7 +257,7 @@ const ZoneItem = ({ entry, context }: { readonly entry: ZoneEntry; readonly cont
       <p className="zone-meta">
         {where === null ? null : <span>{where}</span>}
         <span>
-          открыт <Moment at={item.opened_at} now={now} />
+          opened <Moment at={item.opened_at} now={now} />
         </span>
         <span>{attentionAuthorLabel[item.author]}</span>
       </p>
@@ -273,7 +273,7 @@ const ZoneItem = ({ entry, context }: { readonly entry: ZoneEntry; readonly cont
               act('view')
             }}
           >
-            Отметить просмотренным
+            Mark as viewed
           </button>
         )}
         <button
@@ -285,7 +285,7 @@ const ZoneItem = ({ entry, context }: { readonly entry: ZoneEntry; readonly cont
             act('dismiss')
           }}
         >
-          Снять
+          Dismiss
         </button>
       </div>
       {work.state === 'failed' ? (
@@ -364,7 +364,7 @@ export const AttentionZone = ({
       throw error
     }
     if (act === 'dismiss') {
-      setNotice(`Пункт «${clipped(item.text)}» снят из зоны и сохранён в истории.`)
+      setNotice(`Item "${clipped(item.text)}" was dismissed from the zone and kept in the history.`)
     }
   }
   useEffect(() => {
@@ -377,19 +377,19 @@ export const AttentionZone = ({
     <section className="zone" aria-labelledby={heading} data-calm={entries.length === 0}>
       <div className="zone-head">
         <h2 id={heading} className="section-title">
-          Внимание
+          Attention
         </h2>
         {entries.length === 0 ? (
           <p className="zone-empty">
-            Открытых пунктов нет. Вопросы и запросы одобрения, которые ждут человека, появятся здесь.
+            No open items. Questions and approval requests waiting for a human will appear here.
           </p>
         ) : (
-          <p className="zone-note">Отметка и снятие меняют только этот вид: решателю ничего не отправляется.</p>
+          <p className="zone-note">Marking and dismissing change only this view: nothing is sent to the solver.</p>
         )}
       </div>
       <Notice text={notice} anchor={anchor} />
       {entries.length === 0 ? null : (
-        <ol className="zone-items" aria-label="Открытые пункты">
+        <ol className="zone-items" aria-label="Open items">
           {entries.map((entry) => (
             <ZoneItem key={entry.item.id} entry={entry} context={context} />
           ))}
@@ -406,12 +406,12 @@ export const AttentionZone = ({
               setHistoryOpen(!historyOpen)
             }}
           >
-            {`История: ${plural(past.length, itemForms)}`}
+            {`History: ${plural(past.length, itemForms)}`}
           </button>
         </div>
       )}
       {historyOpen && past.length > 0 ? (
-        <ol id={historyId} className="zone-past" aria-label="История зоны внимания">
+        <ol id={historyId} className="zone-past" aria-label="Attention zone history">
           {past.map((entry) => (
             <PastItem key={entry.item.id} entry={entry} now={now} />
           ))}

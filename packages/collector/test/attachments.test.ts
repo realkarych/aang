@@ -7,7 +7,7 @@ import { createSandbox, holdExclusively, prepareCollector, runCollector, type Sa
 
 const stream = StreamKey.parse('["claude","session-1","main"]')
 const attachmentPath = (sandbox: Sandbox, name = 'toolu_1.txt'): string =>
-  join(sandbox.claude, 'projects', '-Мой проект', 'session-1', 'tool-results', name)
+  join(sandbox.claude, 'projects', '-Το έργο μου', 'session-1', 'tool-results', name)
 
 const put = async (path: string, content: string | Buffer): Promise<void> => {
   await mkdir(dirname(path), { recursive: true })
@@ -16,8 +16,8 @@ const put = async (path: string, content: string | Buffer): Promise<void> => {
 
 test('only requested attachments are collected, preserving full text, file hash and stream', async ({ onTestFinished }) => {
   const sandbox = await createSandbox(onTestFinished)
-  const path = attachmentPath(sandbox, 'вывод Bash.txt')
-  const content = '\uFEFFВывод 😀\r\n'.repeat(100_000)
+  const path = attachmentPath(sandbox, 'έξοδος Bash.txt')
+  const content = '\uFEFFΈξοδος 😀\r\n'.repeat(100_000)
   await put(path, content)
   await put(attachmentPath(sandbox, 'ignored.txt'), 'not requested')
   await put(attachmentPath(sandbox, 'ignored.meta.json'), '{}')

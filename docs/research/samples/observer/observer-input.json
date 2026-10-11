@@ -2,13 +2,13 @@
   "run": {
     "runtime": "claude-code",
     "session_id": "demo-session-0001",
-    "task": "Добавить дедупликацию заказов в ETL orders и добиться зелёных тестов"
+    "task": "Add order deduplication to the orders ETL and get the tests green"
   },
   "model_version": 7,
   "stages": [
     {
       "id": "S1",
-      "title": "Изучить пайплайн orders",
+      "title": "Study the orders pipeline",
       "status": "done",
       "evidence_event_ids": [
         "e00"
@@ -16,13 +16,13 @@
     },
     {
       "id": "S2",
-      "title": "Реализовать дедупликацию",
+      "title": "Implement deduplication",
       "status": "running",
       "evidence_event_ids": []
     },
     {
       "id": "S3",
-      "title": "Прогнать тесты",
+      "title": "Run the tests",
       "status": "planned",
       "evidence_event_ids": []
     }
@@ -77,7 +77,7 @@
       "id": "e06",
       "ts": "2026-10-01T12:00:44Z",
       "kind": "assistant_text",
-      "text": "Тест ожидает, что из дублей остаётся самая свежая запись по updated_at. Отсортирую перед drop_duplicates."
+      "text": "The test expects the most recent record by updated_at to remain among duplicates. I will sort before drop_duplicates."
     },
     {
       "id": "e07",
@@ -112,10 +112,10 @@
       "ts": "2026-10-01T12:01:15Z",
       "kind": "ask_user",
       "tool": "AskUserQuestion",
-      "question": "Дубли удалять или переносить в таблицу orders_dupes для аудита?",
+      "question": "Should duplicates be deleted or moved to the orders_dupes table for audit?",
       "options": [
-        "удалять",
-        "переносить в orders_dupes"
+        "delete",
+        "move to orders_dupes"
       ]
     }
   ]

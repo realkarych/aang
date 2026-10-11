@@ -14,9 +14,9 @@ export interface Profile {
   readonly project: string
 }
 
-const profileDirectoryName = 'Имя Фамилия'
+const profileDirectoryName = 'Όνομα Επώνυμο'
 
-const projectDirectoryName = 'проект с пробелами'
+const projectDirectoryName = 'έργο με κενά'
 
 export const stubApiKey = 'sk-ant-api03-aang-runtime-check-stub'
 

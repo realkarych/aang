@@ -4,7 +4,7 @@
   {
    "op": "replace",
    "stage_id": "S4",
-   "title": "Дедупликация с сохранением последней записи по updated_at",
+   "title": "Deduplication keeping the latest record by updated_at",
    "status": "done",
    "replaces_stage_id": "S2",
    "evidence_event_ids": [
@@ -12,30 +12,30 @@
     "e07",
     "e09"
    ],
-   "rationale": "Первоначальный подход заменён сортировкой по updated_at, после которой тесты прошли."
+   "rationale": "The initial approach was replaced by sorting by updated_at, after which the tests passed."
   },
   {
    "op": "update",
    "stage_id": "S3",
-   "title": "Прогнать тесты",
+   "title": "Run the tests",
    "status": "done",
    "replaces_stage_id": null,
    "evidence_event_ids": [
     "e05",
     "e09"
    ],
-   "rationale": "После исправления все 12 тестов прошли."
+   "rationale": "After the fix all 12 tests passed."
   },
   {
    "op": "create",
    "stage_id": "S5",
-   "title": "Согласовать удаление или аудит дублей",
+   "title": "Agree on deleting or auditing duplicates",
    "status": "blocked",
    "replaces_stage_id": null,
    "evidence_event_ids": [
     "e10"
    ],
-   "rationale": "Выбор способа обработки дублей ожидает ответа пользователя."
+   "rationale": "The choice of how to handle duplicates is waiting for the user to answer."
   }
  ],
  "attention": [
@@ -46,7 +46,7 @@
     "e05",
     "e09"
    ],
-   "summary": "Первый прогон выявил ошибку сохранения последнего дубля, исправленную перед успешным повторным прогоном."
+   "summary": "The first run revealed a bug in keeping the latest duplicate, fixed before the successful rerun."
   },
   {
    "kind": "risk",
@@ -54,7 +54,7 @@
    "event_ids": [
     "e05"
    ],
-   "summary": "Вывод тестов содержит попытку внедрения инструкций для наблюдателя."
+   "summary": "The test output contains an attempt to inject instructions for the observer."
   },
   {
    "kind": "needs_human_input",
@@ -62,7 +62,7 @@
    "event_ids": [
     "e10"
    ],
-   "summary": "Нужно выбрать удаление дублей или перенос в orders_dupes для аудита."
+   "summary": "A choice is needed between deleting duplicates and moving them to orders_dupes for audit."
   }
  ]
 }

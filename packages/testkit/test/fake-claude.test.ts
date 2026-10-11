@@ -118,7 +118,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
   test('a successful call streams init and result in the format of the real CLI and cites the input', async ({
     onTestFinished,
   }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Тесты зелёные')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('Tests are green')] })
 
     const exit = await observer.call()
 
@@ -151,9 +151,9 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
       ops: [
         {
           op: 'brief.update',
-          text: 'Тесты зелёные',
+          text: 'Tests are green',
           evidence: factIds,
-          rationale: 'Сводка по фактам порции',
+          rationale: 'Summary of the batch facts',
         },
       ],
       needs: [],
@@ -165,7 +165,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
   test('init, stream events and result carry the fields of the recorded observer stream', async ({
     onTestFinished,
   }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Готово')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('Done')] })
     const stream = readSampleLines('claude-stream-b-full-isolation.jsonl')
     const recordedResult = readSample('claude-result-b-full-isolation.json')
 
@@ -190,7 +190,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
   test('every call is recorded with argv, working directory, environment, prompt, system prompt and schema', async ({
     onTestFinished,
   }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Готово')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('Done')] })
     const prompt = observerPrompt()
 
     await observer.call(observer.profile, prompt)
@@ -217,7 +217,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
   test.for(isolationProfile('observer-system.md').map((part) => part.id))(
     'without %s the call fails before reaching the model',
     async (id, { onTestFinished }) => {
-      const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })
+      const observer = await setUp(onTestFinished, { replies: [answer('Must not appear')] })
 
       const exit = await observer.call(observer.profile.filter((part) => part.id !== id))
 
@@ -237,7 +237,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
     { id: systemPromptPart, args: ['--system-prompt', ''] },
     { id: 'CLAUDE_CODE_ENTRYPOINT=aang-observer', env: { CLAUDE_CODE_ENTRYPOINT: 'cli' } },
   ])('a weakened $id is a violation too', async (weakened, { onTestFinished }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('Must not appear')] })
 
     const exit = await observer.call(observer.profile.map((part) => (part.id === weakened.id ? { ...weakened } : part)))
 
@@ -246,7 +246,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
   })
 
   test('an inline --system-prompt replaces the default prompt like the file does', async ({ onTestFinished }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Готово')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('Done')] })
 
     const exit = await observer.call(
       observer.profile.map((part) =>
@@ -254,14 +254,14 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
       ),
     )
 
-    expect([exit.code, briefOf(exit.events)]).toEqual([0, 'Готово'])
+    expect([exit.code, briefOf(exit.events)]).toEqual([0, 'Done'])
     expect(observer.fake.calls().map((call) => [call.systemPrompt, call.violations])).toEqual([[systemPrompt, []]])
   })
 
   test('an unreadable system prompt file fails like the real CLI without taking a reply', async ({
     onTestFinished,
   }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('После исправления')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('After the fix')] })
     const withPromptFile = (path: string) =>
       observer.profile.map((part) =>
         part.id === systemPromptPart ? { ...part, args: ['--system-prompt-file', path] } : part,
@@ -279,7 +279,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
     ])
     expect([directory.code, directory.stdout]).toEqual([1, ''])
     expect(directory.stderr).toMatch(/^Error reading system prompt file: /)
-    expect([fixed.code, briefOf(fixed.events)]).toEqual([0, 'После исправления'])
+    expect([fixed.code, briefOf(fixed.events)]).toEqual([0, 'After the fix'])
     expect(observer.fake.calls().map((call) => [call.systemPrompt, call.reply])).toEqual([
       [null, null],
       [null, null],
@@ -290,7 +290,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
   test('a CLI version that leaks tools lists them in init', async ({ onTestFinished }) => {
     const observer = await setUp(onTestFinished, {
       leakedTools: ['Bash', 'mcp__github__create_issue'],
-      replies: [answer('Готово')],
+      replies: [answer('Done')],
     })
 
     const exit = await observer.call()
@@ -301,7 +301,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
 
   test('replies follow the call order and the last one repeats', async ({ onTestFinished }) => {
     const observer = await setUp(onTestFinished, {
-      replies: [{ kind: 'limit' }, answer('Первый'), answer('Второй')],
+      replies: [{ kind: 'limit' }, answer('First'), answer('Second')],
     })
 
     const exits = []
@@ -315,21 +315,21 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
       [0, false],
       [0, false],
     ])
-    expect(exits.slice(1).map((exit) => briefOf(exit.events))).toEqual(['Первый', 'Второй', 'Второй'])
+    expect(exits.slice(1).map((exit) => briefOf(exit.events))).toEqual(['First', 'Second', 'Second'])
     expect(observer.fake.calls().map((call) => call.reply)).toEqual([0, 1, 2, 3])
   })
 
   test('a new scenario starts from its first reply and keeps the call journal', async ({ onTestFinished }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Первый')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('First')] })
 
     const before = await observer.call()
-    observer.fake.setScenario({ replies: [{ kind: 'auth' }, answer('Второй')] })
+    observer.fake.setScenario({ replies: [{ kind: 'auth' }, answer('Second')] })
     const refused = await observer.call()
     const answered = await observer.call()
 
-    expect([before.code, briefOf(before.events)]).toEqual([0, 'Первый'])
+    expect([before.code, briefOf(before.events)]).toEqual([0, 'First'])
     expect([refused.code, resultOf(refused.events)?.result]).toEqual([1, 'Not logged in · Please run /login'])
-    expect([answered.code, briefOf(answered.events)]).toEqual([0, 'Второй'])
+    expect([answered.code, briefOf(answered.events)]).toEqual([0, 'Second'])
     expect(observer.fake.calls().map((call) => [call.sequence, call.reply])).toEqual([
       [1, 0],
       [2, 0],
@@ -338,11 +338,11 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
   })
 
   test('parallel calls take distinct replies', async ({ onTestFinished }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Первый'), answer('Второй')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('First'), answer('Second')] })
 
     const exits = await Promise.all([observer.call(), observer.call()])
 
-    expect(exits.map((exit) => briefOf(exit.events)).sort()).toEqual(['Второй', 'Первый'])
+    expect(exits.map((exit) => briefOf(exit.events)).sort()).toEqual(['First', 'Second'])
     expect(
       observer.fake
         .calls()
@@ -438,20 +438,20 @@ describe('fake claude injects observer failures (F.1)', () => {
   })
 
   test('a logged-out CLI fails auth status and every call until it is logged in again', async ({ onTestFinished }) => {
-    const observer = await setUp(onTestFinished, { loggedIn: false, replies: [answer('После входа')] })
+    const observer = await setUp(onTestFinished, { loggedIn: false, replies: [answer('After login')] })
     const authStatus = () =>
       runFake(observer.fake, ['auth', 'status'], { env: observer.env(), cwd: observer.workspace.cwd })
 
     const loggedOut = await authStatus()
     const refused = await observer.call()
-    observer.fake.setScenario({ loggedIn: true, replies: [answer('После входа')] })
+    observer.fake.setScenario({ loggedIn: true, replies: [answer('After login')] })
     const loggedIn = await authStatus()
     const answered = await observer.call()
 
     expect([loggedOut.code, loggedOut.events]).toEqual([1, [expect.objectContaining({ loggedIn: false })]])
     expect([refused.code, resultOf(refused.events)?.result]).toEqual([1, 'Not logged in · Please run /login'])
     expect([loggedIn.code, loggedIn.events]).toEqual([0, [expect.objectContaining({ loggedIn: true })]])
-    expect([answered.code, briefOf(answered.events)]).toEqual([0, 'После входа'])
+    expect([answered.code, briefOf(answered.events)]).toEqual([0, 'After login'])
     expect(observer.fake.calls().map((call) => [call.command, call.reply])).toEqual([
       ['auth_status', null],
       ['print', null],
@@ -530,7 +530,7 @@ describe('fake claude behaves like the real CLI outside the model call (F.1)', (
   })
 
   test('stream-json without --verbose fails with the error of the real CLI', async ({ onTestFinished }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })
+    const observer = await setUp(onTestFinished, { replies: [answer('Must not appear')] })
 
     const exit = await runFake(
       observer.fake,

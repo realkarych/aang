@@ -204,7 +204,7 @@ describe.skipIf(process.platform === 'win32')('owner checklist registration on m
 
     const refused = await prepare(other, ['--claude', 'marketplace', '--claude-command', fake.command])
     expect(refused.status).toBe(1)
-    expect(refused.stderr).toContain(`плагин ${claudePluginId} уже есть`)
+    expect(refused.stderr).toContain(`plugin ${claudePluginId} is already in`)
     expect(refused.stderr).toContain('cleanup')
     expect((await cleanup(other)).status).toBe(0)
     expect(await claudePluginState(cli)).toBe('enabled')

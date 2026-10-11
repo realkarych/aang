@@ -1,7 +1,7 @@
 import type { RunId } from '@aang/contract'
 import type { Locator, Page } from '@playwright/test'
 
-export const strip = (page: Page): Locator => page.getByRole('region', { name: 'Состояние наблюдения' })
+export const strip = (page: Page): Locator => page.getByRole('region', { name: 'Observation status' })
 
 export const lamp = (page: Page, label: string): Locator =>
   strip(page)
@@ -18,31 +18,31 @@ export const fact = (page: Page, term: string): Locator =>
 export const runRowOf = (page: Page, run: RunId): Locator =>
   page.getByRole('row').filter({ has: page.locator(`a[href="?run=${run}"]`) })
 
-export const zone = (page: Page): Locator => page.getByRole('region', { name: 'Внимание', exact: true })
+export const zone = (page: Page): Locator => page.getByRole('region', { name: 'Attention', exact: true })
 
 export const openItems = (page: Page): Locator =>
-  zone(page).getByRole('list', { name: 'Открытые пункты', exact: true }).getByRole('listitem')
+  zone(page).getByRole('list', { name: 'Open items', exact: true }).getByRole('listitem')
 
 export const zoneItem = (page: Page, kind: string): Locator => openItems(page).filter({ hasText: kind })
 
-export const trace = (page: Page): Locator => page.getByRole('region', { name: 'Сессии и агенты', exact: true })
+export const trace = (page: Page): Locator => page.getByRole('region', { name: 'Sessions and agents', exact: true })
 
 export const sessionOf = (page: Page, session: string): Locator =>
-  trace(page).getByRole('listitem', { name: `Сессия ${session.slice(0, 8)}`, exact: true })
+  trace(page).getByRole('listitem', { name: `Session ${session.slice(0, 8)}`, exact: true })
 
 export const agentsOf = (page: Page, session: string): Locator =>
-  trace(page).getByRole('list', { name: `Агенты: Сессия ${session.slice(0, 8)}`, exact: true })
+  trace(page).getByRole('list', { name: `Agents: Session ${session.slice(0, 8)}`, exact: true })
 
 export const stepsOf = (page: Page, agent: string): Locator =>
-  trace(page).getByRole('list', { name: `Шаги: ${agent}`, exact: true })
+  trace(page).getByRole('list', { name: `Steps: ${agent}`, exact: true })
 
 export const step = (page: Page, agent: string, text: string): Locator =>
   stepsOf(page, agent).getByRole('listitem').filter({ hasText: text })
 
-export const plan = (page: Page): Locator => page.getByRole('region', { name: 'План решателя', exact: true })
+export const plan = (page: Page): Locator => page.getByRole('region', { name: 'Solver plan', exact: true })
 
 export const currentPlan = (page: Page): Locator =>
-  plan(page).getByRole('list', { name: 'Текущий план', exact: true })
+  plan(page).getByRole('list', { name: 'Current plan', exact: true })
 
 export const textShown = async (scope: Locator, text: string): Promise<boolean> => {
   await scope.scrollIntoViewIfNeeded()
@@ -81,22 +81,22 @@ export const textShown = async (scope: Locator, text: string): Promise<boolean> 
   }, text)
 }
 
-export const historyToggle = (page: Page): Locator => zone(page).getByRole('button', { name: /^История: / })
+export const historyToggle = (page: Page): Locator => zone(page).getByRole('button', { name: /^History: / })
 
 export const history = (page: Page): Locator =>
-  zone(page).getByRole('list', { name: 'История зоны внимания', exact: true }).getByRole('listitem')
+  zone(page).getByRole('list', { name: 'Attention zone history', exact: true }).getByRole('listitem')
 
-export const modes = (page: Page): Locator => page.getByRole('navigation', { name: 'Вид прогона' })
+export const modes = (page: Page): Locator => page.getByRole('navigation', { name: 'Run view' })
 
-export const sinceTab = (page: Page): Locator => modes(page).getByRole('link', { name: /^С последнего просмотра/ })
+export const sinceTab = (page: Page): Locator => modes(page).getByRole('link', { name: /^Since last review/ })
 
-export const traceTab = (page: Page): Locator => modes(page).getByRole('link', { name: 'Ход прогона', exact: true })
+export const traceTab = (page: Page): Locator => modes(page).getByRole('link', { name: 'Run progress', exact: true })
 
-export const mark = (page: Page): Locator => page.getByRole('group', { name: 'Отметка просмотра', exact: true })
+export const mark = (page: Page): Locator => page.getByRole('group', { name: 'Review mark', exact: true })
 
-export const markButton = (page: Page): Locator => mark(page).getByRole('button', { name: 'Отметить просмотренным' })
+export const markButton = (page: Page): Locator => mark(page).getByRole('button', { name: 'Mark as reviewed' })
 
-export const since = (page: Page): Locator => page.getByRole('region', { name: 'С последнего просмотра', exact: true })
+export const since = (page: Page): Locator => page.getByRole('region', { name: 'Since last review', exact: true })
 
 export const sinceSection = (page: Page, title: string): Locator =>
   since(page).getByRole('region', { name: title, exact: true })
@@ -111,5 +111,5 @@ export const lampDetails = async (page: Page, label: string): Promise<Locator> =
   if ((await button.getAttribute('aria-expanded')) !== 'true') {
     await button.click()
   }
-  return page.getByRole('region', { name: `${label}: подробности`, exact: true })
+  return page.getByRole('region', { name: `${label}: details`, exact: true })
 }

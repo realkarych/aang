@@ -17,13 +17,13 @@ const lifecycleLabel = (entity: Extract<ModelEntity, { kind: 'stage' }>): string
   const { lifecycle } = entity.value
   switch (lifecycle.state) {
     case 'active':
-      return 'действует'
+      return 'active'
     case 'replaced':
-      return 'заменён'
+      return 'replaced'
     case 'merged':
-      return 'объединён'
+      return 'merged'
     case 'split':
-      return 'разделён'
+      return 'split'
   }
 }
 
@@ -37,13 +37,13 @@ const stageDetail = (
   after: Extract<ModelEntity, { kind: 'stage' }>,
 ): string[] =>
   before === null
-    ? [`«${after.value.title}»`]
+    ? [`"${after.value.title}"`]
     : present([
-        transition('название', `«${before.value.title}»`, `«${after.value.title}»`),
-        transition('выполнение', executionLabel(before.value.execution.value), executionLabel(after.value.execution.value)),
-        transition('жизнь этапа', lifecycleLabel(before), lifecycleLabel(after)),
+        transition('title', `"${before.value.title}"`, `"${after.value.title}"`),
+        transition('execution', executionLabel(before.value.execution.value), executionLabel(after.value.execution.value)),
+        transition('stage lifecycle', lifecycleLabel(before), lifecycleLabel(after)),
         before.value.summary !== after.value.summary && after.value.summary !== null
-          ? `сводка: ${after.value.summary}`
+          ? `summary: ${after.value.summary}`
           : null,
       ])
 
@@ -54,13 +54,13 @@ const detailOf = ({ before, after }: ModelChange): string[] => {
     case 'criterion':
       return [
         before?.kind === 'criterion'
-          ? `«${after.value.text}»: ${criterionStatusLabel[before.value.status.value]} → ${criterionStatusLabel[after.value.status.value]}`
-          : `«${after.value.text}»`,
+          ? `"${after.value.text}": ${criterionStatusLabel[before.value.status.value]} → ${criterionStatusLabel[after.value.status.value]}`
+          : `"${after.value.text}"`,
       ]
     case 'attention_item':
-      return [`«${after.value.text}»: ${resolutionLabel[after.value.resolution]}`]
+      return [`"${after.value.text}": ${resolutionLabel[after.value.resolution]}`]
     case undefined:
-      return before === null ? [] : [`${entityKindLabel[before.kind]} удалён из модели`]
+      return before === null ? [] : [`${entityKindLabel[before.kind]} removed from the model`]
     default:
       return []
   }
@@ -86,7 +86,7 @@ const ChangeItem = ({ change, shared }: { readonly change: ModelChange; readonly
       <Grounds
         basis={sameBasis(change.basis, shared) ? null : change.basis}
         evidence={change.evidence}
-        label={`Версия ${String(change.version)}, ${operation}`}
+        label={`Version ${String(change.version)}, ${operation}`}
       />
     </li>
   )
@@ -118,7 +118,7 @@ export const StageHistory = ({ history }: { readonly history: readonly ModelChan
       return (
         <li key={`${String(group.version)}-${group.author}`} className="version" data-author={group.author}>
           <p className="version-head">
-            <span className="version-number">Версия {group.version}</span>
+            <span className="version-number">Version {group.version}</span>
             <span className="version-author">{changeAuthorLabel[group.author]}</span>
             {shared === null ? null : <BasisLine basis={shared} />}
           </p>
@@ -154,8 +154,8 @@ const RejectedCall = ({ call }: { readonly call: ObserverCall }): ReactElement =
         {runtimeLabel[call.vendor]}
         {call.model === null ? null : <code>{call.model}</code>}
       </span>
-      <span>попытка {call.attempt}</span>
-      {call.base_version === null ? null : <span>по версии карты {call.base_version}</span>}
+      <span>attempt {call.attempt}</span>
+      {call.base_version === null ? null : <span>on map version {call.base_version}</span>}
     </p>
     <ul className="rejections">
       {call.rejections.map((rejection, index) => {
@@ -165,7 +165,7 @@ const RejectedCall = ({ call }: { readonly call: ObserverCall }): ReactElement =
             <span className="rejection-cause">{rejectionCauseLabel[rejection.cause]}</span>
             {rejection.op_index === null ? null : (
               <span className="rejection-op">
-                операция {rejection.op_index + 1}
+                operation {rejection.op_index + 1}
                 {operation === null ? null : `, ${operation}`}
               </span>
             )}
@@ -179,7 +179,7 @@ const RejectedCall = ({ call }: { readonly call: ObserverCall }): ReactElement =
 
 export const RejectedCalls = ({ calls }: { readonly calls: readonly ObserverCall[] }): ReactElement => (
   <>
-    <p className="section-lead">Ответ отклонён целиком: проверка демона его не приняла, карта не изменилась.</p>
+    <p className="section-lead">The whole response was rejected: the daemon check did not accept it, the map did not change.</p>
     <ol className="rejected-calls">
       {calls.map((call) => (
         <RejectedCall key={call.id} call={call} />

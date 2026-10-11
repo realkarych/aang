@@ -39,7 +39,7 @@ export const transcriptRecord = (
     hook: null,
     observed_at: startedAt + BigInt(line),
     source_ts: startedAt - 1_000_000n,
-    payload: `{"uuid":"u${String(line)}","type":"assistant","message":{"content":"готово ✓"}}`,
+    payload: `{"uuid":"u${String(line)}","type":"assistant","message":{"content":"έτοιμο ✓"}}`,
     parse_state: 'parsed',
     ...overrides,
   })

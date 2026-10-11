@@ -41,7 +41,7 @@ test('persisted Bash output is ingested, deduplicated and remains available afte
   const claude = join(home.path, 'claude')
   const path = join(claude, 'projects', '-work', 'session-1', 'tool-results', 'toolu_bash.txt')
   const transcript = join(claude, 'projects', '-work', 'session-1.jsonl')
-  const content = 'Bash output\r\nпроверка 😀\n'.repeat(10_000)
+  const content = 'Bash output\r\nέλεγχος 😀\n'.repeat(10_000)
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, content)
   await writeFile(transcript, `${bashResult(path, home.path)}\n`)

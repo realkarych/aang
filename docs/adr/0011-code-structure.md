@@ -59,7 +59,7 @@ HTTP JSON and SSE with the `/api` prefix. Access is by bearer token or cookie (A
 
 | Method | Purpose |
 | --- | --- |
-| `GET /api/status` | sources, support modes, hooks, observer, versions and their status, spool, the «не наблюдаемо» ("not observable") notice |
+| `GET /api/status` | sources, support modes, hooks, observer, versions and their status, spool, the "Not observable" notice |
 | `GET /api/runs` | runs: state, attention, freshness |
 | `GET /api/runs/:run` | snapshot: model of the current version, objects, attention, applied view rules, view mark, freshness, the snapshot's `change_seq` |
 | `GET /api/runs/:run/stages/:stage` | inspector: summary, inputs and outputs, time, usage, grounds, history |

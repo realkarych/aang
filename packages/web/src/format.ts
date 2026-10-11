@@ -1,18 +1,16 @@
 import type { EpochNs } from '@aang/contract'
 
-const locale = 'ru'
+const locale = 'en-US'
 
 export interface Forms {
   readonly one: string
-  readonly few: string
-  readonly many: string
+  readonly other: string
 }
 
 const pluralRules = new Intl.PluralRules(locale)
 
 export const plural = (count: number, forms: Forms): string => {
-  const rule = pluralRules.select(count)
-  return `${String(count)} ${rule === 'one' ? forms.one : rule === 'few' ? forms.few : forms.many}`
+  return `${String(count)} ${pluralRules.select(count) === 'one' ? forms.one : forms.other}`
 }
 
 export const nowNs = (): bigint => BigInt(Date.now()) * 1_000_000n
@@ -33,7 +31,7 @@ export const dayTime = (at: EpochNs): string => dayFormat.format(millisecondsOf(
 export const relativeTime = (at: EpochNs, now: bigint): string => {
   const seconds = Math.round(Number((now - at) / 1_000_000_000n))
   if (seconds < 10) {
-    return 'только что'
+    return 'just now'
   }
   if (seconds < 60) {
     return relativeFormat.format(-seconds, 'second')
@@ -50,15 +48,15 @@ export const relativeTime = (at: EpochNs, now: bigint): string => {
 export const duration = (from: EpochNs, to: bigint): string => {
   const seconds = Math.max(0, Math.round(Number((to - from) / 1_000_000_000n)))
   if (seconds < 60) {
-    return `${String(seconds)} с`
+    return `${String(seconds)} s`
   }
   if (seconds < 3_600) {
-    return `${String(Math.floor(seconds / 60))} мин`
+    return `${String(Math.floor(seconds / 60))} min`
   }
-  return `${String(Math.floor(seconds / 3_600))} ч ${String(Math.floor((seconds % 3_600) / 60))} мин`
+  return `${String(Math.floor(seconds / 3_600))} h ${String(Math.floor((seconds % 3_600) / 60))} min`
 }
 
-const byteUnits = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'] as const
+const byteUnits = ['B', 'KB', 'MB', 'GB', 'TB'] as const
 const byteFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 })
 
 export const bytes = (value: number): string => {
@@ -68,7 +66,7 @@ export const bytes = (value: number): string => {
     scaled /= 1024
     unit += 1
   }
-  return `${byteFormat.format(scaled)} ${byteUnits[unit] ?? 'Б'}`
+  return `${byteFormat.format(scaled)} ${byteUnits[unit] ?? 'B'}`
 }
 
 const wholeFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 })
@@ -90,12 +88,12 @@ export const money = (usd: number): string => moneyFormat.format(usd)
 export const elapsed = (ms: number): string => {
   const seconds = Math.floor(ms / 1_000)
   const parts = [
-    [Math.floor(seconds / 3_600), 'ч'],
-    [Math.floor((seconds % 3_600) / 60), 'мин'],
-    [seconds % 60, 'с'],
+    [Math.floor(seconds / 3_600), 'h'],
+    [Math.floor((seconds % 3_600) / 60), 'min'],
+    [seconds % 60, 's'],
   ] as const
   const shown = parts.filter(([value]) => value > 0).map(([value, unit]) => `${String(value)} ${unit}`)
-  return shown.length === 0 ? '0 с' : shown.join(' ')
+  return shown.length === 0 ? '0 s' : shown.join(' ')
 }
 
-export const wait = (ms: number): string => (ms < 60_000 ? `${secondsFormat.format(ms / 1_000)} с` : elapsed(ms))
+export const wait = (ms: number): string => (ms < 60_000 ? `${secondsFormat.format(ms / 1_000)} s` : elapsed(ms))

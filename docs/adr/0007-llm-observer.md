@@ -81,7 +81,7 @@ ADR-0002: by default the observer uses the vendor of the observed solver, with a
     - The check is an admission safety net, not process accounting (ADR-0013, decision 3 on technical questions). A process that left the group and exited or lost its link to the root between snapshots (for example, after a double `fork` with the intermediate parent exiting) may go unnoticed. So the check complements `--disable shell_snapshot` rather than replacing it.
     - On Windows the check is not needed: the launcher's job does not allow leaving it (ADR-0013).
   - The effect of `crossSessionInbound` is not checked automatically: that requires a peer session that sends messages. It is checked by the maintainer's local contract run (ADR-0010).
-  - A version that passed automatic admission but has not yet passed the local contract run is enabled with the note «изоляция от сообщений других сессий на этой версии не проверена» ("isolation from other sessions' messages is not verified on this version") (decision 7). The note is removed after the contract run.
+  - A version that passed automatic admission but has not yet passed the local contract run is enabled with the note "isolation from other sessions' messages is not verified on this version" (decision 7). The note is removed after the contract run.
   - The Codex profile and the spike measurements refer to 0.159.2. The currently installed 0.159.3 is used only after admission (ADR-0010).
   - The admission result is written to the local support status.
 - **Success criterion.**
@@ -126,7 +126,7 @@ The input size is limited by the config, by default about 24k tokens. Each line 
     - `question.add` — an implicit question from text;
     - `attention.add` — `review_request` or `blocker`;
     - `attention.resolve` — only for items created by the observer, with evidence;
-    - `attention.likely_resolved` — for rule items: a recommendation «вероятно отвечен» ("likely resolved") with evidence (`interpreted`). Does not close the item;
+    - `attention.likely_resolved` — for rule items: a recommendation "likely answered" with evidence (`interpreted`). Does not close the item;
     - `attention.priority` — a recommendation.
 - Every operation has evidence — fact ids — and a brief justification.
 - `needs` requests raw records, actions with their input and output (including edit diffs from the payload), stored artifact versions (ADR-0006) and context records. A reply with a non-empty `needs` is not applied to the model: the call gets status `needs_requested`, the daemon resolves the request and immediately makes one follow-up request with the same batch, the same snapshot and the materials. The follow-up does not spend a batch attempt and does not wait for the interval between the run's calls, and `needs` in its reply is ignored. This way the observer gets access to sources without having tools.
@@ -247,7 +247,7 @@ Accepted by the owner 2026-10-01:
 4. A minimum interval of 10 s per run; the token budget unlimited until measurements (plan, F.3). Following F.3 — unlimited until Q.3 (decision 13). Following Q.3, the budget is unlimited by default (decision 16).
 5. `crossSessionInbound: "hold"` is enabled for the Claude observer and checked by an isolation contract test.
 6. Cross-vendor fact transfer is forbidden by default and enabled by `observer.crossVendor`.
-7. The observer on a Claude version after automatic admission is enabled with the note «изоляция от сообщений других сессий на этой версии не проверена» ("isolation from other sessions' messages is not verified on this version") until the local contract run.
+7. The observer on a Claude version after automatic admission is enabled with the note "isolation from other sessions' messages is not verified on this version" until the local contract run.
 8. The observer's work queue is 2000 facts or 24 hours per run; beyond that — `deferred` with a compressed summary.
 
 Accepted by the owner 2026-10-03:
