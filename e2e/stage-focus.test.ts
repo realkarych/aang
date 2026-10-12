@@ -50,8 +50,38 @@ test.describe('with the observer building the map', () => {
       await (await daemon.request(endpoints.run.path.replace(':run', claudeRun))).json(),
     )
     const main = snapshot.model.stages.find(({ title }) => title === mainStageTitle)
-    expect(main).toBeDefined()
+    expect(main?.summary).toMatch(/^Latest batch: \d+ facts, \d+ actions/)
     await page.goto(`/?run=${claudeRun}&stage=${main?.id ?? ''}`)
     await expect(selected(page).getByRole('heading')).toHaveText(mainStageTitle)
+    await expect(selected(page)).toContainText(/Latest batch: \d+ facts, \d+ actions/)
   })
+
+  for (const { screen, width, collapse } of [
+    { screen: 'a narrow screen', width: 800, collapse: false },
+    { screen: 'a wide screen with the chat collapsed', width: 1400, collapse: true },
+  ]) {
+    test(`on ${screen} clicking a stage opens the chat panel on its summary`, async ({ page, player }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+      await page.goto(`/?run=${claudeRun}`)
+      const main = stage(page, mainStageTitle)
+      await expect(main).toBeVisible(observed)
+      if (collapse) {
+        await dock(page).getByRole('button', { name: 'Collapse chat' }).click()
+      }
+      await expect(dock(page).getByRole('button', { name: 'Expand chat' })).toBeVisible()
+      await expect(selected(page)).toBeHidden()
+
+      await main.getByRole('button', { name: mainStageTitle, exact: true }).click()
+      await expect(selected(page).getByRole('heading')).toHaveText(mainStageTitle)
+      await expect(selected(page)).toBeVisible()
+      await expect(dock(page).getByRole('button', { name: 'Collapse chat' })).toHaveAttribute('aria-expanded', 'true')
+
+      if (collapse) {
+        await page.reload()
+        await expect(selected(page)).toBeVisible(observed)
+        await expect(dock(page).getByRole('button', { name: 'Collapse chat' })).toBeVisible()
+      }
+    })
+  }
 })

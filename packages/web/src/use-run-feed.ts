@@ -50,7 +50,6 @@ const cleared = (): FeedState => ({
   connection: 'loading',
 })
 
-
 const byAsking = (left: ChatMessage, right: ChatMessage): number =>
   left.asked_at < right.asked_at ? -1 : left.asked_at > right.asked_at ? 1 : left.id < right.id ? -1 : 1
 

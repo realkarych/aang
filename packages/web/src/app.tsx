@@ -112,9 +112,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
       <StatusStrip lamps={lamps} />
       <div className="run-screen">
         <KnownAgents value={agents}>
-          <div className="run-pane">
-            <RunPage feed={feed} now={now} onSignedOut={onSignedOut} />
-          </div>
+          <RunPage feed={feed} now={now} onSignedOut={onSignedOut} />
         </KnownAgents>
       </div>
     </>

@@ -35,15 +35,34 @@ const useWide = (): boolean => {
   return wide
 }
 
-export const ChatDock = ({ children }: { readonly children: ReactNode }): ReactElement => {
+export const ChatDock = ({
+  reveal,
+  children,
+}: {
+  readonly reveal: string | null
+  readonly children: ReactNode
+}): ReactElement => {
   const wide = useWide()
   const [collapsedWide, setCollapsedWide] = useState(storedCollapsed)
   const [openNarrow, setOpenNarrow] = useState(false)
+  const [revealed, setRevealed] = useState<string | null>(null)
+  if (reveal !== revealed) {
+    setRevealed(reveal)
+    if (reveal !== null) {
+      if (wide) {
+        setCollapsedWide(false)
+      } else {
+        setOpenNarrow(true)
+      }
+    }
+  }
+  useEffect(() => {
+    storeCollapsed(collapsedWide)
+  }, [collapsedWide])
   const body = useId()
   const collapsed = wide ? collapsedWide : !openNarrow
   const toggle = (): void => {
     if (wide) {
-      storeCollapsed(!collapsedWide)
       setCollapsedWide(!collapsedWide)
     } else {
       setOpenNarrow(!openNarrow)

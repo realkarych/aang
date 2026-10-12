@@ -471,6 +471,7 @@ test.describe('with the observer of the attention zone', () => {
     await page.getByRole('region', { name: 'Stage map' }).getByRole('button', { name: checksStageTitle, exact: true }).click()
     const selected = dock(page).getByRole('region', { name: 'Selected stage' })
     await expect(selected.getByRole('heading')).toHaveText(checksStageTitle)
+    await expect(selected.getByRole('list', { name: 'Waiting for you' })).toContainText(`Blocker: ${checksBlockerText}`)
     await selected.getByRole('button', { name: 'Whole run' }).click()
     await expect(selected).toHaveCount(0)
 

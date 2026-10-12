@@ -40,7 +40,7 @@ const RunContent = ({ snapshot, feed, now, onSignedOut }: RunContentProps): Reac
         <AttentionZone snapshot={snapshot} now={now} handlers={{ onView: feed.noteView, onSignedOut }} />
         <MapSection snapshot={snapshot} choice={choice} />
       </main>
-      <ChatDock>
+      <ChatDock reveal={choice.selection?.stage.id ?? null}>
         <ChatPanel
           snapshot={snapshot}
           messages={feed.chat}

@@ -340,17 +340,10 @@ button.lamp[data-level='warning']:hover {
 }
 
 .run-screen {
-  display: grid;
-  flex: 1 1 auto;
-  grid-template-columns: minmax(0, 1fr);
-  min-height: 0;
-}
-
-.run-pane {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  container: run / inline-size;
 }
 
 .run-screen-body {
