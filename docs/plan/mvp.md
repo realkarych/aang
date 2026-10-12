@@ -937,7 +937,7 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
 - **H.2 View before meaning**.
   - Scope: sessions, agents, actions, plan facts; freshness (`quiet`, `lost`, waiting); the attention zone with rule items.
   - Acceptance: E2E 2, 10, 12.
-  - The run view of sessions, agents, actions and plan facts and the attention zone are superseded by ADR-0015 (V.2, V.4).
+  - The run view of sessions, agents, actions and plan facts and the attention zone are superseded by ADR-0015 (V.2, V.4). Freshness (`quiet`, `lost`, waiting) and the compaction rule stay in the engine and are covered without E2E: E2E 2 by `attention-badges.test.ts`, E2E 10 and 12 by functional tests (coverage table).
 - **H.3 Attention zone** (M.8).
   - Scope: ordering with an explanation; the "recommended" label; marking and dismissing an item; "from a hidden element"; the "session ended" mark.
   - Acceptance: E2E 3 (attention part), E2E 15 (after G.8).
@@ -975,7 +975,7 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
 
 - **H.10 Restart** (G.8, H.7): E2E 6.
 - **H.11 Codex: LLM refusal, OTel, fork** (G.6, R.4): E2E 7, 8.
-- **H.12 Variants by runtime and surface** (R.4): Codex variants for E2E 1, 4, 5; Desktop and SDK variants for E2E 1, 4. The observer's question and the final-text card in the E2E 4 variant for Codex Desktop — on the R.4b recording of the R.2d scenario.
+- **H.12 Variants by runtime and surface** (R.4): Codex variants for E2E 1, 5; Desktop and SDK variants for E2E 1. The E2E 4 variants are removed with the "Since last review" mode (ADR-0015, V.2).
 
 ### K. Chat
 
@@ -1094,6 +1094,7 @@ The web UI is reduced to a chat list, a full-screen stage map and a collapsible 
 | Secured access (ADR-0003) | 13 | G.2, H.1 |
 | Gaps are visible: hooks, source, version (RFC §7) | 9; health dot scenarios in `shell.test.ts` | A.6, E.3, G.7, R.5a, V.5 |
 | Desktop and SDK surfaces (RFC §4) | variants 1 | R.2, R.2d, R.4, R.4b, H.12, Q.1 |
+| Freshness: waiting for a human, no new events, source lost; a false compaction `SubagentStop` is not an agent (old E2E 10, 12; RFC §6, §8, ADR-0006) | — (covered without E2E) | E.3, E.4: `engine/test/session-freshness.test.ts`, `engine/test/sample-scenarios.test.ts`, `adapter-claude/test/session-hooks.test.ts` |
 | Chat list with the project folder and the waiting count (ADR-0015) | `runs.test.ts`, chat row scenario in `shell.test.ts` | V.1, V.6 |
 
 ADR-0015 removes the views that E2E 2, 3, 4, 10, 11, 12, 15, 16 and 17 and the inspector part of E2E 1 went through; their files (`facts-view`, `attention-zone`, `inspector`, `inspector-selection`, `since-last-view`, `since-last-view-variants`, `usage`) are deleted in V.2–V.4. The engine and API behaviour behind them is unchanged and keeps its functional and integration tests.

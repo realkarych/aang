@@ -1,5 +1,7 @@
 # ADR-0012: Testing strategy
 
+Superseded in part by [ADR-0015](0015-ui-simplification.md).
+
 Status: accepted by the owner 2026-10-01.
 
 ## Context

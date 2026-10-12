@@ -14,11 +14,11 @@ The hypothesis concerns primarily the time spent on restoring context, observing
 
 ## 2. Two scenarios and an example
 
-**During work.** The engineer sees the active stages and agents, known waits, recent changes and data freshness. From a stage they open a short explanation, inputs and outputs, timing, available token usage and the source events.
+**During work.** The engineer sees the active stages and agents, known waits, recent changes and data freshness. Selecting a stage gives its short summary at the top of the chat panel and narrows the chat to it; questions about inputs, outputs and the source events are asked in that chat.
 
-**After a long iteration.** The "Since last review" mode shows new results, revised decisions, questions and review requests. The agent's final text is broken down into cards linked to stages; the original remains available. The order of attention is explained by dependencies, and a priority suggested by the LLM is marked as a recommendation.
+**After a long iteration.** The map shows the current stages, and the chat answers "what changed" questions: new results, revised decisions, questions and review requests, with links to evidence. Items waiting for a human are shown as badges on their stages and as a "waiting for you" chip in the header (ADR-0015).
 
-For example, after an hour of work on a data pipeline the map shows: "Sources studied", "Pipeline implemented", "Checks running", "Publication awaiting decision". Inside the check, two subagents and the result of a specific run are visible. The message "all done" does not hide a failed data check. The request "collapse the reviewers" removes detailed actions while keeping their substantive remarks in the attention zone. This is an illustration of the interface, not a fixed workflow.
+For example, after an hour of work on a data pipeline the map shows: "Sources studied", "Pipeline implemented", "Checks running", "Publication awaiting decision". Inside the check, two subagents and the result of a specific run are visible. The message "all done" does not hide a failed data check. The request "collapse the reviewers" removes detailed actions while their substantive remarks stay visible as waiting items. This is an illustration of the interface, not a fixed workflow.
 
 ## 3. What already exists
 
