@@ -930,15 +930,18 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
     - an SSE client handling `reset`;
     - the status bar: the observer and the model age, support modes, source loss, unverified versions, unrecognized records, spool, "Not observable".
   - Acceptance: E2E 13, 9.
+  - The status bar is superseded by ADR-0015: observation health is a dot in the header (V.5).
 
 **Line "facts and attention"**
 
 - **H.2 View before meaning**.
   - Scope: sessions, agents, actions, plan facts; freshness (`quiet`, `lost`, waiting); the attention zone with rule items.
   - Acceptance: E2E 2, 10, 12.
+  - The run view of sessions, agents, actions and plan facts and the attention zone are superseded by ADR-0015 (V.2, V.4).
 - **H.3 Attention zone** (M.8).
   - Scope: ordering with an explanation; the "recommended" label; marking and dismissing an item; "from a hidden element"; the "session ended" mark.
   - Acceptance: E2E 3 (attention part), E2E 15 (after G.8).
+  - Superseded by ADR-0015: attention is a badge on the stage, a header chip and a count in the chat list, without viewed or dismiss controls (V.4).
 
 **Line "map and inspector"** (after G.6 and T.6)
 
@@ -951,18 +954,22 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
 - **H.6 Inspector**.
   - Scope: summary, expected result, inputs and outputs with saved versions or the "reference only" mark, time, usage, the "ground → fact → raw record" chain, history, criteria with snapshots and the `passed_unversioned` status, rejected observer responses.
   - Acceptance: E2E 1, 3, 17.
+  - Superseded by ADR-0015: selecting a stage narrows the chat and shows the stage summary (V.3).
 
 **Line "return, chat, usage"**
 
 - **H.7 "Since last review"** (G.8).
   - Scope: the mark, the diff with grounds, cards with a link to the original.
   - Acceptance: E2E 4, 16.
+  - Superseded by ADR-0015: the mode is removed from the UI; the chat answers "what changed" questions (V.2).
 - **H.8 Chat and view rules** (K.2).
   - Scope: a chat panel scoped to a stage; links; a version label; a list of rules with undo.
   - Acceptance: E2E 5, 18.
+  - The list of rules is superseded by ADR-0015: active rules are filter chips above the map (V.4).
 - **H.9 Usage** (U.1).
   - Scope: three journals; attributed and unattributed parts; "total per Claude Code data" with a note about the exit; lower bounds.
   - Acceptance: E2E 11.
+  - Superseded by ADR-0015: the usage page is removed from the UI; `aang usage` stays (V.2).
 
 **End-to-end E2E**
 
@@ -984,6 +991,7 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
   - Scope: selector validation, application, the number of affected elements, undo.
   - Acceptance: an invalid selector is rejected with an explanation.
   - Tests: functional and integration.
+  - The list of active rules is superseded by ADR-0015: rules are filter chips above the map (V.4). Validation, application and undo stay.
 
 ### U. Observer usage and report
 
@@ -991,6 +999,7 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
   - Scope: usage and latency of calls; usage per active hour; the API and `aang usage`.
   - Acceptance: the three journals are not mixed; an active hour is counted by solver activity.
   - Tests: integration.
+  - The usage UI is superseded by ADR-0015: the journals, the API and `aang usage` stay (V.2).
 
 ## Stage 3. Delivery and verification
 
@@ -1045,21 +1054,49 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
     - ambiguous lineage.
 - **Stage outcome.** Announcement of support by version (ADR-0010) and the owner's decision on moving to the RFC §9 product validation.
 
+## Stage 4. UI simplification (ADR-0015)
+
+The web UI is reduced to a chat list, a full-screen stage map and a collapsible chat panel. Design: `docs/superpowers/specs/2026-10-12-ui-simplification-design.md`; tasks: `docs/superpowers/plans/2026-10-12-ui-simplification.md`. The PRs of this stage merge only after the owner accepts ADR-0015.
+
+### V. Simplified interface (`web`, `contract`, `engine`)
+
+- **V.1 `RunSummary.cwd`** (plan, Task 2).
+  - Scope: `cwd` of the root session in `RunSummary`.
+  - Acceptance: `runs.test.ts`, "a run summary carries the working directory of its root session".
+- **V.2 Two-column run screen and collapsible chat** (plan, Task 3).
+  - Scope: the map and the chat panel beside it; the panel collapses to a rail and keeps the state across reloads; an overlay sheet on a narrow screen; the facts header, trace, plan facts, "Since last review", the changes mode and the usage pages are removed; old `view=usage` and `mode=changes` links open the remaining screens.
+  - Acceptance: `layout.test.ts`.
+- **V.3 Stage selection focuses the chat** (plan, Task 4).
+  - Scope: the inspector is removed; selecting a stage shows its summary at the top of the chat panel and narrows the chat; "whole run" clears it.
+  - Acceptance: `stage-focus.test.ts`.
+- **V.4 Node card, attention badges and filter chips** (plan, Task 5).
+  - Scope: the card shows name, execution state, basis and an attention badge; open items without a stage are a header chip; the attention zone is removed; active view rules are chips above the map, ✕ revokes the rule.
+  - Acceptance: `attention-badges.test.ts`; the filter chip scenarios in `chat.test.ts`.
+- **V.5 Health dot** (plan, Task 6).
+  - Scope: one dot in the header while a non-coverage lamp is not normal, with a popover listing the problems; the status strip and the lamp row are removed.
+  - Acceptance: the health dot scenarios in `shell.test.ts`.
+- **V.6 Compact chat list and the web README** (plan, Task 7).
+  - Scope: a row with the goal, the project folder, the state, "waiting for you: N" and the relative time, newest first; `packages/web/README.md` describes the new screens.
+  - Acceptance: the chat row scenario in `shell.test.ts`; the waiting count in `attention-badges.test.ts`.
+
 ## RFC scenario coverage
 
 | Requirement | E2E | Where implemented |
 | --- | --- | --- |
-| During work: active stages, agents, waits, changes, freshness (RFC §2) | 1, 2, 7, 8, 10 | E.1–E.3, M, F, G.6, H.2–H.6 |
-| After an iteration: "Since last review", cards, attention order, unresolved questions after the end of the session (RFC §2, §5) | 3, 4, 15, 16 | E.6, M.5b–M.5c, M.8, H.3, H.7 |
-| Chat with links and view rules (RFC §4, §5) | 5 | K, M.7, H.8 |
-| Preserving the selection, color with a label (RFC §5) | 14 | H.4–H.5 |
-| Links, fork, three axes, grounds, criterion confirmation on the established version (RFC §6) | 1, 3, 8, 11, 12 | E.4–E.7c, M.2–M.5c |
-| Saved artifact versions and access to sources (RFC §6, §7) | 17, 18 | A.8, E.7b, F.7c, K.1, H.6 |
-| An explicit input request without an LLM, LLM refusal, restart without duplicates (RFC §8) | 2, 6, 7 | A, E.1, E.6, F.9 |
-| Separate usage (RFC §8) | 11 | E.8, U, H.9 |
+| During work: active stages, waits, changes, freshness (RFC §2) | 1 (map), 7, 8; `layout.test.ts`, `stage-focus.test.ts`, `attention-badges.test.ts` | E.1–E.3, M, F, G.6, H.4–H.5, V.2–V.4 |
+| After an iteration: unresolved questions after the end of the session stay on their stages and in the header chip; "what changed" is asked in the chat (RFC §2, §5; ADR-0015) | 5, 18; `attention-badges.test.ts` | E.6, M.5b–M.5c, M.8, K, V.4 |
+| Chat with links and view rules as filter chips (RFC §4, §5) | 5, 18; filter chip scenarios in `chat.test.ts` | K, M.7, H.8, V.4 |
+| Preserving the selection, color with a label (RFC §5) | 14; `stage-focus.test.ts` | H.4–H.5, V.3–V.4 |
+| Links, fork, three axes, grounds, criterion confirmation on the established version (RFC §6) | 1 (map), 8 | E.4–E.7c, M.2–M.5c |
+| Saved artifact versions and access to sources (RFC §6, §7) | 18 | A.8, E.7b, F.7c, K.1 |
+| An explicit input request without an LLM, LLM refusal, restart without duplicates (RFC §8) | 6, 7; `attention-badges.test.ts` | A, E.1, E.6, F.9, V.4 |
+| Separate usage (RFC §8) | — (`aang usage`) | E.8, U |
 | Secured access (ADR-0003) | 13 | G.2, H.1 |
-| Gaps are visible: hooks, source, version (RFC §7) | 9, 10 | A.6, E.3, G.7, R.5a, H.1 |
-| Desktop and SDK surfaces (RFC §4) | variants 1, 4 | R.2, R.2d, R.4, R.4b, H.12, Q.1 |
+| Gaps are visible: hooks, source, version (RFC §7) | 9; health dot scenarios in `shell.test.ts` | A.6, E.3, G.7, R.5a, V.5 |
+| Desktop and SDK surfaces (RFC §4) | variants 1 | R.2, R.2d, R.4, R.4b, H.12, Q.1 |
+| Chat list with the project folder and the waiting count (ADR-0015) | `runs.test.ts`, chat row scenario in `shell.test.ts` | V.1, V.6 |
+
+ADR-0015 removes the views that E2E 2, 3, 4, 10, 11, 12, 15, 16 and 17 and the inspector part of E2E 1 went through; their files (`facts-view`, `attention-zone`, `inspector`, `inspector-selection`, `since-last-view`, `since-last-view-variants`, `usage`) are deleted in V.2–V.4. The engine and API behaviour behind them is unchanged and keeps its functional and integration tests.
 
 ## Owner decisions
 

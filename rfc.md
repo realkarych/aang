@@ -37,7 +37,7 @@ The proposed differentiator of aang is a stable model of the user's task on top 
 | Surfaces | Desktop, CLI and the agent SDKs of both runtimes: Claude Agent SDK and Codex SDK |
 | Environment | Locally and on one's own VMs/Docker, including the corresponding Desktop modes; vendor clouds excluded |
 | Connection | Prior setup of hooks, plugins and event collection is acceptable |
-| Interface | Stage map, attention zone, inspector, chat and changes mode |
+| Interface | Stage map with attention badges and a collapsible chat panel; chat narrows to a stage and narrows the map through view rules (ADR-0015) |
 | Chat | Explanations with links; hiding, collapsing, grouping and changing the level of detail |
 | Permissions | Observation and chat with aang only; replies and commands to the solver stay in the original session |
 | Observer | The primary path is an already authorized Claude Code or Codex CLI |
@@ -50,11 +50,11 @@ Desktop is an MVP commitment. If the data is insufficient for a chosen mode, thi
 
 The main view is a compact interactive map of stages that expands into subtasks and dependencies. The specific layout is tested on a prototype. Shipping a separate timeline and several graph views at the same time is not required to test the main hypothesis.
 
-A stage has a name, an expected result, a short summary, a state, participants and evidence. Selecting it opens an inspector with details and a local chat. Color is complemented by a label or an icon. Updates preserve the selected stage and the reading position; the history explains merging, splitting and revising stages.
+A stage has a name, an expected result, a short summary, a state, participants and evidence. Color is complemented by a label or an icon. Updates preserve the selected stage and the reading position; a replaced, split or merged stage hands the selection to its successor.
 
-The last-view mark is stored explicitly: the arrival of new events does not mean the user has read them. The attention zone holds explicit questions, review requests and substantial blockers. The absence of a check does not by itself create a task for a human.
+The chat answers about the whole run; selecting a stage narrows the context. For example: "Why is the publication awaiting a decision?" The answer refers to a specific version of the map, contains links to evidence or reports a lack of data. A change of view is stored as a reversible rule, applies to new events and does not rewrite history. Hidden agents keep their contribution to results and usage; important questions remain visible.
 
-The chat answers about the whole run; selecting a stage narrows the context. For example: "Why is the publication awaiting a decision?" The answer refers to a specific version of the map, contains links to evidence or reports a lack of data. A change of view is stored as a reversible rule, applies to new events and does not rewrite history. Hidden agents keep their contribution to results and usage; important questions remain visible. "Viewed" does not mean "approved" and sends nothing to the solver.
+The chat panel sits to the right of the map and collapses to a rail. Selecting a stage narrows the chat and shows the stage summary at the top of the panel. Narrowing the map to a goal is done by the chat's view rules; active rules are shown as chips above the map and are revoked with ✕. Explicit questions, review requests and substantial blockers are shown as a badge on their stage, as a "waiting for you" chip in the header when they have no stage, and as a count in the chat list; there is no separate attention zone. The absence of a check does not by itself create a task for a human. Observation health is a single dot in the header, shown only while a problem exists; its popover lists the problems, and `aang status` gives the details (ADR-0015).
 
 ## 6. Model and reliability
 

@@ -1,5 +1,7 @@
 # ADR-0010: Unstable formats and versions
 
+Superseded in part by [ADR-0015](0015-ui-simplification.md).
+
 Status: accepted by the owner 2026-10-01. TUI recordings in CI instead of the manual Claude TUI checklist on Linux (decision 4) and statuses from check results (decision 5) approved by the owner 2026-10-08.
 
 ## Context

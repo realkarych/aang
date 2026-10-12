@@ -1,5 +1,7 @@
 # ADR-0008: Chat, map view and attention zone
 
+Superseded in part by [ADR-0015](0015-ui-simplification.md).
+
 Status: accepted by the owner on 2026-10-01; the addendum on `PermissionRequest` for the question tool (section "Attention zone", kind `permission`) approved by the owner on 2026-10-10.
 
 ## Context
