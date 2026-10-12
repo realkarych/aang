@@ -1,13 +1,13 @@
 import { type ReactElement, type RefObject, useEffect, useId, useRef, useState } from 'react'
 
-export interface LongTextState<E extends HTMLElement> {
+interface LongTextState<E extends HTMLElement> {
   readonly id: string
   readonly box: RefObject<E | null>
   readonly expanded: boolean
   readonly toggle: ReactElement | null
 }
 
-export const useLongText = <E extends HTMLElement>(text: string): LongTextState<E> => {
+const useLongText = <E extends HTMLElement>(text: string): LongTextState<E> => {
   const id = useId()
   const box = useRef<E>(null)
   const [expanded, setExpanded] = useState(false)

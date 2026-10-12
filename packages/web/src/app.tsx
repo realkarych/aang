@@ -1,4 +1,4 @@
-import type { RunId, RunSnapshot, RunSummary, StatusResponse, UsageReport } from '@aang/contract'
+import type { RunId, RunSnapshot, StatusResponse } from '@aang/contract'
 import {
   type ReactElement,
   type RefObject,
@@ -9,17 +9,16 @@ import {
   useRef,
   useState,
 } from 'react'
-import { readRuns, readStatus, readUsage } from './api.js'
+import { readRuns, readStatus } from './api.js'
 import { nowNs } from './format.js'
 import { GenerationContext } from './generation.js'
 import { type FocusedRun, lampsOf } from './lamps.js'
-import { listHref, runHref, selectStage, type UsagePeriod, usageHref, useNavigate, useRoute, useRoutedStage } from './route.js'
+import { listHref, selectStage, useNavigate, useRoute, useRoutedStage } from './route.js'
 import { RunList, runTitle, untitledRun } from './run-list.js'
-import { Missing, RunPage } from './run-page.js'
+import { RunPage } from './run-page.js'
 import { agentIds, KnownAgents } from './short-ids.js'
 import { StageInspector } from './stage-inspector.js'
 import { StatusStrip } from './status-strip.js'
-import { RunUsagePage, UsageOverview, usageQuery } from './usage-page.js'
 import { type Polled, usePolled } from './use-polled.js'
 import { SignedOutContext } from './use-read.js'
 import { useRunFeed } from './use-run-feed.js'
@@ -43,51 +42,23 @@ const useTitle = (title: string): void => {
   }, [title])
 }
 
-interface Crumb {
-  readonly label: string
-  readonly href?: string
-}
-
-const Masthead = ({
-  trail,
-  usage = true,
-}: {
-  readonly trail: readonly Crumb[]
-  readonly usage?: boolean
-}): ReactElement => {
+const Masthead = ({ title }: { readonly title: string | null }): ReactElement => {
   const navigate = useNavigate()
   return (
     <header className="masthead">
       <a className="wordmark" href={listHref} onClick={navigate}>
         aang
       </a>
-      <nav className="masthead-nav" aria-label="Navigation">
-        <ol className="trail">
-          <li>
-            <a href={listHref} onClick={navigate} aria-current={trail.length === 0 ? 'page' : undefined}>
-              Runs
-            </a>
-          </li>
-          {trail.map(({ label, href }) =>
-            href === undefined ? (
-              <li key={label} aria-current="page" className="trail-here">
-                {label}
-              </li>
-            ) : (
-              <li key={label} className="trail-step">
-                <a href={href} onClick={navigate}>
-                  {label}
-                </a>
-              </li>
-            ),
-          )}
-        </ol>
-        {usage ? (
-          <a className="masthead-usage" href={usageHref(null)} onClick={navigate}>
-            Usage
+      {title === null ? null : (
+        <nav className="masthead-nav" aria-label="Navigation">
+          <a href={listHref} onClick={navigate}>
+            ← Chats
           </a>
-        ) : null}
-      </nav>
+          <h1 className="masthead-title" title={title}>
+            {title}
+          </h1>
+        </nav>
+      )}
     </header>
   )
 }
@@ -111,7 +82,7 @@ const ListScreen = ({ status, now, onSignedOut }: ScreenProps): ReactElement => 
   })
   return (
     <>
-      <Masthead trail={[]} />
+      <Masthead title={null} />
       <StatusStrip lamps={lamps} />
       <main className="page">
         <RunList
@@ -138,15 +109,19 @@ interface ClickedPlace {
   readonly top: number
 }
 
-const useClickedPlaceKept = (pane: RefObject<HTMLElement | null>, inspecting: boolean): void => {
+const useClickedPlaceKept = (
+  screen: RefObject<HTMLElement | null>,
+  pane: RefObject<HTMLElement | null>,
+  inspecting: boolean,
+): void => {
   const clicked = useRef<ClickedPlace | null>(null)
   useEffect(() => {
-    const element = pane.current
+    const element = screen.current
     if (element === null) {
       return
     }
     const remember = ({ target }: Event): void => {
-      if (target instanceof Element) {
+      if (target instanceof Element && pane.current?.contains(target) === true) {
         clicked.current = { element: target, top: target.getBoundingClientRect().top }
         setTimeout(() => {
           clicked.current = null
@@ -157,7 +132,7 @@ const useClickedPlaceKept = (pane: RefObject<HTMLElement | null>, inspecting: bo
     return () => {
       element.removeEventListener('click', remember, true)
     }
-  }, [pane])
+  }, [screen, pane])
   useLayoutEffect(() => {
     const kept = clicked.current
     const element = pane.current
@@ -172,8 +147,9 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
   const feed = useRunFeed(run, onSignedOut)
   const runs = usePolled(readRuns, onSignedOut)
   const stage = useRoutedStage()
+  const screen = useRef<HTMLDivElement>(null)
   const pane = useRef<HTMLElement>(null)
-  useClickedPlaceKept(pane, stage !== null)
+  useClickedPlaceKept(screen, pane, stage !== null)
   const close = useCallback(() => {
     selectStage(run, null)
   }, [run])
@@ -190,14 +166,14 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
   })
   return (
     <>
-      <Masthead trail={[{ label: title ?? 'Run' }]} />
+      <Masthead title={title ?? 'Run'} />
       <StatusStrip lamps={lamps} />
-      <div className="run-screen" data-inspecting={stage !== null}>
+      <div ref={screen} className="run-screen" data-inspecting={stage !== null}>
         <GenerationContext value={feed.generation}>
           <KnownAgents value={agents}>
-            <main ref={pane} className="page run-pane">
-              <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} onSignedOut={onSignedOut} />
-            </main>
+            <div className="run-pane">
+              <RunPage feed={feed} pane={pane} now={now} onSignedOut={onSignedOut} />
+            </div>
             {stage === null ? null : (
               <SignedOutContext value={onSignedOut}>
                 <StageInspector
@@ -213,115 +189,6 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
           </KnownAgents>
         </GenerationContext>
       </div>
-    </>
-  )
-}
-
-const usagePollMs = 5_000
-
-interface UsageScope {
-  readonly run: RunId | null
-  readonly period: UsagePeriod
-  readonly onSignedOut: () => void
-}
-
-const useUsageReport = ({ run, period, onSignedOut }: UsageScope): Polled<UsageReport> => {
-  const load = useCallback((signal: AbortSignal) => readUsage(usageQuery(period, run, nowNs()), signal), [period, run])
-  return usePolled(load, onSignedOut, usagePollMs)
-}
-
-const OverviewBody = ({ runs, ...scope }: UsageScope & { readonly runs: readonly RunSummary[] }): ReactElement => {
-  const report = useUsageReport(scope)
-  return <UsageOverview report={report.value} failing={report.failing} runs={runs} period={scope.period} />
-}
-
-const RunUsageBody = ({
-  run,
-  snapshot,
-  runs,
-  ...scope
-}: UsageScope & {
-  readonly run: RunId
-  readonly snapshot: RunSnapshot | null
-  readonly runs: readonly RunSummary[]
-}): ReactElement => {
-  const report = useUsageReport({ run, ...scope })
-  return (
-    <RunUsagePage
-      run={run}
-      report={report.value}
-      failing={report.failing}
-      snapshot={snapshot}
-      runs={runs}
-      period={scope.period}
-    />
-  )
-}
-
-const UsageScreen = ({
-  period,
-  status,
-  now,
-  onSignedOut,
-}: ScreenProps & { readonly period: UsagePeriod }): ReactElement => {
-  const runs = usePolled(readRuns, onSignedOut)
-  useTitle('Usage — aang')
-  const lamps = lampsOf({
-    status: status.value,
-    statusFailing: status.failing,
-    runs: runs.value?.runs ?? null,
-    runsFailing: runs.failing,
-    focus: null,
-    now,
-  })
-  return (
-    <>
-      <Masthead trail={[{ label: 'Usage' }]} usage={false} />
-      <StatusStrip lamps={lamps} />
-      <main className="page">
-        <OverviewBody key={period} run={null} period={period} runs={runs.value?.runs ?? []} onSignedOut={onSignedOut} />
-      </main>
-    </>
-  )
-}
-
-const RunUsageScreen = ({
-  run,
-  period,
-  status,
-  now,
-  onSignedOut,
-}: ScreenProps & { readonly run: RunId; readonly period: UsagePeriod }): ReactElement => {
-  const feed = useRunFeed(run, onSignedOut)
-  const runs = usePolled(readRuns, onSignedOut)
-  const title = snapshotTitle(feed.snapshot)
-  useTitle(`Usage: ${title ?? 'run'} — aang`)
-  const lamps = lampsOf({
-    status: status.value,
-    statusFailing: status.failing,
-    runs: null,
-    runsFailing: false,
-    focus: { connection: feed.connection, run: focusOf(feed.snapshot) },
-    now,
-  })
-  return (
-    <>
-      <Masthead trail={[{ label: title ?? 'Run', href: runHref(run) }, { label: 'Usage' }]} />
-      <StatusStrip lamps={lamps} />
-      <main className="page">
-        {feed.connection === 'missing' ? (
-          <Missing />
-        ) : (
-          <RunUsageBody
-            key={period}
-            run={run}
-            period={period}
-            snapshot={feed.snapshot}
-            runs={runs.value?.runs ?? []}
-            onSignedOut={onSignedOut}
-          />
-        )}
-      </main>
     </>
   )
 }
@@ -348,19 +215,6 @@ const Shell = ({ onSignedOut }: { readonly onSignedOut: () => void }): ReactElem
       return <ListScreen status={status} now={now} onSignedOut={onSignedOut} />
     case 'run':
       return <RunScreen key={route.run} run={route.run} status={status} now={now} onSignedOut={onSignedOut} />
-    case 'usage':
-      return route.run === null ? (
-        <UsageScreen period={route.period} status={status} now={now} onSignedOut={onSignedOut} />
-      ) : (
-        <RunUsageScreen
-          key={route.run}
-          run={route.run}
-          period={route.period}
-          status={status}
-          now={now}
-          onSignedOut={onSignedOut}
-        />
-      )
   }
 }
 

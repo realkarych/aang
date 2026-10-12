@@ -6,7 +6,6 @@ import type {
   Execution,
   Freshness,
   HumanDecision,
-  PlanItemStatus,
 } from '@aang/contract'
 import type { ReactElement } from 'react'
 import type { Level } from './lamps.js'
@@ -235,94 +234,6 @@ export const DecisionGlyph = ({ decision }: { readonly decision: HumanDecision }
       return <Glyph><Ring /></Glyph>
     case 'unknown':
       return <Glyph><Unknown /></Glyph>
-  }
-}
-
-export const PlanItemGlyph = ({ status }: { readonly status: PlanItemStatus }): ReactElement => {
-  switch (status) {
-    case 'pending':
-      return <Glyph><Dashed /></Glyph>
-    case 'in_progress':
-      return <Glyph><Dot /></Glyph>
-    case 'completed':
-      return <Glyph><Check /></Glyph>
-    case 'cancelled':
-      return <Glyph><Slash /></Glyph>
-    case 'unknown':
-      return <Glyph><Unknown /></Glyph>
-  }
-}
-
-export const MarkGlyph = (): ReactElement => (
-  <Glyph>
-    <path d="M3 1h6v10L6 8.3 3 11Z" fill="currentColor" />
-  </Glyph>
-)
-
-export type ChangeKind = 'new' | 'changed' | 'closed' | 'replaced' | 'merged' | 'split'
-
-const Plus = (): ReactElement => (
-  <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-)
-
-const Onward = (): ReactElement => (
-  <path
-    d="M1.5 6h8M6.5 2.8 9.7 6 6.5 9.2"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.6"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  />
-)
-
-const Swap = (): ReactElement => (
-  <path
-    d="M1.5 4h8.5M8 1.8 10.2 4 8 6.2M10.5 8H2M4 5.8 1.8 8 4 10.2"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.4"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  />
-)
-
-const Join = (): ReactElement => (
-  <path
-    d="M1.5 2.5 6 6l-4.5 3.5M6 6h4.5"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  />
-)
-
-const Fork = (): ReactElement => (
-  <path
-    d="M10.5 2.5 6 6l4.5 3.5M1.5 6H6"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  />
-)
-
-export const ChangeGlyph = ({ change }: { readonly change: ChangeKind }): ReactElement => {
-  switch (change) {
-    case 'new':
-      return <Glyph><Plus /></Glyph>
-    case 'changed':
-      return <Glyph><Onward /></Glyph>
-    case 'closed':
-      return <Glyph><Check /></Glyph>
-    case 'replaced':
-      return <Glyph><Swap /></Glyph>
-    case 'merged':
-      return <Glyph><Join /></Glyph>
-    case 'split':
-      return <Glyph><Fork /></Glyph>
   }
 }
 

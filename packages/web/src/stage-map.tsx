@@ -395,11 +395,7 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
     <>
       <Markers />
       <Legend />
-      <div
-        className="map-canvas"
-        data-placed={placed !== null}
-        style={{ height: `clamp(280px, ${String(Math.ceil(layout.height) + 48)}px, 72vh)` }}
-      >
+      <div className="map-canvas" data-placed={placed !== null}>
         <ReactFlow
           aria-busy={!upToDate || placed !== layout}
           nodes={nodes}

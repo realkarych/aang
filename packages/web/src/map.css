@@ -37,6 +37,8 @@
 .map-canvas {
   --xy-background-color: var(--paper);
   position: relative;
+  flex: 1 1 auto;
+  min-height: 280px;
   background: var(--paper);
 }
 
@@ -344,4 +346,31 @@
   .map-handover {
     padding-inline: 12px;
   }
+}
+
+.stage-card[data-folded='true'] {
+  background: color-mix(in srgb, var(--ink) 4%, var(--sheet));
+}
+
+.stage-meta .stage-folded {
+  white-space: normal;
+}
+
+.map-group {
+  width: 100%;
+  height: 100%;
+  border: 1px dashed var(--ink-faint);
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
+}
+
+.map-group-name {
+  margin: 0;
+  padding: 8px 12px 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

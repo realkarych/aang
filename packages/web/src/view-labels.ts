@@ -6,7 +6,6 @@ import {
   type StageId,
   type UsageTotals,
   type ViewRule,
-  type ViewRuleSource,
   type ViewSelector,
   type ViewTotals,
 } from '@aang/contract'
@@ -17,11 +16,6 @@ export const detailLevelLabel: Readonly<Record<DetailLevel, string>> = {
   stages: 'stages only',
   stages_and_agents: 'stages and agents',
   all_actions: 'all actions',
-}
-
-export const ruleSourceLabel: Readonly<Record<ViewRuleSource, string>> = {
-  chat: 'from chat',
-  ui: 'from the UI',
 }
 
 const actionKindLabel: Readonly<Record<ActionKind, string>> = {
@@ -38,8 +32,6 @@ const actionKindLabel: Readonly<Record<ActionKind, string>> = {
   other: 'other',
 }
 
-export const elementForms = { one: 'element', other: 'elements' } as const
-export const attentionForms = { one: 'attention item', other: 'attention items' } as const
 const outputForms = { one: 'output', other: 'outputs' } as const
 
 const titled = (stages: readonly Stage[], id: StageId): string =>

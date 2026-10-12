@@ -14,8 +14,6 @@ type Engine = Omit<SurfaceVariant, 'scenarios'>
 
 const everyOs = ['macos', 'linux', 'windows'] as const
 
-const desktopOnWindows = 'Desktop on Windows is not checked in the MVP (ADR-0013, decision 3)'
-
 const cliRecordingsReadAsSdk =
   'the R.4 claude_cli recordings of Linux and Windows carry CLAUDE_AGENT_SDK_VERSION from the Scenarios workflow and read as Agent SDK sessions; they need re-recording (R.4)'
 
@@ -37,22 +35,11 @@ const codexSdk: Engine = { runtime: 'codex', surface: 'codex_sdk', version: '0.1
 
 const codexDesktop: Engine = { runtime: 'codex', surface: 'codex_desktop', version: '0.159.2', recordedOn: ['macos'], skippedOn: {} }
 
-const notOnWindows = (engine: Engine): Engine => ({ ...engine, skippedOn: { ...engine.skippedOn, windows: desktopOnWindows } })
-
 export const duringWorkScenario = 'subagents'
 
 export const duringWorkVariants: readonly SurfaceVariant[] = [claudeCli, claudeSdk, claudeDesktop, codexExec, codexSdk, codexDesktop].map(
   (engine) => ({ ...engine, scenarios: [duringWorkScenario] }),
 )
-
-export const afterIterationVariants: readonly SurfaceVariant[] = [
-  { ...claudeCli, scenarios: ['tools'] },
-  { ...claudeSdk, scenarios: ['tools'] },
-  { ...notOnWindows(claudeDesktop), scenarios: ['tools'] },
-  { ...codexExec, scenarios: ['tools', 'question'] },
-  { ...codexSdk, scenarios: ['tools', 'question'] },
-  { ...notOnWindows(codexDesktop), scenarios: ['tools', 'question'] },
-]
 
 export const checkedOn = ({ skippedOn }: SurfaceVariant, os: OperatingSystem): boolean => skippedOn[os] === undefined
 

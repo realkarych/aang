@@ -14,7 +14,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { aangEntry, expect, getWithoutKeepAlive, type HookFields, type HookSamples, test } from './fixtures.js'
 import { tornAt } from './recordings.js'
 import { claudeFork, claudeOriginal, hookFields, runOf, sessionFile } from './samples.js'
-import { change, fact, lamp, mark, markButton, runRowOf, since, sinceTab, stepsOf, zone, zoneItem } from './screens.js'
+import { lamp, runRowOf, zone, zoneItem } from './screens.js'
 
 const run = runOf(claudeOriginal)
 
@@ -194,7 +194,7 @@ test.use({
   claudeScenario: { loggedIn: false },
 })
 
-test('a daemon killed in the middle of playback restarts without duplicates, from its cursors, with the view mark and the rules, and takes the hook events from the spool (E2E 6)', async ({
+test('a daemon killed in the middle of playback restarts without duplicates, from its cursors, with the rules, and takes the hook events from the spool (E2E 6)', async ({
   page,
   context,
   player,
@@ -206,7 +206,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   const replay = await player(tornAt(await loadManifest(scenario), 'continue', 'torn', tornBytes), { timeScale: 0.02 })
   await replay.play({ until: 'resume' })
   await page.goto(`/?run=${run}`)
-  await expect(fact(page, 'Agents')).toHaveText('2')
+  await expect.poll(async () => (await snapshotOf(page.request)).summary.agents).toBe(2)
 
   const fields = hookFields(profile, claudeOriginal)
   const hooks = trackedHooks(hook)
@@ -242,10 +242,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
     params: null,
   })
   await write(daemon, endpoints.revokeViewRule.path.replace(':run', run).replace(':id', revoked.rule.id), 'DELETE')
-  await markButton(page).click()
-  await expect(mark(page)).toContainText('Reviewed just now')
   const kept = await snapshotOf(page.request)
-  expect(kept.view.mark).not.toBeNull()
   expect(kept.view.rules.map(({ rule }) => rule.id).toSorted()).toEqual([collapsed.rule.id, grouped.rule.id].toSorted())
 
   const transcripts = transcriptsOf(profile)
@@ -296,14 +293,16 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   await expect(zoneItem(page, downtimeQuestion)).toContainText('awaiting an answer')
   await expect(zoneItem(page, downtimeQuestion)).toHaveCount(1)
   await expect(zoneItem(page, formatQuestion)).toHaveCount(1)
-  await expect(fact(page, 'Agents')).toHaveText('2')
-  await expect(
-    stepsOf(page, 'Main agent')
-      .getByRole('list', { name: 'Steps of group "Checks"', exact: true })
-      .getByRole('listitem')
-      .filter({ hasText: first.command }),
-  ).toContainText('succeeded')
-  await expect(mark(page)).toContainText(`map version ${String(kept.view.mark?.version)}`)
+  await expect
+    .poll(async () => {
+      const snapshot = await snapshotOf(page.request)
+      const check = snapshot.objects.actions.find(({ key }) => key.call === first.id)
+      const placement = snapshot.view.placements.find(
+        ({ element }) => element.kind === 'action' && element.id === check?.id,
+      )
+      return { agents: snapshot.summary.agents, outcome: check?.outcome?.value, group: placement?.group?.name }
+    }, reconnected)
+    .toEqual({ agents: 2, outcome: 'ok', group: 'Checks' })
 
   const files = [transcripts.main, transcripts.subagent, transcripts.fork]
   const written = await Promise.all(files.map(fileLines))
@@ -318,7 +317,6 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   expect(takenAfterRestart).toEqual(mainLines.slice(takenBeforeKill.length).map(({ line }) => line))
 
   const after = await snapshotOf(page.request)
-  expect(after.view.mark).toEqual(kept.view.mark)
   const rules = new Map(after.view.rules.map((applied) => [applied.rule.id, applied]))
   expect([...rules.keys()].toSorted()).toEqual([collapsed.rule.id, grouped.rule.id].toSorted())
   expect(rules.get(collapsed.rule.id)?.rule).toEqual(collapsed.rule)
@@ -342,13 +340,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   expect(after.view.zone.find(({ item }) => item === itemOf(after, downtimeQuestion).id)?.viewed).toBe(false)
 
   const returned = await context.newPage()
-  await returned.goto(`/?run=${run}&mode=changes`)
-  await expect(mark(returned)).toContainText(`map version ${String(kept.view.mark?.version)}`)
-  await expect(sinceTab(returned)).toHaveAccessibleName(/^Since last review, \d+ change/)
-  const asked = change(returned, 'Questions and requests', downtimeQuestion)
-  await expect(asked).toContainText('opened')
-  await expect(asked).toHaveCount(1)
-  await expect(since(returned)).not.toContainText(formatQuestion)
+  await returned.goto(`/?run=${run}`)
   await expect(zone(returned).getByRole('listitem').filter({ hasText: downtimeQuestion })).toHaveCount(1)
   await returned.goto('/')
   await expect(runRowOf(returned, run)).toHaveCount(1)

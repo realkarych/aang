@@ -18,6 +18,7 @@ import {
 import type { Locator, Page } from '@playwright/test'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { claudeGoal } from './samples.js'
+import { dock, inspector, versionOf } from './screens.js'
 
 const claudeRun = runId({ kind: 'session', runtime: 'claude', session: '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef' })
 
@@ -63,7 +64,7 @@ const box = async (locator: Locator): Promise<{ x: number; y: number; right: num
 
 const pick = (locator: Locator, title: string | RegExp): Locator => locator.getByRole('button', { name: title, exact: true })
 
-const inspected = (page: Page): Locator => page.getByRole('complementary').getByRole('heading', { level: 2 })
+const inspected = (page: Page): Locator => inspector(page).getByRole('heading', { level: 2 })
 
 const drag = async (page: Page, from: { x: number; y: number }, by: { x: number; y: number }): Promise<void> => {
   await page.mouse.move(from.x, from.y)
@@ -76,14 +77,6 @@ const near = (actual: { x: number; y: number }, expected: { x: number; y: number
   expect(Math.abs(actual.x - expected.x), `x ${String(actual.x)} near ${String(expected.x)}`).toBeLessThanOrEqual(1)
   expect(Math.abs(actual.y - expected.y), `y ${String(actual.y)} near ${String(expected.y)}`).toBeLessThanOrEqual(1)
 }
-
-const versionShown = async (page: Page): Promise<number> =>
-  Number(
-    await page
-      .locator('.facts > div', { has: page.getByRole('term').filter({ hasText: 'Map version' }) })
-      .getByRole('definition')
-      .textContent(),
-  )
 
 const crossings = async (page: Page): Promise<string[]> =>
   map(page).evaluate((region) => {
@@ -203,6 +196,7 @@ test.describe('with the observer building the map', () => {
     player,
   }) => {
     const played = await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' })
+    await page.setViewportSize({ width: 1680, height: 900 })
     await page.goto(`/?run=${claudeRun}`)
     await played.play({ until: 'subagent' })
 
@@ -446,6 +440,7 @@ test.describe('with the observer revising the map', () => {
     page,
     player,
     fakeClaude,
+    daemon,
   }) => {
     test.slow()
     const played = await player(sampleScenarioManifest('claude-compaction'), { timeScale: 0, recordTime: 'playback' })
@@ -455,12 +450,13 @@ test.describe('with the observer revising the map', () => {
 
     const main = stage(page, mainStageTitle)
     await expect(main).toBeVisible(observed)
+    await dock(page).getByRole('button', { name: 'Collapse chat' }).click()
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'false')
     const stageInAddress = (): string | null => new URL(page.url()).searchParams.get('stage')
     expect(stageInAddress()).toBe('gone')
-    await expect(page.getByRole('complementary')).toContainText('This run has no stage gone')
-    await page.getByRole('complementary').getByRole('button', { name: 'Close' }).click()
-    await expect(page.getByRole('complementary')).toHaveCount(0)
+    await expect(inspector(page)).toContainText('This run has no stage gone')
+    await inspector(page).getByRole('button', { name: 'Close' }).click()
+    await expect(inspector(page)).toHaveCount(0)
     await expect.poll(stageInAddress).toBeNull()
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'false')
 
@@ -487,20 +483,12 @@ test.describe('with the observer revising the map', () => {
     await drag(page, { x: frame.right - 24, y: frame.y + 24 }, { x: -60 - fitted.x, y: 0 })
     const read = await settled(main)
     near(read, { x: -60, y: fitted.y })
-    const pane = page.getByRole('main')
-    const readingPlace = (): Promise<number> => pane.evaluate((element) => element.scrollTop)
-    await pane.evaluate((element) => {
-      element.scrollTo(0, 96)
-    })
-    const scrolled = await readingPlace()
-    expect(scrolled).toBeGreaterThan(0)
     const notice = map(page).getByRole('status')
 
     await played.play({ until: 'subagent-result' })
     const pinger = stage(page, pingerTitle)
     await expect(pinger).toBeVisible(observed)
     near(await settled(main), read)
-    expect(await readingPlace()).toBe(scrolled)
     await expect(notice).toBeEmpty()
 
     await pick(main, mainStageTitle).click()
@@ -509,14 +497,12 @@ test.describe('with the observer revising the map', () => {
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mainStageTitle).id)
     await expect(inspected(page)).toHaveText(mainStageTitle)
     await expect(pick(main, mainStageTitle)).toBeInViewport()
-    const inspecting = await readingPlace()
 
-    const nested = await versionShown(page)
+    const nested = await versionOf(daemon, claudeRun)
     await played.play({ until: 'resume' })
-    await expect.poll(async () => versionShown(page), observed).toBeGreaterThan(nested)
+    await expect.poll(async () => versionOf(daemon, claudeRun), observed).toBeGreaterThan(nested)
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'true')
     near(await settled(main), read)
-    expect(await readingPlace()).toBe(inspecting)
 
     fakeClaude.setScenario(observerScenarios['stage-succession'].revised)
     await played.play({ until: 'continue' })
@@ -591,12 +577,12 @@ test.describe('with the observer revising the map', () => {
     await pick(changes, changesTitle).press('Enter')
     await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBeNull()
-    await expect(page.getByRole('complementary')).toHaveCount(0)
+    await expect(inspector(page)).toHaveCount(0)
     await map(page).getByRole('button', { name: 'Fit the map' }).click()
     await pinger.getByRole('list').click()
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'true')
     await expect(inspected(page)).toHaveText(/^pinger/)
-    await page.getByRole('complementary').getByRole('button', { name: 'Close' }).click()
+    await inspector(page).getByRole('button', { name: 'Close' }).click()
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBeNull()
     await page.goBack()

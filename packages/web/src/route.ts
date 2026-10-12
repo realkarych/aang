@@ -14,48 +14,18 @@ const subscribe = (notify: () => void): (() => void) => {
 
 const currentSearch = (): string => window.location.search
 
-export const usagePeriods = ['all', 'day', 'week', 'month'] as const
-export type UsagePeriod = (typeof usagePeriods)[number]
-
-export type Route =
-  | { readonly screen: 'runs' }
-  | { readonly screen: 'run'; readonly run: RunId }
-  | { readonly screen: 'usage'; readonly run: RunId | null; readonly period: UsagePeriod }
-
-const usageView = 'usage'
-
-const isPeriod = (value: string | null): value is UsagePeriod => usagePeriods.some((period) => period === value)
+export type Route = { readonly screen: 'runs' } | { readonly screen: 'run'; readonly run: RunId }
 
 const routeOf = (search: string): Route => {
-  const params = new URLSearchParams(search)
-  const parsed = RunId.safeParse(params.get('run'))
-  const run = parsed.success ? parsed.data : null
-  if (params.get('view') === usageView) {
-    const period = params.get('period')
-    return { screen: 'usage', run, period: isPeriod(period) ? period : 'all' }
-  }
-  return run === null ? { screen: 'runs' } : { screen: 'run', run }
+  const parsed = RunId.safeParse(new URLSearchParams(search).get('run'))
+  return parsed.success ? { screen: 'run', run: parsed.data } : { screen: 'runs' }
 }
 
-export type RunMode = 'trace' | 'changes'
-
-export const runHref = (run: RunId, mode: RunMode = 'trace'): string =>
-  `?${new URLSearchParams(mode === 'trace' ? { run } : { run, mode }).toString()}`
-
-export const usageHref = (run: RunId | null, period: UsagePeriod = 'all'): string =>
-  `?${new URLSearchParams({
-    view: usageView,
-    ...(run === null ? {} : { run }),
-    ...(period === 'all' ? {} : { period }),
-  }).toString()}`
+export const runHref = (run: RunId): string => `?${new URLSearchParams({ run }).toString()}`
 
 export const listHref = '/'
 
-export const stageHref = (run: RunId, stage: StageId, mode: RunMode = 'trace'): string =>
-  `?${new URLSearchParams(mode === 'trace' ? { run, stage } : { run, stage, mode }).toString()}`
-
-export const viewHref = (run: RunId, stage: StageId | null, mode: RunMode): string =>
-  stage === null ? runHref(run, mode) : stageHref(run, stage, mode)
+export const stageHref = (run: RunId, stage: StageId): string => `?${new URLSearchParams({ run, stage }).toString()}`
 
 const useSearch = (): URLSearchParams => new URLSearchParams(useSyncExternalStore(subscribe, currentSearch))
 
@@ -66,17 +36,13 @@ export const useRoutedStage = (): StageId | null => {
   return parsed.success ? parsed.data : null
 }
 
-const modeOf = (params: URLSearchParams): RunMode => (params.get('mode') === 'changes' ? 'changes' : 'trace')
-
-export const useRoutedMode = (): RunMode => modeOf(useSearch())
-
 const go = (href: string): void => {
   window.history.pushState(null, '', href)
   window.dispatchEvent(new Event(navigated))
 }
 
 const stageLocation = (run: RunId, stage: StageId | null): string =>
-  viewHref(run, stage, modeOf(new URLSearchParams(currentSearch())))
+  stage === null ? runHref(run) : stageHref(run, stage)
 
 export const selectStage = (run: RunId, stage: StageId | null): void => {
   go(stageLocation(run, stage))
@@ -110,14 +76,4 @@ export const useSelect = (): ((event: MouseEvent<HTMLAnchorElement>) => void) =>
     }
     event.preventDefault()
     go(event.currentTarget.href)
-  }, [])
-
-export const useSwitchMode = (): ((event: MouseEvent<HTMLAnchorElement>) => void) =>
-  useCallback((event: MouseEvent<HTMLAnchorElement>) => {
-    if (!isPlainClick(event)) {
-      return
-    }
-    event.preventDefault()
-    window.history.replaceState(null, '', event.currentTarget.href)
-    window.dispatchEvent(new Event(navigated))
   }, [])

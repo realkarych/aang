@@ -16,12 +16,8 @@ import type {
   Interpreter,
   NotObservableSurface,
   ObserverState,
-  PlanItemStatus,
-  PlanSource,
-  QuestionKind,
   Runtime,
   ServiceAgent,
-  SessionLaunch,
   Speaker,
   StageLifecycle,
   StageOrigin,
@@ -105,7 +101,7 @@ export const supportStatusLabel: Readonly<Record<SupportStatus, string>> = {
   unverified: 'unverified',
 }
 
-export const surfaceLabel: Readonly<Record<Surface, string>> = {
+const surfaceLabel: Readonly<Record<Surface, string>> = {
   claude_cli: 'Claude Code CLI',
   claude_desktop: 'Claude Desktop',
   claude_sdk: 'Claude Agent SDK',
@@ -210,15 +206,6 @@ const answeredLabel: Readonly<Record<AttentionKind, string>> = {
 export const attentionOutcomeLabel = (kind: AttentionKind, resolution: Exclude<AttentionResolution, 'open'>): string =>
   resolution === 'answered' ? answeredLabel[kind] : closedLabel[resolution]
 
-export const questionKindLabel: Readonly<Record<QuestionKind, string>> = {
-  permission: 'Approval request',
-  ask_user_question: 'Question',
-  exit_plan_mode: 'Plan for approval',
-  elicitation: 'Data request',
-  notification: 'Request from a notification',
-  agent_message: 'Agent question',
-}
-
 export const decisionLabel: Readonly<Record<HumanDecision, string>> = {
   none: 'no decision',
   requested: 'awaiting decision',
@@ -234,30 +221,6 @@ export const outcomeLabel: Readonly<Record<ActionOutcome, string>> = {
   denied: 'denied',
   interrupted: 'interrupted',
   unknown: 'outcome unknown',
-}
-
-export const planSourceLabel: Readonly<Record<PlanSource, string>> = {
-  task_tool: 'Solver tasks',
-  task_hook: 'Tasks from hooks',
-  exit_plan_mode: 'Plan for approval',
-  thread_goal: 'Thread goal',
-  rollout_plan: 'Codex plan',
-}
-
-export const planItemLabel: Readonly<Record<PlanItemStatus, string>> = {
-  pending: 'waiting',
-  in_progress: 'in progress',
-  completed: 'completed',
-  cancelled: 'cancelled',
-  unknown: 'status unknown',
-}
-
-export const launchLabel: Readonly<Record<SessionLaunch, string>> = {
-  startup: 'startup',
-  resume: 'resume',
-  clear: 'after /clear',
-  fork: 'fork',
-  unknown: 'launch without a source',
 }
 
 export const agentRoleLabel: Readonly<Record<AgentRole, string>> = {
@@ -294,7 +257,6 @@ export const earlyFactForms = { one: 'early fact', other: 'early facts' } as con
 export const fileForms = { one: 'file', other: 'files' } as const
 export const recordForms = { one: 'record', other: 'records' } as const
 export const versionForms = { one: 'version', other: 'versions' } as const
-export const stepForms = { one: 'early step', other: 'early steps' } as const
 export const stageForms = { one: 'stage', other: 'stages' } as const
 export const substageForms = { one: 'substage', other: 'substages' } as const
 export const actionForms = { one: 'action', other: 'actions' } as const
@@ -371,5 +333,3 @@ export const retentionLabel: Readonly<Record<VersionRetention['kind'], string>> 
   hash_only: 'only the content hash is saved',
   reference: 'reference only',
 }
-
-export const changeForms = { one: 'change', other: 'changes' } as const

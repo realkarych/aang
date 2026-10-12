@@ -1,132 +1,11 @@
-import type { RunId, RunSnapshot, RunSummary } from '@aang/contract'
-import type { ReactElement } from 'react'
+import type { RunSnapshot } from '@aang/contract'
+import type { ReactElement, Ref } from 'react'
 import { AttentionZone } from './attention-zone.js'
-import { AttentionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
+import { ChatDock } from './chat-dock.js'
 import { ChatPanel } from './chat-panel.js'
-import { absoluteTime } from './format.js'
-import { basisLabel, runtimeLabel, supportModeLabel } from './labels.js'
-import { useLongText } from './long-text.js'
 import { MapSection, useStageChoice } from './map-section.js'
-import { Moment } from './moment.js'
-import { PlanFacts } from './plan-facts.js'
-import { listHref, runHref, usageHref, useNavigate } from './route.js'
-import { runTitle, untitledRun } from './run-list.js'
-import { SinceLastView } from './since.js'
-import { Trace } from './trace.js'
+import { listHref, useNavigate } from './route.js'
 import type { RunFeed } from './use-run-feed.js'
-import { ViewRules } from './view-rules.js'
-
-interface RunLinkProps {
-  readonly id: RunId
-  readonly runs: readonly RunSummary[] | null
-  readonly unknown: string
-}
-
-const RunLink = ({ id, runs, unknown }: RunLinkProps): ReactElement => {
-  const navigate = useNavigate()
-  const known = runs?.find((run) => run.id === id)
-  return (
-    <a href={runHref(id)} onClick={navigate}>
-      {known === undefined ? unknown : (runTitle(known) ?? untitledRun(known))}
-    </a>
-  )
-}
-
-interface FactsProps {
-  readonly snapshot: RunSnapshot
-  readonly runs: readonly RunSummary[] | null
-  readonly now: bigint
-}
-
-const Facts = ({ snapshot, runs, now }: FactsProps): ReactElement => {
-  const navigate = useNavigate()
-  const { summary } = snapshot
-  const forks = (runs ?? []).filter(({ forked_from: source }) => source === summary.id)
-  return (
-    <dl className="facts">
-      <div>
-        <dt>State</dt>
-        <dd>
-          <ExecutionBadge execution={summary.execution} />
-        </dd>
-      </div>
-      <div>
-        <dt>Freshness</dt>
-        <dd>
-          <FreshnessBadge freshness={summary.freshness} />
-        </dd>
-      </div>
-      <div>
-        <dt>Mode</dt>
-        <dd>{summary.support_modes.map((mode) => supportModeLabel[mode]).join(', ')}</dd>
-      </div>
-      <div>
-        <dt>Attention</dt>
-        <dd>
-          <AttentionBadge attention={summary.attention} />
-        </dd>
-      </div>
-      <div>
-        <dt>Sessions</dt>
-        <dd className="number">{summary.sessions}</dd>
-      </div>
-      <div>
-        <dt>Agents</dt>
-        <dd className="number">{summary.agents}</dd>
-      </div>
-      <div>
-        <dt>Map version</dt>
-        <dd className="number">{summary.version}</dd>
-      </div>
-      <div>
-        <dt>Started</dt>
-        <dd>{absoluteTime(summary.created_at)}</dd>
-      </div>
-      <div>
-        <dt>Last event</dt>
-        <dd>
-          <Moment at={summary.last_event_at} now={now} />
-        </dd>
-      </div>
-      <div>
-        <dt>Usage</dt>
-        <dd>
-          <a href={usageHref(summary.id)} onClick={navigate}>
-            three journals
-          </a>
-        </dd>
-      </div>
-      {summary.forked_from === null ? null : (
-        <div>
-          <dt>Forked from</dt>
-          <dd>
-            <RunLink id={summary.forked_from} runs={runs} unknown="source run" />
-          </dd>
-        </div>
-      )}
-      {forks.length === 0 ? null : (
-        <div>
-          <dt>Forks</dt>
-          <dd>
-            <ul className="run-links">
-              {forks.map(({ id }) => (
-                <li key={id}>
-                  <RunLink id={id} runs={runs} unknown="fork" />
-                </li>
-              ))}
-            </ul>
-          </dd>
-        </div>
-      )}
-      {summary.start_pruned ? (
-        <div>
-          <dt>Start</dt>
-          <dd>pruned with aang prune</dd>
-        </div>
-      ) : null}
-    </dl>
-  )
-}
 
 export const Missing = (): ReactElement => {
   const navigate = useNavigate()
@@ -146,55 +25,23 @@ export const Missing = (): ReactElement => {
   )
 }
 
-const RunTitle = ({ title }: { readonly title: string }): ReactElement => {
-  const { id, box, expanded, toggle } = useLongText<HTMLHeadingElement>(title)
-  return (
-    <>
-      <h1 id={id} ref={box} className="run-title long-title" data-expanded={expanded} title={title}>
-        {title}
-      </h1>
-      {toggle}
-    </>
-  )
-}
-
 interface RunContentProps {
   readonly snapshot: RunSnapshot
   readonly feed: RunFeed
-  readonly runs: readonly RunSummary[] | null
+  readonly pane: Ref<HTMLElement>
   readonly now: bigint
   readonly onSignedOut: () => void
 }
 
-const RunContent = ({ snapshot, feed, runs, now, onSignedOut }: RunContentProps): ReactElement => {
+const RunContent = ({ snapshot, feed, pane, now, onSignedOut }: RunContentProps): ReactElement => {
   const choice = useStageChoice(snapshot)
-  const { summary, run } = snapshot
-  const title = runTitle(summary)
   return (
-    <article className="run">
-      <header className="run-head">
-        <p className="run-origin">
-          {title === null ? <span>goal unknown</span> : <span>{runtimeLabel[summary.runtime]}</span>}
-          {summary.goal === null ? null : <span>goal from the first prompt</span>}
-        </p>
-        {title === null ? (
-          <h1 className="run-title">
-            <span className="untitled">{untitledRun(summary)}</span>
-          </h1>
-        ) : (
-          <RunTitle title={title} />
-        )}
-        {run.brief === null || run.brief.text === title ? null : (
-          <p className="brief">
-            {run.brief.text}
-            <span className="basis">{basisLabel[run.brief.basis.kind]}</span>
-          </p>
-        )}
-        <Facts snapshot={snapshot} runs={runs} now={now} />
-      </header>
-      <AttentionZone snapshot={snapshot} now={now} handlers={{ onView: feed.noteView, onSignedOut }} />
-      <MapSection snapshot={snapshot} choice={choice} />
-      <div className="run-talk">
+    <div className="run-screen-body">
+      <main ref={pane} className="run-main">
+        <AttentionZone snapshot={snapshot} now={now} handlers={{ onView: feed.noteView, onSignedOut }} />
+        <MapSection snapshot={snapshot} choice={choice} />
+      </main>
+      <ChatDock>
         <ChatPanel
           snapshot={snapshot}
           messages={feed.chat}
@@ -204,29 +51,22 @@ const RunContent = ({ snapshot, feed, runs, now, onSignedOut }: RunContentProps)
           now={now}
           onSignedOut={onSignedOut}
         />
-        <ViewRules snapshot={snapshot} now={now} onSignedOut={onSignedOut} />
-      </div>
-      <SinceLastView snapshot={snapshot} now={now} onSignedOut={onSignedOut}>
-        <div className="run-body">
-          <Trace snapshot={snapshot} now={now} />
-          <PlanFacts snapshot={snapshot} now={now} />
-        </div>
-      </SinceLastView>
-    </article>
+      </ChatDock>
+    </div>
   )
 }
 
 export interface RunPageProps {
   readonly feed: RunFeed
-  readonly runs: readonly RunSummary[] | null
+  readonly pane: Ref<HTMLElement>
   readonly now: bigint
   readonly onSignedOut: () => void
 }
 
-export const RunPage = ({ feed, runs, now, onSignedOut }: RunPageProps): ReactElement => {
+export const RunPage = ({ feed, pane, now, onSignedOut }: RunPageProps): ReactElement => {
   const { snapshot, connection } = feed
   if (snapshot === null) {
-    return connection === 'missing' ? <Missing /> : <p className="loading">Loading run…</p>
+    return <main className="page">{connection === 'missing' ? <Missing /> : <p className="loading">Loading run…</p>}</main>
   }
-  return <RunContent snapshot={snapshot} feed={feed} runs={runs} now={now} onSignedOut={onSignedOut} />
+  return <RunContent snapshot={snapshot} feed={feed} pane={pane} now={now} onSignedOut={onSignedOut} />
 }

@@ -1,5 +1,5 @@
 import { appendFile, readFile } from 'node:fs/promises'
-import { endpoints, type RunId, type Runtime, type Stage } from '@aang/contract'
+import { endpoints, RunId, type RunSnapshot, type Runtime, type Stage } from '@aang/contract'
 import {
   checksBlockerText,
   checksStageTitle,
@@ -13,7 +13,7 @@ import type { Page } from '@playwright/test'
 import { expect, getWithoutKeepAlive, type HookFields, test } from './fixtures.js'
 import { hooksOnly, recording } from './recordings.js'
 import { claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
-import { fact, history, historyToggle, openItems, sessionOf, step, zone, zoneItem } from './screens.js'
+import { history, historyToggle, inspector, openItems, zone, zoneItem } from './screens.js'
 
 const fastSpool = { watch: { all: true }, collector: { spoolScanIntervalMs: 250 } }
 
@@ -63,6 +63,22 @@ const codexAsyncQuestion = (text: string): string => {
   })}\n`
 }
 
+const snapshotOf = async (page: Page, run: RunId): Promise<RunSnapshot> => {
+  const response = await getWithoutKeepAlive(page.request, endpoints.run.path.replace(':run', run))
+  expect(response.status(), await response.text()).toBe(200)
+  return endpoints.run.response.parse(await response.json())
+}
+
+const waitingForHuman = async (page: Page, run: RunId): Promise<number> =>
+  (await snapshotOf(page, run)).summary.attention.waiting_for_human
+
+const agentCount = async (page: Page, run: RunId): Promise<number> => (await snapshotOf(page, run)).summary.agents
+
+const waitsForHuman = async (page: Page, run: RunId, session: string): Promise<boolean> =>
+  (await snapshotOf(page, run)).objects.sessions.some(
+    ({ key, execution }) => key.session === session && execution.state === 'waiting' && execution.reason === 'human',
+  )
+
 const zoneSize = async (page: Page, run: RunId): Promise<number> => {
   const response = await getWithoutKeepAlive(page.request, endpoints.run.path.replace(':run', run))
   return response.ok() ? endpoints.run.response.parse(await response.json()).view.zone.length : 0
@@ -96,7 +112,7 @@ const hideBash = async (page: Page, run: RunId): Promise<string> => {
 test.describe('with a fast spool scan', () => {
   test.use({ config: fastSpool })
 
-  test('one AskUserQuestion of a recorded Claude run is one question in the zone and in the trace, not a question and an approval request', async ({
+  test('one AskUserQuestion of a recorded Claude run is one question in the zone, not a question and an approval request', async ({
     page,
     player,
   }) => {
@@ -112,9 +128,8 @@ test.describe('with a fast spool scan', () => {
     await expect(openItems(page).nth(0)).toContainText(greeting)
     await expect(openItems(page).nth(0)).toContainText('awaiting an answer')
     await expect(zoneItem(page, 'Approval request')).toHaveCount(0)
-    await expect(fact(page, 'Attention')).toHaveText('awaiting an answer: 1')
-    await expect(step(page, 'Main agent', greeting)).toContainText('awaiting decision')
-    await expect(step(page, 'Main agent', 'Approval request')).toHaveCount(0)
+    const run = RunId.parse(new URL(page.url()).searchParams.get('run'))
+    await expect.poll(() => waitingForHuman(page, run)).toBe(1)
 
     await played.play()
     await expect(openItems(page)).toHaveCount(0)
@@ -133,7 +148,7 @@ test.describe('with a fast spool scan', () => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     const run = runOf(claudeOriginal)
     await page.goto(`/?run=${run}`)
-    await expect(fact(page, 'Agents')).toHaveText('2')
+    await expect.poll(() => agentCount(page, run)).toBe(2)
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('UserPromptSubmit.json', fields)
     await hook.claude('PreToolUse.Bash.json', askUser(fields, 'toolu_h3_ask', choice))
@@ -147,7 +162,7 @@ test.describe('with a fast spool scan', () => {
     await expect(question).toContainText('session ended')
     await expect(question).not.toContainText('awaiting an answer')
     await expect(question).toContainText('by time opened')
-    await expect(sessionOf(page, claudeOriginal.session)).not.toContainText('waiting for a human')
+    expect(await waitsForHuman(page, run, claudeOriginal.session)).toBe(false)
 
     await hook.claude('SessionStart.resume.json', fields)
     await hook.claude('UserPromptSubmit.json', { ...fields, prompt: 'Run the linter and show the output' })
@@ -167,7 +182,7 @@ test.describe('with a fast spool scan', () => {
     await expect(approval.getByRole('button', { name: 'Mark as viewed' })).toHaveCount(0)
     await expect(openItems(page).nth(0)).toContainText(choice)
     await expect(openItems(page).nth(1)).toContainText('Bash: touch probe-perm.txt')
-    await expect(fact(page, 'Attention')).toHaveText('awaiting an answer: 1')
+    await expect.poll(() => waitingForHuman(page, run)).toBe(1)
     await expect(historyToggle(page)).toHaveCount(0)
 
     await question.getByRole('button', { name: 'Dismiss' }).click()
@@ -175,8 +190,7 @@ test.describe('with a fast spool scan', () => {
     await expect(zone(page).getByRole('status')).toHaveText(`Item "${choice}" was dismissed from the zone and kept in the history.`)
     await expect(zone(page).getByRole('status')).toBeFocused()
     await expect(openItems(page)).toHaveCount(1)
-    await expect(fact(page, 'Attention')).toHaveText('awaiting an answer: 1')
-    await expect(step(page, 'Main agent', choice)).toContainText('awaiting decision')
+    await expect.poll(() => waitingForHuman(page, run)).toBe(1)
 
     await historyToggle(page).click()
     await expect(historyToggle(page)).toHaveText('History: 1 item')
@@ -204,8 +218,11 @@ test.describe('with a fast spool scan', () => {
     hook,
   }) => {
     await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
-    await page.goto(`/?run=${runOf(codexThread)}`)
-    await expect(step(page, 'Main agent', 'CommandExecution')).toContainText('echo hi')
+    const run = runOf(codexThread)
+    await page.goto(`/?run=${run}`)
+    await expect
+      .poll(async () => (await snapshotOf(page, run)).objects.actions.some(({ tool }) => tool === 'CommandExecution'))
+      .toBe(true)
     const fields = hookFields(profile, codexThread)
     await appendFile(sessionFile(profile, codexThread), codexAsyncQuestion(asyncAsk))
 
@@ -237,7 +254,7 @@ test.describe('with a fast spool scan', () => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     const run = runOf(claudeOriginal)
     await page.goto(`/?run=${run}`)
-    await expect(fact(page, 'Agents')).toHaveText('2')
+    await expect.poll(() => agentCount(page, run)).toBe(2)
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('UserPromptSubmit.json', fields)
     await hook.claude('PreToolUse.Bash.json', { ...fields, tool_use_id: 'toolu_h3_hidden', tool_input: probe })
@@ -356,8 +373,9 @@ test.describe('with a check contract on the sample directory', () => {
     hook,
   }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
-    await page.goto(`/?run=${runOf(claudeOriginal)}`)
-    await expect(fact(page, 'Agents')).toHaveText('2')
+    const run = runOf(claudeOriginal)
+    await page.goto(`/?run=${run}`)
+    await expect.poll(() => agentCount(page, run)).toBe(2)
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('UserPromptSubmit.json', fields)
     await hook.claude('PreToolUse.Bash.json', testRun(fields, 'toolu_h3_test_1'))
@@ -371,7 +389,12 @@ test.describe('with a check contract on the sample directory', () => {
     await expect(failed).toContainText('by aang rule')
     await expect(failed).toContainText('by time opened')
     await expect(failed).not.toContainText('awaiting an answer')
-    await expect(fact(page, 'Attention')).toHaveText('open: 1')
+    await expect
+      .poll(async () => {
+        const { open, waiting_for_human: waiting } = (await snapshotOf(page, run)).summary.attention
+        return { open, waiting }
+      })
+      .toEqual({ open: 1, waiting: 0 })
 
     await hook.claude('PreToolUse.Bash.json', testRun(fields, 'toolu_h3_test_2'))
     await hook.claude('PostToolUse.Bash.json', testRun(fields, 'toolu_h3_test_2'))
@@ -446,14 +469,14 @@ test.describe('with the observer of the attention zone', () => {
     await expect(blocker).not.toContainText('recommended')
 
     await page.getByRole('region', { name: 'Stage map' }).getByRole('button', { name: checksStageTitle, exact: true }).click()
-    const inspector = page.getByRole('complementary')
-    await expect(inspector.getByRole('heading', { level: 2 })).toHaveText(checksStageTitle)
-    const spent = inspector.getByRole('region', { name: /^Time and usage/ })
+    const panel = inspector(page)
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText(checksStageTitle)
+    const spent = panel.getByRole('region', { name: /^Time and usage/ })
     await expect(spent).toContainText('Solver usage, tokens')
     await expect(spent).toContainText('No usage records for this stage.')
     await expect(spent.getByRole('table')).toHaveCount(0)
-    await inspector.getByRole('button', { name: 'Close' }).click()
-    await expect(inspector).toHaveCount(0)
+    await panel.getByRole('button', { name: 'Close' }).click()
+    await expect(panel).toHaveCount(0)
 
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('UserPromptSubmit.json', fields)
@@ -478,7 +501,7 @@ test.describe('with the observer of the attention zone', () => {
     await expect(openItems(page).nth(2)).toContainText(reviewRequestText)
     await expect(question).toContainText('blocks 1 stage')
     await expect(question).toContainText('recommended: high priority')
-    await expect(sessionOf(page, claudeOriginal.session)).not.toContainText('waiting for a human')
+    expect(await waitsForHuman(page, run, claudeOriginal.session)).toBe(false)
     expect((await stageOf(page, run, mainStageTitle))?.execution.value.state).not.toBe('waiting')
 
     const calls = fakeClaude.calls().length
@@ -556,6 +579,11 @@ test.describe('with the observer and a check contract', () => {
     expect((await stageOf(page, run, mainStageTitle))?.execution.basis.kind).toBe('claimed')
     await expect(failed).toContainText('Check "test" failed')
     await expect(failed).toContainText('by aang rule')
-    await expect(fact(page, 'Attention')).toHaveText('open: 1')
+    await expect
+      .poll(async () => {
+        const { open, waiting_for_human: waiting } = (await snapshotOf(page, run)).summary.attention
+        return { open, waiting }
+      })
+      .toEqual({ open: 1, waiting: 0 })
   })
 })

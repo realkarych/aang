@@ -17,8 +17,7 @@ import {
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { aangEntry, expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { freshManifest } from './fresh.js'
-import { claudeOriginal, hookFields } from './samples.js'
-import { step, strip, trace } from './screens.js'
+import { inspector, strip } from './screens.js'
 
 const claudeSession = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
 const claudeRun = runId({ kind: 'session', runtime: 'claude', session: claudeSession })
@@ -64,7 +63,6 @@ const liveSample = (): Promise<string> =>
 
 const jsonText = (value: string): string => JSON.stringify(value).slice(1, -1)
 
-const inspector = (page: Page): Locator => page.getByRole('complementary')
 
 const box = async (locator: Locator): Promise<{ x: number; y: number; right: number; bottom: number }> => {
   const found = await locator.boundingBox()
@@ -126,31 +124,16 @@ test('the inspector of a stage shows its axes, criteria, work and relations, and
 test.describe('the run screen on a wide window', () => {
   test.use({ config: { watch: { all: true }, collector: { spoolScanIntervalMs: 250 } } })
 
-  test('keeps the lamps in one row, docks the inspector at the top of the work area and keeps a question row readable beside it', async ({
+  test('keeps the lamps in one row and docks the inspector at the top of the work area', async ({
     page,
     player,
-    profile,
-    hook,
     fakeClaude,
   }) => {
     fakeClaude.setScenario(observerScenarios['live-map'].live)
     await page.setViewportSize({ width: 1440, height: 900 })
     await (await player(await liveSample(), { timeScale: 0 })).play()
     const main = stageTitled(await interpreted(page.request, claudeRun), (title) => title === mainStageTitle)
-    const question =
-      'Which of the three report layouts should I use for the weekly summary: the compact table, the detailed list with notes for every stage, or the chart first?'
-    const fields = hookFields(profile, claudeOriginal)
-    await hook.claude('UserPromptSubmit.json', fields)
-    await hook.claude('PreToolUse.Bash.json', {
-      ...fields,
-      tool_name: 'AskUserQuestion',
-      tool_use_id: 'toolu_layout_ask',
-      tool_input: { questions: [{ question, header: 'Layout', options: [{ label: 'Table' }, { label: 'List' }], multiSelect: false }] },
-    })
-
     await page.goto(`/?run=${claudeRun}`)
-    const asked = step(page, 'Main agent', question)
-    await expect(asked).toContainText('awaiting decision')
 
     const lamps = strip(page).getByRole('listitem')
     await expect(lamps).toHaveCount(10)
@@ -170,10 +153,8 @@ test.describe('the run screen on a wide window', () => {
     await page.setViewportSize({ width: 1440, height })
     await expect(pick).toBeInViewport()
     expect(await pane.evaluate((element) => element.scrollTop)).toBe(0)
-    const placed = (await box(map)).y
     await pick.click()
     await expect(page).toHaveURL(new RegExp(`stage=${main}`))
-    expect(Math.abs((await box(map)).y - placed)).toBeLessThanOrEqual(2)
     await expect(pick).toBeInViewport()
     const panel = inspector(page)
     await expect(panel.getByRole('heading', { level: 2 })).toHaveText(mainStageTitle)
@@ -182,25 +163,7 @@ test.describe('the run screen on a wide window', () => {
     expect(Math.abs(docked.y - top)).toBeLessThanOrEqual(1)
     expect(Math.abs(docked.bottom - height)).toBeLessThanOrEqual(1)
     expect(Math.abs((await box(pane)).y - top)).toBeLessThanOrEqual(1)
-    const reading = await pane.evaluate((element) => element.scrollTop)
-    await pane.evaluate((element) => {
-      element.scrollBy(0, 300)
-    })
-    await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBeGreaterThan(reading)
-    expect(await box(panel)).toEqual(docked)
     await expect(section(page, 'Time and usage')).toContainText('Solver usage, tokens')
-
-    await asked.scrollIntoViewIfNeeded()
-    const text = asked.getByText(question)
-    const toggle = asked.getByRole('button', { name: 'Show all' })
-    const time = asked.locator('time')
-    await expect(toggle).toBeVisible()
-    const [shown, link, clock, row] = await Promise.all([box(text), box(toggle), box(time), box(asked)])
-    expect(shown.right - shown.x).toBeGreaterThan(120)
-    expect(link.right).toBeLessThanOrEqual(clock.x)
-    expect(link.right).toBeLessThanOrEqual(row.right)
-    await toggle.click()
-    await expect(asked.getByRole('button', { name: 'Collapse' })).toBeVisible()
   })
 })
 
@@ -661,8 +624,6 @@ const shows = async (page: Page, marker: string, stale: string): Promise<void> =
   )
   await expect(section(page, 'History')).toContainText('stage created')
   await expect(panel).not.toContainText(stale)
-  await expect(trace(page)).toContainText(`echo ${marker} report > report.md`)
-  await expect(trace(page)).not.toContainText(stale)
 }
 
 const selectByAddress = (page: Page, run: RunId, stage: StageId): Promise<void> =>
@@ -725,7 +686,7 @@ test.describe('a database replaced under the open inspector', () => {
     }
   })
 
-  test('after the database is replaced under the open inspector, no section of it or of the trace shows the old base, and a stage of the new base grounds its facts to its own raw records without a page reload', async ({
+  test('after the database is replaced under the open inspector, no section of it shows the old base, and a stage of the new base grounds its facts to its own raw records without a page reload', async ({
     page,
     context,
     profile,
@@ -763,8 +724,6 @@ test.describe('a database replaced under the open inspector', () => {
       await expect(panel).toContainText(goneStage(before.stage))
       await expect(panel.getByRole('region')).toHaveCount(0)
       await expect(panel).not.toContainText('old-marker')
-      await expect(trace(page)).toContainText('echo new-marker report > report.md')
-      await expect(trace(page)).not.toContainText('old-marker')
 
       await selectByAddress(page, transcript.run, after.stage)
       await shows(page, 'new-marker', 'old-marker')

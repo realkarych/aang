@@ -1,13 +1,13 @@
 import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { endpoints, type RunId } from '@aang/contract'
+import { endpoints, type RunId, type RunSummary } from '@aang/contract'
 import { aangHomePaths } from '@aang/contract/home'
 import { sampleScenarioManifest } from '@aang/testkit'
 import type { Route } from '@playwright/test'
 import { aangEntry, expect, test } from './fixtures.js'
 import { claudeGoal, claudeOriginal, codexGoal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
-import { fact, lamp, runRowOf } from './screens.js'
+import { lamp, runRowOf } from './screens.js'
 
 const claudeSession = claudeOriginal.session
 const claudeRun = runOf(claudeOriginal)
@@ -18,11 +18,22 @@ const watchAll = { watch: { all: true } }
 
 test.use({ config: watchAll })
 
+const readRunSummary = async (request: (path: string) => Promise<Response>, run: RunId): Promise<RunSummary | null> => {
+  const response = await request(endpoints.run.path.replace(':run', run))
+  return response.ok ? endpoints.run.response.parse(await response.json()).summary : null
+}
+
+const execution = async (request: (path: string) => Promise<Response>, run: RunId): Promise<string | null> => {
+  const summary = await readRunSummary(request, run)
+  return summary === null ? null : summary.execution.state === 'waiting' ? `waiting:${summary.execution.reason}` : summary.execution.state
+}
+
 test('a Claude session without hook events shows inactive hooks and the files-only mode until hooks arrive (E2E 9)', async ({
   page,
   player,
   profile,
   hook,
+  daemon,
 }) => {
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto('/')
@@ -45,24 +56,26 @@ test('a Claude session without hook events shows inactive hooks and the files-on
   await row.getByRole('link').click()
   await expect(page).toHaveURL(new RegExp(`\\?run=${claudeRun}$`))
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(claudeGoal)
-  await expect(fact(page, 'Freshness')).toHaveText('hooks inactive')
-  await expect(fact(page, 'Mode')).toHaveText('files only')
+  expect((await readRunSummary(daemon.request, claudeRun))?.freshness).toBe('hooks_inactive')
+  expect((await readRunSummary(daemon.request, claudeRun))?.support_modes).toEqual(['files_only'])
   await expect(lamp(page, 'Mode')).toHaveText('Mode files only')
   await lamp(page, 'Mode').getByRole('button').click()
   await expect(page.getByRole('region', { name: 'Mode: details' })).toHaveText(
     'Session 86f93ed5: files only: hooks inactive, events come from session files.',
   )
 
-  await expect(fact(page, 'Attention')).toHaveText('none')
+  expect((await readRunSummary(daemon.request, claudeRun))?.attention.open).toBe(0)
 
   await hook.claude('PermissionRequest.Bash.json', hookFields(profile, claudeOriginal))
 
   await expect(lamp(page, 'Mode')).toHaveText('Mode full')
-  await expect(fact(page, 'Mode')).toHaveText('full')
-  await expect(fact(page, 'Attention')).toHaveText('awaiting an answer: 1')
+  await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.support_modes).toEqual(['full'])
+  await expect
+    .poll(async () => (await readRunSummary(daemon.request, claudeRun))?.attention.waiting_for_human)
+    .toBe(1)
   await expect(lamp(page, 'Hooks')).not.toContainText('inactive in')
 
-  await page.getByRole('navigation').getByRole('link', { name: 'Runs' }).click()
+  await page.getByRole('navigation').getByRole('link', { name: '← Chats' }).click()
   await expect(runRowOf(page, claudeRun)).toContainText('full')
   await expect(runRowOf(page, claudeRun)).toContainText('awaiting an answer: 1')
   await expect(runRowOf(page, claudeRun)).not.toContainText('hooks inactive')
@@ -71,6 +84,7 @@ test('a Claude session without hook events shows inactive hooks and the files-on
 test('a Codex session without hook events shows inactive hooks and the files-only mode (E2E 9)', async ({
   page,
   player,
+  daemon,
 }) => {
   await page.goto(`/?run=${codexRun}`)
   await expect(page.getByRole('heading', { name: 'Run not found' })).toBeVisible()
@@ -79,7 +93,7 @@ test('a Codex session without hook events shows inactive hooks and the files-onl
   await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(codexGoal)
-  await expect(fact(page, 'Freshness')).toHaveText('hooks inactive')
+  expect((await readRunSummary(daemon.request, codexRun))?.freshness).toBe('hooks_inactive')
   await expect(lamp(page, 'Mode')).toHaveText('Mode files only')
   await expect(lamp(page, 'Hooks')).toHaveText('Hooks inactive in 1 session')
   await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
@@ -98,12 +112,13 @@ test.describe('a session that loses its hooks mid-session', () => {
     player,
     profile,
     hook,
+    daemon,
   }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await hook.claude('UserPromptSubmit.json', { ...hookFields(profile, claudeOriginal), prompt_id: 'hooked-turn' })
     await page.goto(`/?run=${claudeRun}`)
-    await expect(fact(page, 'Mode')).toHaveText('full')
-    await expect(fact(page, 'Freshness')).not.toHaveText('hooks inactive')
+    await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.support_modes).toEqual(['full'])
+    expect((await readRunSummary(daemon.request, claudeRun))?.freshness).not.toBe('hooks_inactive')
     await expect(lamp(page, 'Hooks')).not.toContainText('inactive in')
 
     const prompt = {
@@ -118,8 +133,8 @@ test.describe('a session that loses its hooks mid-session', () => {
     }
     await appendFile(sessionFile(profile, claudeOriginal), `${JSON.stringify(prompt)}\n`)
 
-    await expect(fact(page, 'Freshness')).toHaveText('hooks inactive')
-    await expect(fact(page, 'Mode')).toHaveText('files only')
+    await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.freshness).toBe('hooks_inactive')
+    expect((await readRunSummary(daemon.request, claudeRun))?.support_modes).toEqual(['files_only'])
     await expect(lamp(page, 'Hooks')).toHaveText('Hooks inactive in 1 session')
     await lamp(page, 'Mode').getByRole('button').click()
     await expect(page.getByRole('region', { name: 'Mode: details' })).toHaveText(
@@ -128,16 +143,11 @@ test.describe('a session that loses its hooks mid-session', () => {
 
     await hook.claude('Stop.json', hookFields(profile, claudeOriginal))
 
-    await expect(fact(page, 'Mode')).toHaveText('full')
-    await expect(fact(page, 'Freshness')).not.toHaveText('hooks inactive')
+    await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.support_modes).toEqual(['full'])
+    expect((await readRunSummary(daemon.request, claudeRun))?.freshness).not.toBe('hooks_inactive')
     await expect(lamp(page, 'Hooks')).not.toContainText('inactive in')
   })
 })
-
-const readRunSummary = async (request: (path: string) => Promise<Response>, run: RunId) => {
-  const response = await request(endpoints.run.path.replace(':run', run))
-  return response.ok ? endpoints.run.response.parse(await response.json()).summary : null
-}
 
 test('the run page follows the stream live and re-reads the run when the stream resets on a replaced database', async ({
   page,
@@ -154,13 +164,12 @@ test('the run page follows the stream live and re-reads the run when the stream 
   await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.agents).toBe(1)
 
   await page.goto(`/?run=${claudeRun}`)
-  await expect(fact(page, 'State')).toHaveText('running')
-  await expect(fact(page, 'Agents')).toHaveText('1')
+  expect(await execution(daemon.request, claudeRun)).toBe('running')
   await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
 
   await claude.play()
-  await expect(fact(page, 'Agents')).toHaveText('2')
-  await expect(fact(page, 'State')).toHaveText('waiting for input')
+  await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.agents).toBe(2)
+  await expect.poll(async () => execution(daemon.request, claudeRun)).toBe('waiting:idle')
   const complete = await readFile(transcript)
 
   await context.setOffline(true)
@@ -179,12 +188,11 @@ test('the run page follows the stream live and re-reads the run when the stream 
   await expect.poll(async () => (await readRunSummary(restarted.request, claudeRun))?.agents).toBe(1)
 
   await context.setOffline(false)
-  await expect(fact(page, 'Agents')).toHaveText('1')
-  await expect(fact(page, 'State')).toHaveText('running')
+  expect(await execution(restarted.request, claudeRun)).toBe('running')
   await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
 
   await appendFile(transcript, complete.subarray(beforeSubagent.length))
-  await expect(fact(page, 'State')).toHaveText('waiting for input')
+  await expect.poll(async () => execution(restarted.request, claudeRun)).toBe('waiting:idle')
   expect(await restarted.stop(), restarted.output()).toEqual({ code: 0, signal: null })
 })
 
@@ -256,7 +264,6 @@ test.describe('the status strip', () => {
     await expect(lamp(page, 'Sources')).toHaveText('Sources 1 source lost')
 
     await runRowOf(page, claudeRun).getByRole('link').click()
-    await expect(fact(page, 'Freshness')).toHaveText('source lost')
     await expect(lamp(page, 'Sources')).toHaveText('Sources 1 source lost')
     await lamp(page, 'Sources').getByRole('button').click()
     await expect(page.getByRole('region', { name: 'Sources: details' })).toContainText('source lost')

@@ -4,13 +4,11 @@ import {
   type ArtifactVersionResponse,
   type AttentionItemId,
   type AttentionView,
-  type ChangesResponse,
   type ChatMessage,
   type ChatQuestionRequest,
   endpoints,
   type Fact,
   type FactId,
-  type MarkViewedResponse,
   type RawRecord,
   type RawSeq,
   type RunId,
@@ -19,9 +17,6 @@ import {
   type StageId,
   type StageInspector,
   type StatusResponse,
-  type UsageQuery,
-  type UsageReport,
-  type ViewPosition,
   type ViewRule,
   type ViewRuleId,
 } from '@aang/contract'
@@ -38,7 +33,7 @@ export class NotFound extends Error {
   override readonly name = 'NotFound'
 }
 
-export class RequestFailed extends Error {
+class RequestFailed extends Error {
   override readonly name = 'RequestFailed'
 }
 
@@ -136,19 +131,6 @@ export const readRun = (run: RunId, signal: AbortSignal): Promise<RunSnapshot> =
 export const readFact = async (id: FactId, signal: AbortSignal): Promise<Fact> =>
   (await read(endpoints.fact.path.replace(':id', encodeURIComponent(id)), endpoints.fact.response, signal)).fact
 
-export const readChanges = (run: RunId, from: ViewPosition, signal: AbortSignal): Promise<ChangesResponse> => {
-  const query = new URLSearchParams(endpoints.changes.query.encode({ version: from.version, seq: from.change_seq }))
-  return read(`${withRun(endpoints.changes.path, run)}?${query.toString()}`, endpoints.changes.response, signal)
-}
-
-export const markViewed = (run: RunId, position: ViewPosition, signal: AbortSignal): Promise<MarkViewedResponse> =>
-  write(
-    withRun(endpoints.markViewed.path, run),
-    endpoints.markViewed.body.encode(position),
-    endpoints.markViewed.response,
-    signal,
-  )
-
 export const readStage = (run: RunId, stage: StageId, signal: AbortSignal): Promise<StageInspector> =>
   read(
     withRun(endpoints.stage.path, run).replace(':stage', encodeURIComponent(stage)),
@@ -167,18 +149,6 @@ export const markAttentionViewed = async (run: RunId, item: AttentionItemId): Pr
 
 export const dismissAttention = async (run: RunId, item: AttentionItemId): Promise<AttentionView> =>
   (await post(withItem(endpoints.attentionDismiss.path, run, item), endpoints.attentionDismiss.response)).view
-
-const usageSearch = ({ run, from, to }: UsageQuery): string => {
-  const search = new URLSearchParams({
-    ...(run === undefined ? {} : { run }),
-    ...(from === undefined ? {} : { from: from.toString() }),
-    ...(to === undefined ? {} : { to: to.toString() }),
-  }).toString()
-  return search === '' ? '' : `?${search}`
-}
-
-export const readUsage = (query: UsageQuery, signal: AbortSignal): Promise<UsageReport> =>
-  read(`${endpoints.usage.path}${usageSearch(query)}`, endpoints.usage.response, signal)
 
 export const readChat = async (run: RunId, signal: AbortSignal): Promise<ChatMessage[]> =>
   (await read(withRun(endpoints.chatHistory.path, run), endpoints.chatHistory.response, signal)).messages

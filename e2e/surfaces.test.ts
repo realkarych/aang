@@ -11,7 +11,7 @@ import {
 import type { Locator, Page } from '@playwright/test'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { threadsOf, variantRecording } from './recordings.js'
-import { fact, sessionOf } from './screens.js'
+import { inspector, versionOf } from './screens.js'
 import { duringWorkScenario, duringWorkVariants, skippedHere, type SurfaceVariant } from './variants.js'
 
 interface Delegate {
@@ -94,7 +94,6 @@ const map = (page: Page): Locator => page.getByRole('region', { name: 'Stage map
 const stage = (page: Page, title: string): Locator =>
   map(page).getByRole('group', { name: `Stage "${title}"`, exact: true })
 
-const inspector = (page: Page): Locator => page.getByRole('complementary')
 
 const section = (page: Page, title: string): Locator =>
   inspector(page).getByRole('region', { name: new RegExp(`^${title}`) })
@@ -188,7 +187,12 @@ const participantName = ({ runtime, agentType }: Variant, agent: Agent): string 
   return agent.name
 }
 
-const mapVersion = async (page: Page): Promise<number> => Number(await fact(page, 'Map version').textContent())
+const sessionOrigin = async (page: Page, run: RunId, session: string): Promise<{ surface: Surface; version: string } | null> => {
+  const found = (await snapshotOf(page, run)).objects.sessions.find(({ key }) => key.session === session)
+  return found?.surface === null || found?.surface === undefined || found.version === null
+    ? null
+    : { surface: found.surface.surface, version: found.version }
+}
 
 for (const variant of variants) {
   const { surface, runtime, inspected: chosen } = variant
@@ -214,14 +218,14 @@ for (const variant of variants) {
       await played.play({ until: variant.firstEvent })
       const main = stage(page, mainStageTitle)
       await expect(main).toContainText(variant.early, observed)
-      await expect(sessionOf(page, session)).toContainText(variant.origin)
-      const early = await mapVersion(page)
+      expect(await sessionOrigin(page, run, session)).toEqual({ surface, version: variant.version })
+      const early = await versionOf(daemon, run)
 
       await played.play()
       await expect(main).toContainText(variant.whole, observed)
       const staged = await interpreted(page, run, variant.delegates)
-      await expect.poll(async () => mapVersion(page)).toBeGreaterThan(early)
-      await expect(sessionOf(page, session)).toContainText(variant.origin)
+      await expect.poll(async () => versionOf(daemon, run)).toBeGreaterThan(early)
+      expect(await sessionOrigin(page, run, session)).toEqual({ surface, version: variant.version })
 
       const outer = await box(main)
       for (const delegate of variant.delegates) {

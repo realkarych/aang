@@ -1,6 +1,5 @@
 import type {
   Basis,
-  CardSource,
   Fact,
   FactId,
   ModelChange,
@@ -9,9 +8,9 @@ import type {
   RunId,
   StageId,
 } from '@aang/contract'
-import { type ReactElement, useEffect, useId, useRef, useState } from 'react'
+import { type ReactElement, useEffect, useId, useState } from 'react'
 import { detailOf } from './action-input.js'
-import { readFact, readStage, SignedOut } from './api.js'
+import { readFact, SignedOut } from './api.js'
 import { plural } from './format.js'
 import { basisLabel, factKindLabel, outcomeLabel, speakerLabel } from './labels.js'
 import { Moment } from './moment.js'
@@ -178,7 +177,7 @@ const journalText = (journal: readonly ModelChangeRef[]): string | null => {
 const journalTitle = (journal: readonly ModelChangeRef[]): string =>
   journal.map(({ version, index }) => `version ${String(version)}, change ${String(index + 1)}`).join('; ')
 
-export interface Grounding {
+interface Grounding {
   readonly basis: Basis | null
   readonly evidence: readonly FactId[]
 }
@@ -238,10 +237,6 @@ export const Grounds = ({ grounds, journal, objects, now, onSignedOut }: Grounds
   )
 }
 
-const refKey = ({ version, index }: ModelChangeRef): string => `${String(version)}:${String(index)}`
-
-export const journalKey = (journal: readonly ModelChangeRef[]): string => journal.map(refKey).join(' ')
-
 export interface JournalGroundsProps {
   readonly run: RunId
   readonly stage: StageId
@@ -250,90 +245,4 @@ export interface JournalGroundsProps {
   readonly objects: ObservationObjects
   readonly now: bigint
   readonly onSignedOut: () => void
-}
-
-export const JournalGrounds = ({
-  run,
-  stage,
-  journal,
-  select,
-  objects,
-  now,
-  onSignedOut,
-}: JournalGroundsProps): ReactElement => {
-  const [load] = useState(() => async (signal: AbortSignal) => (await readStage(run, stage, signal)).history)
-  const { reading, retry } = useRead(load, onSignedOut)
-  if (reading.state === 'loading') {
-    return <p className="grounds-loading">Loading grounds…</p>
-  }
-  if (reading.state === 'failed') {
-    return <Failed what="Grounds" retry={retry} />
-  }
-  const wanted = new Set(journal.map(refKey))
-  const changes = reading.value.filter((change) => wanted.has(refKey(change)) && select(change))
-  return <Grounds grounds={changes} journal={changes} objects={objects} now={now} onSignedOut={onSignedOut} />
-}
-
-interface OriginalProps {
-  readonly source: CardSource
-  readonly objects: ObservationObjects
-  readonly now: bigint
-  readonly onSignedOut: () => void
-}
-
-const OriginalText = ({ source, objects, now, onSignedOut }: OriginalProps): ReactElement => {
-  const [load] = useState(() => (signal: AbortSignal) => readFact(source.fact, signal))
-  const { reading, retry } = useRead(load, onSignedOut)
-  const fragment = useRef<HTMLElement>(null)
-  const ready = reading.state === 'read'
-  useEffect(() => {
-    if (ready) {
-      fragment.current?.scrollIntoView({ block: 'nearest' })
-    }
-  }, [ready])
-  if (reading.state === 'loading') {
-    return <p className="grounds-loading">Loading original…</p>
-  }
-  if (reading.state === 'failed') {
-    return <Failed what="Original" retry={retry} />
-  }
-  const fact = reading.value
-  const text = finalTextOf(fact) ?? ''
-  return (
-    <figure className="original">
-      <blockquote className="original-text">
-        {text.slice(0, source.start)}
-        <mark ref={fragment}>{text.slice(source.start, source.end)}</mark>
-        {text.slice(source.end)}
-      </blockquote>
-      <figcaption className="ground-head">
-        <FactCaption fact={fact} objects={objects} now={now} />
-      </figcaption>
-    </figure>
-  )
-}
-
-export const Original = (props: OriginalProps): ReactElement => {
-  const id = useId()
-  const [open, setOpen] = useState(false)
-  return (
-    <div className="original-box">
-      <button
-        type="button"
-        className="text-button"
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={() => {
-          setOpen(!open)
-        }}
-      >
-        {open ? 'Hide original' : 'Show original'}
-      </button>
-      {open ? (
-        <div id={id}>
-          <OriginalText {...props} />
-        </div>
-      ) : null}
-    </div>
-  )
 }

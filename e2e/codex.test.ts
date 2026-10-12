@@ -1,22 +1,10 @@
-import { endpoints, ObserverInput, type RunId } from '@aang/contract'
+import { type Action, endpoints, ObserverInput, type RunId, type RunSnapshot, type Session } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
 import { type FakeCall, type LoadedManifest, loadManifest, observerScenarios } from '@aang/testkit'
-import type { Route } from '@playwright/test'
-import { expect, test } from './fixtures.js'
+import type { Page, Route } from '@playwright/test'
+import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { after, codexRecording, filesOnly, startingAt, threadsOf, through } from './recordings.js'
-import {
-  agentsOf,
-  fact,
-  lamp,
-  lampDetails,
-  runRowOf,
-  sessionOf,
-  step,
-  stepsOf,
-  trace,
-  zone,
-  zoneItem,
-} from './screens.js'
+import { lamp, lampDetails, runRowOf, versionOf, zone, zoneItem } from './screens.js'
 
 const secondMs = 1_000
 
@@ -40,6 +28,17 @@ const threads = (manifest: LoadedManifest, count: number): string[] => {
 
 const thread = (manifest: LoadedManifest, index = 0): string => threads(manifest, index + 1)[index] ?? ''
 
+const snapshotOf = async (page: Page, run: RunId): Promise<RunSnapshot | null> => {
+  const response = await getWithoutKeepAlive(page.request, endpoints.run.path.replace(':run', run))
+  return response.ok() ? endpoints.run.response.parse(await response.json()) : null
+}
+
+const sessionOf = async (page: Page, run: RunId, session: string): Promise<Session | null> =>
+  (await snapshotOf(page, run))?.objects.sessions.find(({ key }) => key.session === session) ?? null
+
+const actionsOf = async (page: Page, run: RunId, tool: string): Promise<Action[]> =>
+  (await snapshotOf(page, run))?.objects.actions.filter((action) => action.tool === tool) ?? []
+
 const observerInputs = (calls: readonly FakeCall[]): ObserverInput[] =>
   calls.flatMap(({ purpose, prompt }) => {
     if (purpose !== 'observer' || prompt === null) {
@@ -56,6 +55,7 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
   player,
   fakeCodex,
   otelEndpoint,
+  daemon,
 }) => {
   test.setTimeout(180_000)
   const { failing, recovered } = observerScenarios['llm-failure']
@@ -73,7 +73,7 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
     })
   ).play()
 
-  await expect(step(page, 'Main agent', 'echo first')).toBeVisible()
+  await expect.poll(async () => (await snapshotOf(page, codexRun(session)))?.objects.actions.length ?? 0, observed).toBeGreaterThan(0)
   await expect(lamp(page, 'Observer')).toHaveText('Observer unavailable: subscription limit reached', observed)
   const unavailable = await lampDetails(page, 'Observer')
   await expect(unavailable).toContainText(/Next observer probe at \d{2}:\d{2}:\d{2}\s[AP]M\./)
@@ -88,9 +88,10 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
     await player(after(reconnect, 'daemon-restart'), { timeScale: 0, recordTime: 'playback', otlp: await otelEndpoint() })
   ).play()
 
-  await expect(step(page, 'Main agent', 'sleep 3')).toBeVisible()
-  await expect(sessionOf(page, session)).toContainText('resume')
-  await expect(sessionOf(page, session)).toContainText('mode full')
+  await expect
+    .poll(async () => (await sessionOf(page, codexRun(session), session))?.launches.map(({ launch }) => launch) ?? [], observed)
+    .toContain('resume')
+  expect((await sessionOf(page, codexRun(session), session))?.support_mode).toBe('full')
   await expect(lamp(page, 'Observer')).toHaveText('Observer unavailable: subscription limit reached')
   const model = await lampDetails(page, 'Model')
   await expect(model).toContainText(/Waiting for the observer: \d+ fact/)
@@ -105,7 +106,7 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
   const caughtUp = await lampDetails(page, 'Model')
   await expect(caughtUp).toContainText(earlyFacts)
   await expect(caughtUp).not.toContainText('Waiting for the observer')
-  await expect(fact(page, 'Map version')).not.toHaveText('1')
+  expect(await versionOf(daemon, codexRun(session))).toBeGreaterThan(1)
   await expect(await lampDetails(page, 'Observer')).toContainText('Catching up')
 
   const [catchUp] = observerInputs(fakeCodex.calls())
@@ -135,53 +136,45 @@ test.describe('with the Codex observer drawing the map', () => {
     const request = zoneItem(page, 'Bash: touch approved.txt')
     await expect(request).toContainText('Approval request')
     await expect(request).toContainText('awaiting an answer')
-    await expect(fact(page, 'Attention')).toHaveText('awaiting an answer: 1')
-    await expect(sessionOf(page, asking)).toContainText('waiting for a human')
-    await expect(sessionOf(page, asking)).toContainText('mode full')
-    const permission = step(page, 'Main agent', 'Approval request')
-    await expect(permission).toContainText('awaiting decision')
+    await expect
+      .poll(async () => (await snapshotOf(page, codexRun(asking)))?.summary.attention.waiting_for_human ?? null)
+      .toBe(1)
+    const asked = await sessionOf(page, codexRun(asking), asking)
+    expect(asked?.execution).toEqual({ state: 'waiting', reason: 'human' })
+    expect(asked?.support_mode).toBe('full')
 
     const granted = await player(startingAt(approval, 'approval-granted'), {
       ...played,
       recordTime: { startsAt: Date.now() + secondMs },
     })
     await granted.play()
-    await expect(permission).toContainText('approved')
-    await expect(permission).not.toContainText('aang interpretation')
-    await expect(permission).not.toContainText('awaiting decision')
     await expect(zone(page)).toContainText(calmZone)
-    await expect(fact(page, 'Attention')).toHaveText('none')
-    await expect(step(page, 'Main agent', 'touch approved.txt').first()).toBeVisible()
+    await expect
+      .poll(async () => (await snapshotOf(page, codexRun(asking)))?.summary.attention.waiting_for_human ?? null)
+      .toBe(0)
 
     const subagents = await loadManifest(codexRecording('codex_exec', 'subagents'))
     const root = thread(subagents)
     await (await player(subagents, played)).play()
     await page.goto(`/?run=${codexRun(root)}`)
-    await expect(fact(page, 'Agents')).toHaveText('3')
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      '[aang:subagent] Spawn subagents scout and builder, wait for them, then reply done.',
-    )
-    await expect(page.getByText('goal from the first prompt')).toBeVisible()
-    await expect(page.getByRole('paragraph').filter({ hasText: /^Working towards: \[aang:subagent\]/ })).toContainText(
-      'aang interpretation',
-      observed,
-    )
-    const spawned = trace(page).getByRole('list', { name: 'Agents launched by: Main agent', exact: true })
-    for (const task of ['builder', 'scout']) {
-      const child = spawned.getByRole('listitem').filter({ hasText: `/root/${task}` })
-      await expect(child).toContainText('subagent, type default')
-      await expect(child).toContainText('done')
-      await expect(child).toContainText(`echo ${task}`)
-    }
-    await expect(agentsOf(page, root).getByRole('listitem', { name: /./ })).toHaveCount(3)
-    await expect(stepsOf(page, 'Main agent').getByRole('listitem').filter({ hasText: 'collaboration/spawn_agent' })).toHaveCount(2)
-    await expect(step(page, 'Main agent', 'collaboration/wait_agent')).toBeVisible()
+    const goal = '[aang:subagent] Spawn subagents scout and builder, wait for them, then reply done.'
+    await expect.poll(async () => (await snapshotOf(page, codexRun(root)))?.summary.agents ?? null).toBe(3)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(goal)
+    expect((await snapshotOf(page, codexRun(root)))?.summary.goal).toBe(goal)
+    await expect
+      .poll(async () => {
+        const brief = (await snapshotOf(page, codexRun(root)))?.run.brief ?? null
+        return brief === null ? null : { working: brief.text.startsWith('Working towards: [aang:subagent]'), basis: brief.basis.kind }
+      }, observed)
+      .toEqual({ working: true, basis: 'interpreted' })
+    expect(await actionsOf(page, codexRun(root), 'collaboration/spawn_agent')).toHaveLength(2)
+    expect(await actionsOf(page, codexRun(root), 'collaboration/wait_agent')).not.toHaveLength(0)
 
     const forking = await loadManifest(codexRecording('codex_exec', 'fork'))
     const source = thread(forking)
     const fork = thread(forking, 1)
     await (await player(forking, played)).play()
-    await page.getByRole('navigation').getByRole('link', { name: 'Runs' }).click()
+    await page.getByRole('navigation').getByRole('link', { name: '← Chats' }).click()
     const forkRow = runRowOf(page, codexRun(fork))
     const sourceRow = runRowOf(page, codexRun(source))
     await expect(sourceRow).toBeVisible()
@@ -190,15 +183,8 @@ test.describe('with the Codex observer drawing the map', () => {
 
     await forkRow.getByRole('link').click()
     await expect(page).toHaveURL(new RegExp(`\\?run=${codexRun(fork)}$`))
-    await expect(sessionOf(page, fork)).toContainText(/fork [A-Z][a-z]{2} \d+, /)
-    const origin = fact(page, 'Forked from').getByRole('link')
-    await expect(origin).toHaveText('[aang:fork-source] Run `echo source`, then reply done.')
-    const sourceTitle = await origin.innerText()
-    await origin.click()
-    await expect(page).toHaveURL(new RegExp(`\\?run=${codexRun(source)}$`))
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(sourceTitle)
-    const forks = fact(page, 'Forks').getByRole('link')
-    await expect(forks).toHaveCount(1)
+    expect((await sessionOf(page, codexRun(fork), fork))?.launches.map(({ launch }) => launch)).toContain('fork')
+    expect((await snapshotOf(page, codexRun(fork)))?.summary.forked_from).toBe(codexRun(source))
     const runsRoute = `**${endpoints.runs.path}`
     const dropRuns = (route: Route): Promise<void> => route.abort('connectionfailed')
     await page.route(runsRoute, dropRuns)
@@ -206,10 +192,7 @@ test.describe('with the Codex observer drawing the map', () => {
     await expect(await lampDetails(page, 'Link')).toContainText(
       'branches and names of linked runs may be stale',
     )
-    await expect(forks).toHaveCount(1)
     await page.unroute(runsRoute, dropRuns)
     await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
-    await forks.click()
-    await expect(page).toHaveURL(new RegExp(`\\?run=${codexRun(fork)}$`))
   })
 })

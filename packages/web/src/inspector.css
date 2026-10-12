@@ -781,28 +781,10 @@ code.artifact-path {
 }
 
 @media (min-width: 1100px) {
-  #root:has(> .run-screen) {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-  }
-
-  #root:has(> .run-screen) > :not(.run-screen) {
-    flex: none;
-  }
-
-  .run-screen {
-    display: grid;
-    flex: 1 1 auto;
-    grid-template-columns: minmax(0, 1fr);
-    min-height: 0;
-  }
-
   .run-screen[data-inspecting='true'] {
     grid-template-columns: minmax(0, 1fr) minmax(400px, 38rem);
   }
 
-  .run-pane,
   .run-screen > .inspector {
     min-height: 0;
     overflow: auto;

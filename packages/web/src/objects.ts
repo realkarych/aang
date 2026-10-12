@@ -2,17 +2,16 @@ import type {
   Action,
   Agent,
   AgentId,
-  AttentionItem,
   FactEntityKey,
   ObservationObjects,
   Session,
   SessionId,
 } from '@aang/contract'
-import { agentRoleLabel, serviceAgentLabel } from './labels.js'
+import { serviceAgentLabel } from './labels.js'
 
-export const shortSession = ({ key }: Pick<Session, 'key'>): string => key.session.slice(0, 8)
+const shortSession = ({ key }: Pick<Session, 'key'>): string => key.session.slice(0, 8)
 
-export const sessionTitle = (session: Pick<Session, 'key'>): string => `Session ${shortSession(session)}`
+const sessionTitle = (session: Pick<Session, 'key'>): string => `Session ${shortSession(session)}`
 
 const named = (text: string | null): string | null => (text === null || text.trim() === '' ? null : text)
 
@@ -30,12 +29,6 @@ export const agentTitle = (agent: Agent): string => {
     case 'thread':
       return named(agent.name) ?? named(agent.agent_type) ?? 'Untyped subagent'
   }
-}
-
-export const agentRole = (agent: Agent): string => {
-  const kind = agentRoleLabel[agent.role]
-  const type = named(agent.agent_type)
-  return type === null || type === agentTitle(agent) ? kind : `${kind}, type ${type}`
 }
 
 const agentPhrase = (agent: Agent): string => (agent.role === 'main' ? 'main agent' : agentTitle(agent))
@@ -61,10 +54,10 @@ export interface FactOwner {
   readonly agent: AgentId | null
 }
 
-export const factAction = (objects: ObservationObjects, key: FactEntityKey): Action | null =>
+const factAction = (objects: ObservationObjects, key: FactEntityKey): Action | null =>
   key.kind === 'action' ? (objects.actions.find((candidate) => sameKey(candidate.key, key)) ?? null) : null
 
-export const factOwner = (objects: ObservationObjects, key: FactEntityKey): FactOwner => {
+const factOwner = (objects: ObservationObjects, key: FactEntityKey): FactOwner => {
   if (key.kind === 'run') {
     return { session: null, agent: null }
   }
@@ -80,11 +73,4 @@ export const factPlace = (objects: ObservationObjects, key: FactEntityKey): stri
   }
   const { session, agent } = factOwner(objects, key)
   return placeOf(objects, session, agent)
-}
-
-export const attentionPlace = (objects: ObservationObjects, item: AttentionItem): string | null => {
-  const question = objects.questions.find(({ id }) => id === item.question)
-  const action = objects.actions.find(({ id }) => id === item.action)
-  const source = question ?? action
-  return source === undefined ? null : placeOf(objects, source.session, source.agent)
 }

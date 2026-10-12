@@ -12,6 +12,8 @@ import {
   type Runtime,
   type Stage,
   type StageId,
+  type ViewElement,
+  type ViewPlacement,
   type ViewRuleSpec,
 } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
@@ -34,7 +36,7 @@ import type { Locator, Page, Route } from '@playwright/test'
 import { expect, getWithoutKeepAlive, type HookFields, test } from './fixtures.js'
 import { codexRecording, threadsOf } from './recordings.js'
 import { claudeOriginal, codexThread, hookFields, runOf } from './samples.js'
-import { agentsOf, fact, stepsOf, trace, zoneItem } from './screens.js'
+import { versionOf, zoneItem } from './screens.js'
 
 const observed = { timeout: 30_000 }
 
@@ -47,11 +49,6 @@ const approvalText = 'Bash: touch probe-perm.txt'
 test.use({ config: { watch: { all: true }, collector: { spoolScanIntervalMs: 250 } } })
 
 const chat = (page: Page): Locator => page.getByRole('region', { name: 'Chat', exact: true })
-
-const rules = (page: Page): Locator => page.getByRole('region', { name: 'View rules', exact: true })
-
-const activeRules = (page: Page): Locator =>
-  rules(page).getByRole('list', { name: 'Active rules' }).getByRole('listitem')
 
 const entry = (page: Page, question: string): Locator =>
   chat(page)
@@ -76,8 +73,6 @@ const stage = (page: Page, title: string | RegExp): Locator =>
   map(page).getByRole('group', { name: typeof title === 'string' ? `Stage "${title}"` : title })
 
 const pick = (locator: Locator, title: string | RegExp): Locator => locator.getByRole('button', { name: title, exact: true })
-
-const versionNow = async (page: Page): Promise<number> => Number(await fact(page, 'Map version').textContent())
 
 const admissionOf = async (daemon: RunningDaemon, vendor: Runtime) => {
   const { observer } = endpoints.status.response.parse(await (await daemon.request(endpoints.status.path)).json())
@@ -145,6 +140,9 @@ const revokeRule = async (daemon: RunningDaemon, run: RunId, rule: AppliedViewRu
   expect((await daemon.request(path, { method: 'DELETE' })).status).toBe(200)
 }
 
+const placements = async (page: Page, run: RunId, kind: ViewElement['kind']): Promise<ViewPlacement[]> =>
+  (await snapshotOf(page, run)).view.placements.filter(({ element }) => element.kind === kind)
+
 const withReviewer = async (directory: string): Promise<string> => {
   const original = sampleScenarioManifest('claude-subagent')
   const manifest = JSON.parse(await readFile(original, 'utf8')) as { steps: Array<{ source?: string }> }
@@ -169,28 +167,29 @@ const collapseReply = { kind: 'script', script: 'chat-collapse-reviewers' } as c
 
 interface ReviewerChat {
   readonly page: Page
+  readonly daemon: RunningDaemon
   readonly run: RunId
   readonly session: string
   readonly approval: string
   readonly reviewing: Agent
-  readonly reviewer: Locator
   readonly collapsed: string
-  readonly untouched?: Locator
   readonly advance: () => Promise<void>
   readonly calls: () => FakeCall[]
 }
 
-const stepsInside = (agent: Locator): Locator => agent.getByRole('list', { name: /^Steps: / })
+const collapsedAgents = async (page: Page, run: RunId): Promise<string[]> =>
+  (await placements(page, run, 'agent')).flatMap(({ element, visibility }) =>
+    visibility?.state === 'collapsed' ? [element.id] : [],
+  )
 
 const collapsesTheReviewers = async ({
   page,
+  daemon,
   run,
   session,
   approval,
   reviewing,
-  reviewer,
   collapsed,
-  untouched,
   advance,
   calls,
 }: ReviewerChat): Promise<void> => {
@@ -224,7 +223,7 @@ const collapsesTheReviewers = async ({
   await expect(await detailOf(page, ground)).toContainText(/raw record #\d+/)
 
   await advance()
-  await expect.poll(async () => versionNow(page), observed).toBeGreaterThan(asked)
+  await expect.poll(async () => versionOf(daemon, run), observed).toBeGreaterThan(asked)
   await expect(
     overview.getByText(new RegExp(`^as of map version ${String(asked)}, the map has since been updated to version \\d+$`)),
   ).toBeVisible()
@@ -252,33 +251,24 @@ const collapsesTheReviewers = async ({
   await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'false')
   await expect(chat(page)).toContainText('Question about the whole run.')
 
-  await expect(stepsInside(reviewer).getByRole('listitem').first()).toBeVisible()
+  expect(await collapsedAgents(page, run)).toEqual([])
   const collapse = await ask(page, 'Collapse the reviewers')
   await expect(collapse).toContainText('Collapsed 1 reviewer agents', observed)
   await expect(collapse).toContainText(
     `View rule applied: collapse ${collapsed}. You can undo it in the rule list.`,
   )
-  const rule = activeRules(page)
-  await expect(rule).toHaveCount(1)
-  await expect(rule).toContainText(`Collapse ${collapsed}`)
-  await expect(rule).toContainText('from chat')
-  await expect(rule).toContainText('affected: 1 element')
-  await expect(reviewer).toContainText('collapsed by a view rule')
-  await expect(reviewer).toContainText(/1 agent · \d+ action/)
-  await expect(reviewer).toContainText('1 attention item inside, see the attention zone')
-  await expect(stepsInside(reviewer)).toHaveCount(0)
-  if (untouched !== undefined) {
-    await expect(untouched).not.toContainText('collapsed by a view rule')
-    await expect(stepsInside(untouched).getByRole('listitem').first()).toBeVisible()
-  }
+  const [applied, ...others] = (await snapshotOf(page, run)).view.rules
+  expect(others).toEqual([])
+  expect(applied?.rule).toMatchObject({ action: 'collapse', source: 'chat' })
+  expect(applied?.affected).toHaveLength(1)
+  expect(await collapsedAgents(page, run)).toEqual([reviewing.id])
   await expect(request).toBeVisible()
   await expect(request).toContainText('awaiting an answer')
 
-  await rules(page).getByRole('button', { name: `Undo rule: Collapse ${collapsed}` }).click()
-  await expect(rule).toHaveCount(0)
-  await expect(rules(page)).toContainText('No active rules.')
-  await expect(reviewer).not.toContainText('collapsed by a view rule')
-  await expect(stepsInside(reviewer).getByRole('listitem').first()).toBeVisible()
+  if (applied !== undefined) {
+    await revokeRule(daemon, run, applied)
+  }
+  expect(await collapsedAgents(page, run)).toEqual([])
   await expect(collapse).toContainText('The view rule from this answer was undone.')
   await expect(request).toBeVisible()
   expect((await snapshotOf(page, run)).view.rules).toEqual([])
@@ -287,7 +277,7 @@ const collapsesTheReviewers = async ({
 const opensQuietly = async (page: Page, run: RunId): Promise<void> => {
   await page.goto(`/?run=${run}`)
   await expect(chat(page)).toContainText('No questions about this run yet.')
-  await expect(rules(page)).toContainText('No active rules.')
+  expect((await snapshotOf(page, run)).view.rules).toEqual([])
 }
 
 test.describe('with the Claude observer answering the chat', () => {
@@ -298,12 +288,13 @@ test.describe('with the Claude observer answering the chat', () => {
     await admitted(daemon, 'claude')
   })
 
-  test('the chat answers with links and the map version, collapses the reviewers on request, the rule is revoked from the list, and the reviewer request stays in the attention zone (E2E 5)', async ({
+  test('the chat answers with links and the map version, collapses the reviewers on request, the rule is revoked, and the reviewer request stays in the attention zone (E2E 5)', async ({
     page,
     player,
     profile,
     hook,
     fakeClaude,
+    daemon,
   }) => {
     test.setTimeout(120_000)
     const played = await player(await withReviewer(join(profile.root, 'reviewer')), {
@@ -320,11 +311,11 @@ test.describe('with the Claude observer answering the chat', () => {
 
     await collapsesTheReviewers({
       page,
+      daemon,
       run: claudeRun,
       session: claudeOriginal.session,
       approval: approvalText,
       reviewing: await agentOf(page, claudeRun, 'Ping the code-reviewer agent'),
-      reviewer: agentsOf(page, claudeOriginal.session).getByRole('listitem', { name: 'code-reviewer', exact: true }),
       collapsed: 'agents of type "code-reviewer"',
       advance: () => hook.claude('UserPromptSubmit.json', fields),
       calls: () => fakeClaude.calls(),
@@ -399,12 +390,13 @@ test.describe('with the Codex observer answering the chat', () => {
     await admitted(daemon, 'codex')
   })
 
-  test('on the R.4 codex exec subagents recording the chat answers with links and the map version, collapses the reviewer subagent on request, the rule is revoked from the list, and the reviewer request stays in the attention zone (E2E 5, Codex)', async ({
+  test('on the R.4 codex exec subagents recording the chat answers with links and the map version, collapses the reviewer subagent on request, the rule is revoked, and the reviewer request stays in the attention zone (E2E 5, Codex)', async ({
     page,
     player,
     hook,
     otelEndpoint,
     fakeCodex,
+    daemon,
   }) => {
     test.setTimeout(120_000)
     const recording = reviewerTask(await loadManifest(codexRecording('codex_exec', 'subagents')))
@@ -420,19 +412,15 @@ test.describe('with the Codex observer answering the chat', () => {
     const reviewing = await agentOf(page, run, '/root/reviewer')
     await expect(stage(page, new RegExp(`^Stage ".+ \\(${reviewing.id.slice(0, 8)}\\)"$`))).toBeVisible(observed)
     await hook.codex('PermissionRequest.json', reviewerRequest(recording))
-    const spawned = trace(page).getByRole('list', { name: 'Agents launched by: Main agent', exact: true })
-    const subagent = (path: string): Locator =>
-      spawned.getByRole('listitem').filter({ has: page.getByText(path, { exact: true }) })
 
     await collapsesTheReviewers({
       page,
+      daemon,
       run,
       session: root,
       approval: `Bash: ${codexApproval.command}`,
       reviewing,
-      reviewer: subagent('/root/reviewer'),
       collapsed: `agents named "${reviewing.name ?? ''}"`,
-      untouched: subagent('/root/builder'),
       advance: async () => {
         await played.play()
       },
@@ -443,6 +431,7 @@ test.describe('with the Codex observer answering the chat', () => {
 
 interface OldGround {
   readonly page: Page
+  readonly daemon: RunningDaemon
   readonly run: RunId
   readonly played: Player
   readonly phases: readonly [string, string]
@@ -450,7 +439,7 @@ interface OldGround {
   readonly gate: string
 }
 
-const answersAnOldGround = async ({ page, run, played, phases, calls, gate }: OldGround): Promise<void> => {
+const answersAnOldGround = async ({ page, daemon, run, played, phases, calls, gate }: OldGround): Promise<void> => {
   const [created, updated] = phases
   await page.goto(`/?run=${run}`)
   await played.play({ until: created })
@@ -470,7 +459,7 @@ const answersAnOldGround = async ({ page, run, played, phases, calls, gate }: Ol
   const [opening] = chatInputs(calls())
   const version = opening?.model.version ?? 0
   await played.play()
-  await expect.poll(async () => versionNow(page), observed).toBeGreaterThan(version)
+  await expect.poll(async () => versionOf(daemon, run), observed).toBeGreaterThan(version)
   await writeFile(gate, '')
 
   await expect(question.getByText(`${mainStageTitle} began from a ground the first input did not carry.`)).toBeVisible(
@@ -520,6 +509,7 @@ test.describe('with the Claude observer tracing an old ground', () => {
     player,
     profile,
     fakeClaude,
+    daemon,
   }) => {
     test.setTimeout(120_000)
     const gate = join(profile.root, 'chat-gate')
@@ -529,21 +519,13 @@ test.describe('with the Claude observer tracing an old ground', () => {
     })
     await answersAnOldGround({
       page,
+      daemon,
       run: claudeRun,
       played: await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' }),
       phases: ['subagent', 'subagent-result'],
       calls: () => fakeClaude.calls(),
       gate,
     })
-
-    await page.getByRole('link', { name: 'three journals', exact: true }).click()
-    const spent = page.getByRole('region', { name: 'Chat', exact: true })
-    await expect(spent.getByText('1 call', { exact: true })).toBeVisible()
-    const output = spent
-      .getByRole('row')
-      .filter({ has: page.getByRole('rowheader', { name: 'Output', exact: true }) })
-      .getByRole('cell')
-    await expect(output.first()).toHaveText('1,744')
   })
 })
 
@@ -558,6 +540,7 @@ test.describe('with the Codex observer tracing an old ground', () => {
     player,
     profile,
     fakeCodex,
+    daemon,
   }) => {
     test.setTimeout(120_000)
     const gate = join(profile.root, 'chat-gate')
@@ -567,6 +550,7 @@ test.describe('with the Codex observer tracing an old ground', () => {
     })
     await answersAnOldGround({
       page,
+      daemon,
       run: runOf(codexThread),
       played: await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0, recordTime: 'playback' }),
       phases: ['resume', 'compaction'],
@@ -607,7 +591,6 @@ test.describe('with the Claude observer answering the chat in every state', () =
   test('the chat shows insufficient data, unconfirmed links, a refused rule, a failed call and the failures of its own requests', async ({
     page,
     player,
-    daemon,
   }) => {
     test.setTimeout(120_000)
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' })).play()
@@ -643,23 +626,6 @@ test.describe('with the Claude observer answering the chat in every state', () =
 
     const failed = await ask(page, 'And now?')
     await expect(failed).toContainText('No answer: limit: ', observed)
-
-    const pinger = await createRule(daemon, claudeRun, {
-      action: 'collapse',
-      selector: { kind: 'agent_type', agent_type: 'pinger' },
-      params: null,
-    })
-    await expect(activeRules(page)).toHaveCount(1)
-    const rulesPath = `**${endpoints.revokeViewRule.path.replace(':run', claudeRun).replace(':id', pinger.rule.id)}`
-    await page.route(rulesPath, (route) => route.abort('connectionfailed'))
-    const revoke = rules(page).getByRole('button', { name: 'Undo rule: Collapse agents of type "pinger"' })
-    await revoke.click()
-    await expect(rules(page).getByRole('alert')).toHaveText('Rule not undone: no connection to the daemon')
-    await expect(revoke).toBeEnabled()
-    await page.unroute(rulesPath)
-    await revoke.click()
-    await expect(activeRules(page)).toHaveCount(0)
-    await expect(rules(page).getByRole('alert')).toHaveCount(0)
   })
 })
 
@@ -699,7 +665,6 @@ test.describe('with the Claude observer answering while the chat history cannot 
     await page.route(`**${historyPath}`, dropHistory)
     await page.goto(`/?run=${claudeRun}`)
     await expect(stage(page, mainStageTitle)).toBeVisible(observed)
-    await expect(fact(page, 'Sessions')).toHaveText('1')
     const trouble = chat(page).getByRole('status').filter({ hasText: 'Chat history not loaded' })
     await expect(trouble).toHaveText('Chat history not loaded: no connection to the daemon. aang keeps retrying.')
     const before = entry(page, earlier)
@@ -719,21 +684,19 @@ test.describe('with the Claude observer answering while the chat history cannot 
     )
     const pruned = await postJson(daemon, endpoints.prune.path, { scope: 'run', run: runOf(codexThread) })
     expect(pruned.status).toBe(200)
-    await hook.claude('PreToolUse.Bash.json', {
+    await hook.claude('PermissionRequest.Bash.json', {
       ...fields,
-      tool_use_id: 'toolu_h8_after_reset',
       tool_input: { command: 'echo after-reset', description: 'After the reset' },
     })
     expect((await reread).status()).toBe(200)
     await expect(trouble).toHaveText('Chat history not loaded: no connection to the daemon. aang keeps retrying.')
     await expect(before).toBeVisible()
-    await expect(trace(page)).toContainText('echo after-reset')
-    await hook.claude('PreToolUse.Bash.json', {
+    await expect(zoneItem(page, 'Bash: echo after-reset')).toContainText('awaiting an answer')
+    await hook.claude('PermissionRequest.Bash.json', {
       ...fields,
-      tool_use_id: 'toolu_h8_still_live',
       tool_input: { command: 'echo still-live', description: 'Still live' },
     })
-    await expect(trace(page)).toContainText('echo still-live')
+    await expect(zoneItem(page, 'Bash: echo still-live')).toContainText('awaiting an answer')
     await expect(zoneItem(page, approvalText)).toContainText('awaiting an answer')
 
     dropping = false
@@ -749,7 +712,7 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
     await admitted(daemon, 'claude')
   })
 
-  test('view rules of the interface collapse, hide, group and set the detail of stages, agents and actions, and every active rule is listed', async ({
+  test('view rules of the interface collapse, hide, group and set the detail of stages, agents and actions, and every active rule stays in the view', async ({
     page,
     player,
     daemon,
@@ -765,7 +728,8 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
     await expect(pinger).toBeVisible(observed)
     await expect(stage(page, reportStageTitle)).toBeVisible(observed)
     const mainId = await stageId(page, claudeRun, mainStageTitle)
-    const rule = (text: string): Locator => activeRules(page).filter({ hasText: text })
+    const countOf = async (kind: ViewElement['kind'], matches: (placement: ViewPlacement) => boolean): Promise<number> =>
+      (await placements(page, claudeRun, kind)).filter(matches).length
 
     const folded = await createRule(daemon, claudeRun, {
       action: 'collapse',
@@ -775,15 +739,15 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
     await expect(main).toContainText(/collapsed by a view rule: .*\d+ action/)
     await expect(pinger).toHaveCount(0)
     await expect(main.getByRole('button', { name: `Collapse "${mainStageTitle}"` })).toHaveCount(0)
-    await expect(rule(`Collapse stage "${mainStageTitle}"`)).toContainText('from the UI')
-    await expect(rule(`Collapse stage "${mainStageTitle}"`)).toContainText('affected: 1 element')
-    await createRule(daemon, claudeRun, {
+    expect(folded.rule.source).toBe('ui')
+    expect(folded.affected).toEqual([{ kind: 'stage', id: mainId }])
+    const mainDetail = await createRule(daemon, claudeRun, {
       action: 'detail',
       selector: { kind: 'stage_title', contains: 'Main' },
       params: { level: 'stages' },
     })
     await expect(main).toContainText('detail: stages only')
-    await expect(rule('Show stages whose title contains "Main" with detail level "stages only"')).toHaveCount(1)
+    expect(mainDetail.affected).toEqual([{ kind: 'stage', id: mainId }])
     await revokeRule(daemon, claudeRun, folded)
     await expect(pinger).toBeVisible()
     await expect(main).not.toContainText('collapsed by a view rule')
@@ -804,9 +768,7 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
     expect(await encloses(main, frame)).toBe(true)
     const uses = map(page).getByRole('img', { name: /^"Report" uses the output of "pinger \(.+\)", basis: / })
     await expect(uses).toHaveCount(1)
-    await expect(rule('Group stages "Preparation", "Report" under "Preparation and report"')).toContainText(
-      'affected: 2 elements',
-    )
+    expect(pair.affected).toHaveLength(2)
     await revokeRule(daemon, claudeRun, pair)
     await expect(frame).toHaveCount(0)
     await expect(preparation).toBeVisible()
@@ -825,63 +787,63 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
       selector: { kind: 'agent_role', role: 'subagent' },
       params: { name: 'Helpers' },
     })
-    const helpers = trace(page).getByRole('list', { name: 'Agents of group "Helpers"' })
-    await expect(helpers.getByRole('listitem', { name: 'pinger', exact: true })).toBeVisible()
-    await expect(trace(page)).toContainText('Group "Helpers" · 1 agent')
-    await expect(rule('Group agents with role "subagent" under "Helpers"')).toHaveCount(1)
+    const helpers = (placement: ViewPlacement): boolean => placement.group?.name === 'Helpers'
+    expect(team.affected).toHaveLength(1)
+    await expect.poll(async () => countOf('agent', helpers)).toBe(1)
     const level = await createRule(daemon, claudeRun, {
       action: 'detail',
       selector: { kind: 'agent_role', role: 'main' },
       params: { level: 'stages_and_agents' },
     })
-    const root = agentsOf(page, claudeOriginal.session).getByRole('listitem', { name: 'Main agent', exact: true })
-    await expect(root).toContainText('detail: stages and agents')
-    await expect(stepsOf(page, 'Main agent')).toHaveCount(0)
-    await expect(stepsOf(page, 'pinger')).toHaveCount(0)
-    await expect(helpers.getByRole('listitem', { name: 'pinger', exact: true })).toBeVisible()
+    const agentsOnly = (placement: ViewPlacement): boolean => placement.detail?.level === 'stages_and_agents'
+    expect(level.affected).toHaveLength(1)
+    await expect.poll(async () => countOf('agent', agentsOnly)).toBe(1)
+    expect(await countOf('agent', helpers)).toBe(1)
     await revokeRule(daemon, claudeRun, level)
     await revokeRule(daemon, claudeRun, team)
-    await expect(stepsOf(page, 'Main agent')).toBeVisible()
+    await expect.poll(async () => countOf('agent', (placement) => helpers(placement) || agentsOnly(placement))).toBe(0)
 
     await createRule(daemon, claudeRun, {
       action: 'group',
       selector: { kind: 'action_tool', tool: 'Bash' },
       params: { name: 'Checks' },
     })
-    const checks = trace(page).getByRole('list', { name: 'Steps of group "Checks"' }).first()
-    await expect(checks).toContainText('echo hi')
-    await expect(trace(page)).toContainText(/Group "Checks" · \d+ step/)
-    await createRule(daemon, claudeRun, {
+    await expect.poll(async () => countOf('action', ({ group }) => group?.name === 'Checks')).toBeGreaterThan(0)
+    const bashDetail = await createRule(daemon, claudeRun, {
       action: 'detail',
       selector: { kind: 'action_tool', tool: 'Bash' },
       params: { level: 'stages_and_agents' },
     })
-    await expect(checks.getByRole('listitem').first()).toContainText('detail: stages and agents')
-    await expect(rule('Show actions of tool "Bash" with detail level "stages and agents"')).toHaveCount(1)
-    await createRule(daemon, claudeRun, {
+    expect(bashDetail.affected).not.toHaveLength(0)
+    await expect
+      .poll(async () => countOf('action', ({ detail }) => detail?.level === 'stages_and_agents'))
+      .toBe(bashDetail.affected.length)
+    const agentStarts = await createRule(daemon, claudeRun, {
       action: 'collapse',
       selector: { kind: 'action_kind', action_kind: 'agent' },
       params: null,
     })
-    await expect(stepsOf(page, 'Main agent').getByRole('listitem').filter({ hasText: /Agent/ })).toContainText(
-      /collapsed by a view rule: 1 action · (succeeded|error|denied|interrupted|outcome unknown): 1/,
-    )
-    await expect(rule('Collapse actions of kind "agent start"')).toHaveCount(1)
-    await createRule(daemon, claudeRun, {
+    expect(agentStarts.affected).toHaveLength(1)
+    await expect.poll(async () => countOf('action', ({ visibility }) => visibility?.state === 'collapsed')).toBe(1)
+    const bashHidden = await createRule(daemon, claudeRun, {
       action: 'hide',
       selector: { kind: 'action_tool', tool: 'Bash' },
       params: null,
     })
-    await expect(trace(page).getByRole('list', { name: 'Steps of group "Checks"' })).toHaveCount(0)
-    await expect(trace(page)).toContainText(/Hidden by view rules: \d+ action.*\. Their questions stay in the attention zone\./)
-    await createRule(daemon, claudeRun, { action: 'collapse', selector: { kind: 'service_agents' }, params: null })
+    await expect
+      .poll(async () => countOf('action', ({ visibility }) => visibility?.state === 'hidden'))
+      .toBe(bashHidden.affected.length)
+    const service = await createRule(daemon, claudeRun, {
+      action: 'collapse',
+      selector: { kind: 'service_agents' },
+      params: null,
+    })
     await createRule(daemon, claudeRun, {
       action: 'hide',
       selector: { kind: 'agent_name', name: 'nobody' },
       params: null,
     })
-    await expect(rule('Collapse service agents')).toContainText('affected: 0 elements')
-    await expect(rule('Hide agents named "nobody"')).toHaveCount(1)
-    await expect(activeRules(page)).toHaveCount(8)
+    expect(service.affected).toEqual([])
+    expect((await snapshotOf(page, claudeRun)).view.rules).toHaveLength(8)
   })
 })

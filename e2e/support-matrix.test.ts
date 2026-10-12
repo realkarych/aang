@@ -4,17 +4,16 @@ import { type OperatingSystem, type SupportKey, type SupportRow, type SupportSce
 import { readSupportMatrix } from '@aang/contract/support-file'
 import { expect, test } from '@playwright/test'
 import { runnerOs, variantRecordingOn } from './recordings.js'
-import { afterIterationVariants, checkedOn, duringWorkVariants, type SurfaceVariant } from './variants.js'
+import { checkedOn, duringWorkVariants, type SurfaceVariant } from './variants.js'
 
 interface Column {
-  readonly field: keyof Pick<SupportScenarios, 'during_work' | 'after_iteration'>
+  readonly field: keyof Pick<SupportScenarios, 'during_work'>
   readonly name: string
   readonly variants: readonly SurfaceVariant[]
 }
 
 const columns: readonly Column[] = [
   { field: 'during_work', name: 'E2E 1', variants: duringWorkVariants },
-  { field: 'after_iteration', name: 'E2E 4', variants: afterIterationVariants },
 ]
 
 const matrixFile = fileURLToPath(new URL('../support/matrix.json', import.meta.url))
@@ -41,7 +40,7 @@ const localKey = ({ runtime, surface, version }: SurfaceVariant, os: OperatingSy
 
 const variantText = ({ runtime, surface, version }: SurfaceVariant, { name }: Column): string => `${name} ${runtime}/${surface}/${version}`
 
-test.describe('the support matrix and the surface variants of E2E 1 and 4', () => {
+test.describe('the support matrix and the surface variants of E2E 1', () => {
   test.skip(runnerOs === null, `${process.platform} is not an OS of the support matrix`)
 
   test('every recording that a surface variant plays as a reference of its OS exists', () => {
@@ -59,7 +58,7 @@ test.describe('the support matrix and the surface variants of E2E 1 and 4', () =
     expect(missing).toEqual([])
   })
 
-  test('a local row of this OS claims E2E 1 or 4 passed only when a variant of its surface and engine version plays a recording of this OS on this runner', async () => {
+  test('a local row of this OS claims E2E 1 passed only when a variant of its surface and engine version plays a recording of this OS on this runner', async () => {
     const os = matrixOs()
     const { rows } = await readSupportMatrix(matrixFile)
 

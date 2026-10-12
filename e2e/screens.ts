@@ -1,4 +1,5 @@
-import type { RunId } from '@aang/contract'
+import { endpoints, type RunId } from '@aang/contract'
+import type { RunningDaemon } from '@aang/testkit'
 import type { Locator, Page } from '@playwright/test'
 
 export const strip = (page: Page): Locator => page.getByRole('region', { name: 'Observation status' })
@@ -7,13 +8,6 @@ export const lamp = (page: Page, label: string): Locator =>
   strip(page)
     .getByRole('listitem')
     .filter({ has: page.getByText(label, { exact: true }) })
-
-export const fact = (page: Page, term: string): Locator =>
-  page
-    .getByRole('article')
-    .locator('dl > div')
-    .filter({ has: page.getByRole('term').getByText(term, { exact: true }) })
-    .getByRole('definition')
 
 export const runRowOf = (page: Page, run: RunId): Locator =>
   page.getByRole('row').filter({ has: page.locator(`a[href="?run=${run}"]`) })
@@ -24,25 +18,6 @@ export const openItems = (page: Page): Locator =>
   zone(page).getByRole('list', { name: 'Open items', exact: true }).getByRole('listitem')
 
 export const zoneItem = (page: Page, kind: string): Locator => openItems(page).filter({ hasText: kind })
-
-export const trace = (page: Page): Locator => page.getByRole('region', { name: 'Sessions and agents', exact: true })
-
-export const sessionOf = (page: Page, session: string): Locator =>
-  trace(page).getByRole('listitem', { name: `Session ${session.slice(0, 8)}`, exact: true })
-
-export const agentsOf = (page: Page, session: string): Locator =>
-  trace(page).getByRole('list', { name: `Agents: Session ${session.slice(0, 8)}`, exact: true })
-
-export const stepsOf = (page: Page, agent: string): Locator =>
-  trace(page).getByRole('list', { name: `Steps: ${agent}`, exact: true })
-
-export const step = (page: Page, agent: string, text: string): Locator =>
-  stepsOf(page, agent).getByRole('listitem').filter({ hasText: text })
-
-export const plan = (page: Page): Locator => page.getByRole('region', { name: 'Solver plan', exact: true })
-
-export const currentPlan = (page: Page): Locator =>
-  plan(page).getByRole('list', { name: 'Current plan', exact: true })
 
 export const textShown = async (scope: Locator, text: string): Promise<boolean> => {
   await scope.scrollIntoViewIfNeeded()
@@ -86,26 +61,6 @@ export const historyToggle = (page: Page): Locator => zone(page).getByRole('butt
 export const history = (page: Page): Locator =>
   zone(page).getByRole('list', { name: 'Attention zone history', exact: true }).getByRole('listitem')
 
-export const modes = (page: Page): Locator => page.getByRole('navigation', { name: 'Run view' })
-
-export const sinceTab = (page: Page): Locator => modes(page).getByRole('link', { name: /^Since last review/ })
-
-export const traceTab = (page: Page): Locator => modes(page).getByRole('link', { name: 'Run progress', exact: true })
-
-export const mark = (page: Page): Locator => page.getByRole('group', { name: 'Review mark', exact: true })
-
-export const markButton = (page: Page): Locator => mark(page).getByRole('button', { name: 'Mark as reviewed' })
-
-export const since = (page: Page): Locator => page.getByRole('region', { name: 'Since last review', exact: true })
-
-export const sinceSection = (page: Page, title: string): Locator =>
-  since(page).getByRole('region', { name: title, exact: true })
-
-export const change = (page: Page, section: string, text: string): Locator =>
-  sinceSection(page, section)
-    .locator(':scope > ol > li, :scope > ul > li')
-    .filter({ hasText: text })
-
 export const lampDetails = async (page: Page, label: string): Promise<Locator> => {
   const button = lamp(page, label).getByRole('button')
   if ((await button.getAttribute('aria-expanded')) !== 'true') {
@@ -113,3 +68,12 @@ export const lampDetails = async (page: Page, label: string): Promise<Locator> =
   }
   return page.getByRole('region', { name: `${label}: details`, exact: true })
 }
+
+export const dock = (page: Page): Locator => page.getByRole('complementary', { name: 'Chat panel' })
+
+export const versionOf = async (daemon: RunningDaemon, run: RunId): Promise<number> =>
+  endpoints.run.response.parse(await (await daemon.request(endpoints.run.path.replace(':run', run))).json()).summary
+    .version
+
+export const inspector = (page: Page): Locator =>
+  page.getByRole('complementary').and(page.locator(':not([aria-label="Chat panel"])'))

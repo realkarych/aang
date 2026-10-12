@@ -2,6 +2,7 @@ import { runId } from '@aang/contract/ids'
 import { sampleScenarioManifest } from '@aang/testkit'
 import { expect, test } from './fixtures.js'
 import { claudeGoal } from './samples.js'
+import { inspector as panelOf } from './screens.js'
 
 const claudeRun = runId({ kind: 'session', runtime: 'claude', session: '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef' })
 
@@ -18,20 +19,20 @@ test('a stage chosen by the address opens the inspector, which says when the run
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto(`/?run=${claudeRun}`)
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(claudeGoal)
-  await expect(page.getByRole('complementary')).toHaveCount(0)
+  await expect(panelOf(page)).toHaveCount(0)
 
   await page.goto(`/?run=${claudeRun}&stage=${unknownStage}`)
   const inspector = page.getByRole('complementary', { name: 'Stage 00000000' })
   await expect(inspector.getByRole('heading', { level: 2 })).toBeFocused()
   await expect(inspector).toContainText('This run has no stage 00000000: the link is stale or the run was rebuilt.')
   await inspector.getByRole('button', { name: 'Close' }).click()
-  await expect(page.getByRole('complementary')).toHaveCount(0)
+  await expect(panelOf(page)).toHaveCount(0)
   await expect(page).toHaveURL(new RegExp(`\\?run=${claudeRun}$`))
 
   await page.goBack()
   await expect(inspector).toBeVisible()
   await inspector.getByRole('heading', { level: 2 }).press('Escape')
-  await expect(page.getByRole('complementary')).toHaveCount(0)
+  await expect(panelOf(page)).toHaveCount(0)
 })
 
 test('a stage link of a run the daemon does not know yet reads the stage once, not in a loop, again when the run appears, and never after the inspector closes', async ({
@@ -58,7 +59,7 @@ test('a stage link of a run the daemon does not know yet reads the stage once, n
   await expect(inspector).toContainText(missing)
 
   await inspector.getByRole('button', { name: 'Close' }).click()
-  await expect(page.getByRole('complementary')).toHaveCount(0)
+  await expect(panelOf(page)).toHaveCount(0)
   const closed = reads.length
   await page.waitForTimeout(quietMs)
   expect(reads).toHaveLength(closed)
