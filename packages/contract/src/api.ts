@@ -191,6 +191,7 @@ export const RunSummary = z.strictObject({
   id: RunId,
   runtime: Runtime,
   root_session: SessionId,
+  cwd: text.nullable(),
   goal: text.nullable(),
   brief: text.nullable(),
   version: ModelVersion,

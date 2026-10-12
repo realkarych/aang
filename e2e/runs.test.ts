@@ -2,6 +2,7 @@ import { endpoints, type RunsResponse } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
 import { sampleScenarioManifest } from '@aang/testkit'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
+import { claudeOriginal, runOf } from './samples.js'
 
 const session = { kind: 'session', runtime: 'claude', session: '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef' } as const
 
@@ -28,4 +29,15 @@ test('a sample played into the profile becomes a run listed by /api/runs for the
     { runtime: 'claude', root_session: objectId(session), sessions: 1, support_modes: ['files_only'] },
   ])
   expect((await getWithoutKeepAlive(request, endpoints.runs.path)).status()).toBe(401)
+})
+
+test('a run summary carries the working directory of its root session', async ({ daemon, player }) => {
+  await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+  const run = runOf(claudeOriginal)
+  await expect
+    .poll(async () => {
+      const { runs } = endpoints.runs.response.parse(await (await daemon.request(endpoints.runs.path)).json())
+      return runs.find(({ id }) => id === run)?.cwd ?? null
+    })
+    .toMatch(/\S/)
 })

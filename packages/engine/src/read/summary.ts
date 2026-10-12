@@ -99,6 +99,7 @@ export const summaryOf = (context: ReadContext, state: RunState): RunSummary => 
     id: run.id,
     runtime: run.runtime,
     root_session: run.root_session,
+    cwd: sessions.find(({ id }) => id === run.root_session)?.cwd ?? null,
     goal: run.goal?.text ?? null,
     brief: run.brief?.text ?? null,
     version: head,
