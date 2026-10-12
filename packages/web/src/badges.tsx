@@ -2,7 +2,6 @@ import type {
   Action,
   ActionOutcome,
   Basis,
-  CriterionStatus,
   Execution,
   Freshness,
   HumanDecision,
@@ -11,7 +10,6 @@ import type {
 import type { ReactElement } from 'react'
 import {
   BasisGlyph,
-  CriterionGlyph,
   DecisionGlyph,
   ExecutionGlyph,
   FreshnessGlyph,
@@ -26,7 +24,6 @@ import {
   interpreterLabel,
   outcomeLabel,
 } from './labels.js'
-import { criterionStatusLabel } from './stage-labels.js'
 
 type Tone = 'go' | 'ask' | 'hold' | 'done' | 'fail' | 'idle'
 
@@ -144,22 +141,5 @@ export const BasisBadge = ({ basis }: { readonly basis: Basis }): ReactElement =
   >
     <BasisGlyph basis={basis.kind} />
     {basisLabel[basis.kind]}
-  </span>
-)
-
-const criterionTone: Readonly<Record<CriterionStatus, Tone>> = {
-  not_checked: 'idle',
-  confirmed: 'done',
-  passed_unversioned: 'hold',
-  partial: 'hold',
-  failed: 'fail',
-  stale: 'ask',
-  reported_done: 'idle',
-}
-
-export const CriterionBadge = ({ status }: { readonly status: CriterionStatus }): ReactElement => (
-  <span className="badge" data-tone={criterionTone[status]}>
-    <CriterionGlyph status={status} />
-    {criterionStatusLabel[status]}
   </span>
 )

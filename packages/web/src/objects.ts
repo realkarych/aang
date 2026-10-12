@@ -15,7 +15,7 @@ const sessionTitle = (session: Pick<Session, 'key'>): string => `Session ${short
 
 const named = (text: string | null): string | null => (text === null || text.trim() === '' ? null : text)
 
-export const agentTitle = (agent: Agent): string => {
+const agentTitle = (agent: Agent): string => {
   const ref = agent.key.agent
   switch (ref.kind) {
     case 'main':

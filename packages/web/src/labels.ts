@@ -6,7 +6,6 @@ import type {
   AttentionPriority,
   AttentionResolution,
   BasisKind,
-  CriterionStatus,
   Execution,
   FactKind,
   Freshness,
@@ -307,23 +306,6 @@ export const speakerLabel: Readonly<Record<Speaker, string>> = {
   solver: 'solver',
   tool: 'tool',
   runtime: 'runtime',
-}
-
-export const criterionStatusLabel: Readonly<Record<CriterionStatus, string>> = {
-  not_checked: 'not checked',
-  confirmed: 'confirmed',
-  passed_unversioned: 'passed without a version',
-  partial: 'partially confirmed',
-  failed: 'failed',
-  stale: 'stale',
-  reported_done: 'done according to the solver',
-}
-
-export const resolutionLabel: Readonly<Record<AttentionResolution, string>> = {
-  open: 'open',
-  answered: 'answered',
-  resolved: 'resolved',
-  ended_without_answer: 'wait ended without an answer',
 }
 
 export const retentionLabel: Readonly<Record<VersionRetention['kind'], string>> = {

@@ -74,6 +74,3 @@ export const dock = (page: Page): Locator => page.getByRole('complementary', { n
 export const versionOf = async (daemon: RunningDaemon, run: RunId): Promise<number> =>
   endpoints.run.response.parse(await (await daemon.request(endpoints.run.path.replace(':run', run))).json()).summary
     .version
-
-export const inspector = (page: Page): Locator =>
-  page.getByRole('complementary').and(page.locator(':not([aria-label="Chat panel"])'))

@@ -1,5 +1,5 @@
 import type { RunSnapshot } from '@aang/contract'
-import type { ReactElement, Ref } from 'react'
+import type { ReactElement } from 'react'
 import { AttentionZone } from './attention-zone.js'
 import { ChatDock } from './chat-dock.js'
 import { ChatPanel } from './chat-panel.js'
@@ -28,16 +28,15 @@ export const Missing = (): ReactElement => {
 interface RunContentProps {
   readonly snapshot: RunSnapshot
   readonly feed: RunFeed
-  readonly pane: Ref<HTMLElement>
   readonly now: bigint
   readonly onSignedOut: () => void
 }
 
-const RunContent = ({ snapshot, feed, pane, now, onSignedOut }: RunContentProps): ReactElement => {
+const RunContent = ({ snapshot, feed, now, onSignedOut }: RunContentProps): ReactElement => {
   const choice = useStageChoice(snapshot)
   return (
     <div className="run-screen-body">
-      <main ref={pane} className="run-main">
+      <main className="run-main">
         <AttentionZone snapshot={snapshot} now={now} handlers={{ onView: feed.noteView, onSignedOut }} />
         <MapSection snapshot={snapshot} choice={choice} />
       </main>
@@ -58,15 +57,14 @@ const RunContent = ({ snapshot, feed, pane, now, onSignedOut }: RunContentProps)
 
 export interface RunPageProps {
   readonly feed: RunFeed
-  readonly pane: Ref<HTMLElement>
   readonly now: bigint
   readonly onSignedOut: () => void
 }
 
-export const RunPage = ({ feed, pane, now, onSignedOut }: RunPageProps): ReactElement => {
+export const RunPage = ({ feed, now, onSignedOut }: RunPageProps): ReactElement => {
   const { snapshot, connection } = feed
   if (snapshot === null) {
     return <main className="page">{connection === 'missing' ? <Missing /> : <p className="loading">Loading run…</p>}</main>
   }
-  return <RunContent snapshot={snapshot} feed={feed} pane={pane} now={now} onSignedOut={onSignedOut} />
+  return <RunContent snapshot={snapshot} feed={feed} now={now} onSignedOut={onSignedOut} />
 }

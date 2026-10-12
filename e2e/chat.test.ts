@@ -214,8 +214,9 @@ const collapsesTheReviewers = async ({
   await expect(answer).not.toContainText(reviewing.id)
   await expect(answer.getByTitle(reviewing.id, { exact: true })).toHaveText(short)
   await expect(answer).toContainText(chatAnswerReport)
-  const toRequest = links.getByRole('link', { name: `Approval request ${approval}` })
+  const toRequest = links.getByRole('listitem').filter({ hasText: `Approval request ${approval}` })
   await expect(toRequest).toBeVisible()
+  await expect(toRequest.getByRole('link')).toHaveCount(0)
   const ground = links.getByRole('button', { name: /^Fact / }).first()
   await expect(ground).toHaveAttribute('aria-expanded', 'false')
   await ground.click()
@@ -228,9 +229,6 @@ const collapsesTheReviewers = async ({
     overview.getByText(new RegExp(`^as of map version ${String(asked)}, the map has since been updated to version \\d+$`)),
   ).toBeVisible()
 
-  await toRequest.click()
-  await expect(page).toHaveURL(/#attention-/)
-  await expect(request).toBeInViewport()
   await toMain.click()
   await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'true')
   await expect(map(page).getByRole('heading', { name: 'Stage map' })).toBeInViewport()

@@ -13,7 +13,7 @@ import type { Page } from '@playwright/test'
 import { expect, getWithoutKeepAlive, type HookFields, test } from './fixtures.js'
 import { hooksOnly, recording } from './recordings.js'
 import { claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
-import { history, historyToggle, inspector, openItems, zone, zoneItem } from './screens.js'
+import { dock, history, historyToggle, openItems, zone, zoneItem } from './screens.js'
 
 const fastSpool = { watch: { all: true }, collector: { spoolScanIntervalMs: 250 } }
 
@@ -469,14 +469,10 @@ test.describe('with the observer of the attention zone', () => {
     await expect(blocker).not.toContainText('recommended')
 
     await page.getByRole('region', { name: 'Stage map' }).getByRole('button', { name: checksStageTitle, exact: true }).click()
-    const panel = inspector(page)
-    await expect(panel.getByRole('heading', { level: 2 })).toHaveText(checksStageTitle)
-    const spent = panel.getByRole('region', { name: /^Time and usage/ })
-    await expect(spent).toContainText('Solver usage, tokens')
-    await expect(spent).toContainText('No usage records for this stage.')
-    await expect(spent.getByRole('table')).toHaveCount(0)
-    await panel.getByRole('button', { name: 'Close' }).click()
-    await expect(panel).toHaveCount(0)
+    const selected = dock(page).getByRole('region', { name: 'Selected stage' })
+    await expect(selected.getByRole('heading')).toHaveText(checksStageTitle)
+    await selected.getByRole('button', { name: 'Whole run' }).click()
+    await expect(selected).toHaveCount(0)
 
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('UserPromptSubmit.json', fields)

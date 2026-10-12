@@ -11,12 +11,11 @@ import {
 import type { Locator, Page } from '@playwright/test'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { threadsOf, variantRecording } from './recordings.js'
-import { inspector, versionOf } from './screens.js'
+import { versionOf } from './screens.js'
 import { duringWorkScenario, duringWorkVariants, skippedHere, type SurfaceVariant } from './variants.js'
 
 interface Delegate {
   readonly description: string
-  readonly command: string
 }
 
 interface Variant extends SurfaceVariant {
@@ -26,19 +25,19 @@ interface Variant extends SurfaceVariant {
   readonly early: string
   readonly whole: string
   readonly delegates: readonly Delegate[]
-  readonly inspected: Delegate
+  readonly selected: Delegate
 }
 
 const claudeDelegates = [
-  { description: 'Echo solo', command: 'echo solo' },
-  { description: 'Echo left', command: 'echo left' },
-  { description: 'Echo right', command: 'echo right' },
-  { description: 'Echo back later', command: 'sleep 2 && echo back' },
+  { description: 'Echo solo' },
+  { description: 'Echo left' },
+  { description: 'Echo right' },
+  { description: 'Echo back later' },
 ] as const
 
 const codexDelegates = [
-  { description: '/root/scout', command: 'echo scout' },
-  { description: '/root/builder', command: 'echo builder' },
+  { description: '/root/scout' },
+  { description: '/root/builder' },
 ] as const
 
 const origins: Readonly<Record<Surface, string>> = {
@@ -59,7 +58,7 @@ const claudeVariant = (variant: SurfaceVariant): Variant => ({
   early: '1 substage',
   whole: '4 substages',
   delegates: claudeDelegates,
-  inspected: claudeDelegates[1],
+  selected: claudeDelegates[1],
 })
 
 const codexVariant = (variant: SurfaceVariant): Variant => ({
@@ -70,16 +69,12 @@ const codexVariant = (variant: SurfaceVariant): Variant => ({
   early: '2 substages',
   whole: '2 substages',
   delegates: codexDelegates,
-  inspected: codexDelegates[1],
+  selected: codexDelegates[1],
 })
 
 const variants: readonly Variant[] = duringWorkVariants.map((variant) =>
   variant.runtime === 'claude' ? claudeVariant(variant) : codexVariant(variant),
 )
-
-const runtimeName: Readonly<Record<Runtime, string>> = { claude: 'Claude Code', codex: 'Codex' }
-
-const fileChannel: Readonly<Record<Runtime, string>> = { claude: 'transcript', codex: 'rollout' }
 
 const observed = { timeout: 60_000 }
 
@@ -93,10 +88,6 @@ const map = (page: Page): Locator => page.getByRole('region', { name: 'Stage map
 
 const stage = (page: Page, title: string): Locator =>
   map(page).getByRole('group', { name: `Stage "${title}"`, exact: true })
-
-
-const section = (page: Page, title: string): Locator =>
-  inspector(page).getByRole('region', { name: new RegExp(`^${title}`) })
 
 const box = async (locator: Locator): Promise<{ x: number; y: number; right: number; bottom: number }> => {
   const found = await locator.boundingBox()
@@ -166,27 +157,6 @@ const agentOf = (staged: ReadonlyMap<string, Agent>, { description }: Delegate):
   return agent
 }
 
-const ownFile = ({ key }: Agent): string => {
-  switch (key.agent.kind) {
-    case 'subagent':
-      return `agent-${key.agent.agent_id}.jsonl`
-    case 'thread':
-      return `${key.agent.thread_id}.jsonl`
-    default:
-      throw new Error(`a delegated agent has no file of its own: ${key.agent.kind}`)
-  }
-}
-
-const participantName = ({ runtime, agentType }: Variant, agent: Agent): string => {
-  if (runtime === 'claude') {
-    return agentType
-  }
-  if (agent.name === null) {
-    throw new Error(`the delegated Codex agent ${agent.id} has no nickname`)
-  }
-  return agent.name
-}
-
 const sessionOrigin = async (page: Page, run: RunId, session: string): Promise<{ surface: Surface; version: string } | null> => {
   const found = (await snapshotOf(page, run)).objects.sessions.find(({ key }) => key.session === session)
   return found?.surface === null || found?.surface === undefined || found.version === null
@@ -195,13 +165,13 @@ const sessionOrigin = async (page: Page, run: RunId, session: string): Promise<{
 }
 
 for (const variant of variants) {
-  const { surface, runtime, inspected: chosen } = variant
+  const { surface, runtime, selected: chosen } = variant
 
   test.describe(() => {
     const reason = skippedHere(variant)
     test.skip(reason !== undefined, reason)
 
-    test(`live observation of a subagent and parallel agents on ${variant.origin}: the map nests a stage per delegated agent, the inspector shows its work and its grounds lead to the original event in the hook and in the file of the agent (E2E 1, ${surface})`, async ({
+    test(`live observation of a subagent and parallel agents on ${variant.origin}: the map nests a stage per delegated agent and selecting one focuses the chat on it (E2E 1, ${surface})`, async ({
       page,
       player,
       daemon,
@@ -248,49 +218,12 @@ for (const variant of variants) {
       const title = agentStageTitle(agent)
       const shown = titleOnMap(agent)
       await stage(page, shown).getByRole('button', { name: shown, exact: true }).click()
-      const heading = inspector(page).getByRole('heading', { level: 2 })
+      const heading = page
+        .getByRole('complementary', { name: 'Chat panel' })
+        .getByRole('region', { name: 'Selected stage' })
+        .getByRole('heading')
       await expect(heading).toHaveText(shown)
       await expect(heading).toHaveAttribute('title', title)
-      await expect(
-        inspector(page)
-          .locator('dl > div')
-          .filter({ has: page.getByRole('term').getByText('Expected result', { exact: true }) })
-          .getByRole('definition'),
-      ).toHaveText(chosen.description)
-      const work = section(page, 'Participants and actions')
-      await expect(work.getByRole('list', { name: 'Stage agents' })).toContainText(participantName(variant, agent))
-      await expect(work.getByRole('list', { name: 'Stage actions' })).toContainText(chosen.command)
-
-      await section(page, 'Links').getByRole('link', { name: mainStageTitle, exact: true }).click()
-      await expect(heading).toHaveText(mainStageTitle)
-      const substages = section(page, 'Links').getByRole('link', { name: new RegExp(`^${variant.agentType} \\(`) })
-      await expect(substages).toHaveCount(variant.delegates.length)
-      const substage = section(page, 'Links').getByRole('link', { name: shown, exact: true })
-      await expect(substage).toHaveAttribute('title', title)
-      await substage.click()
-      await expect(heading).toHaveText(shown)
-
-      const history = section(page, 'History')
-      const assignments = history.getByRole('button', { name: /^Version \d+, actions assigned: \d+ fact/ })
-      await expect(assignments.first()).toBeVisible()
-      for (const grounds of await assignments.all()) {
-        await grounds.click()
-      }
-      await expect(history.getByText(/^Loading/)).toHaveCount(0)
-      const starts = history.getByRole('listitem').filter({ hasText: /^Action start/ }).filter({ hasText: chosen.command })
-      await expect(starts).not.toHaveCount(0)
-      for (const start of await starts.all()) {
-        await start.getByRole('button', { name: 'Raw record' }).click()
-      }
-      const raws = history.getByRole('region', { name: /^Raw record: Action start/ })
-      await expect(history.getByText(/^Loading/)).toHaveCount(0)
-      const fromFile = raws.filter({ hasText: `${ownFile(agent)}, line` }).first()
-      await expect(fromFile).toContainText(`${fileChannel[runtime]}, ${runtimeName[runtime]}`)
-      await expect(fromFile.locator('pre')).toContainText(chosen.command)
-      const fromHook = raws.filter({ hasText: 'spool file' }).first()
-      await expect(fromHook).toContainText(`hook, ${runtimeName[runtime]}`)
-      await expect(fromHook.locator('pre')).toContainText('"hook_event_name": "PreToolUse"')
-      await expect(fromHook.locator('pre')).toContainText(chosen.command)
     })
   })
 }

@@ -281,3 +281,42 @@ button.chat-cite:hover {
     padding-inline: 12px;
   }
 }
+
+.stage-summary {
+  margin: 0 0 12px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.stage-summary-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stage-summary-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+
+.stage-summary-axes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+
+.stage-summary-text {
+  display: -webkit-box;
+  margin: 6px 0 0;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.stage-summary-waiting {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}

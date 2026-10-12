@@ -2,7 +2,6 @@ import type { AttentionView, ChatMessage, RunId, RunSnapshot } from '@aang/contr
 import { type RefObject, useCallback, useEffect, useReducer, useRef } from 'react'
 import { failureText, NotFound, readChat, readRun, SignedOut } from './api.js'
 import { applyAttentionView, applyEvent } from './feed.js'
-import { type Generation, generationAfter } from './generation.js'
 import { pause } from './pause.js'
 import { type FeedEvent, followRun } from './stream.js'
 
@@ -18,7 +17,6 @@ export interface RunFeed {
   readonly chat: readonly ChatMessage[]
   readonly history: ChatHistory
   readonly connection: FeedConnection
-  readonly generation: Generation
   readonly record: (message: ChatMessage) => void
   readonly noteView: (view: AttentionView) => void
 }
@@ -30,12 +28,11 @@ interface FeedState {
   readonly arrived: readonly ChatMessage[]
   readonly history: ChatHistory
   readonly connection: FeedConnection
-  readonly generation: Generation
 }
 
 type FeedAction =
   | { readonly kind: 'start' }
-  | { readonly kind: 'snapshot'; readonly snapshot: RunSnapshot; readonly renew: boolean }
+  | { readonly kind: 'snapshot'; readonly snapshot: RunSnapshot }
   | { readonly kind: 'event'; readonly event: FeedEvent }
   | { readonly kind: 'message'; readonly message: ChatMessage }
   | { readonly kind: 'history'; readonly messages: readonly ChatMessage[] }
@@ -44,20 +41,15 @@ type FeedAction =
   | { readonly kind: 'connection'; readonly connection: FeedConnection }
   | { readonly kind: 'missing' }
 
-const cleared = (generation: Generation): FeedState => ({
+const cleared = (): FeedState => ({
   snapshot: null,
   reads: 0,
   chat: [],
   arrived: [],
   history: { state: 'loading' },
   connection: 'loading',
-  generation,
 })
 
-const initial = (): FeedState => cleared(generationAfter(null))
-
-const nextGeneration = (state: FeedState): Generation =>
-  state.snapshot === null ? state.generation : generationAfter(state.generation)
 
 const byAsking = (left: ChatMessage, right: ChatMessage): number =>
   left.asked_at < right.asked_at ? -1 : left.asked_at > right.asked_at ? 1 : left.id < right.id ? -1 : 1
@@ -77,14 +69,13 @@ const arrive = (state: FeedState, message: ChatMessage): FeedState => ({
 const reduce = (state: FeedState, action: FeedAction): FeedState => {
   switch (action.kind) {
     case 'start':
-      return cleared(nextGeneration(state))
+      return cleared()
     case 'snapshot':
       return {
         ...state,
         snapshot: action.snapshot,
         reads: state.reads + 1,
         arrived: [],
-        generation: action.renew ? nextGeneration(state) : state.generation,
       }
     case 'event': {
       if (state.snapshot === null) {
@@ -110,7 +101,7 @@ const reduce = (state: FeedState, action: FeedAction): FeedState => {
     case 'connection':
       return state.connection === action.connection ? state : { ...state, connection: action.connection }
     case 'missing':
-      return { ...cleared(nextGeneration(state)), connection: 'missing' }
+      return { ...cleared(), connection: 'missing' }
   }
 }
 
@@ -122,7 +113,6 @@ const follow = async (
   signal: AbortSignal,
   resync: RefObject<AbortController | null>,
 ): Promise<void> => {
-  let renew = true
   while (!signal.aborted) {
     const pass = new AbortController()
     resync.current = pass
@@ -137,7 +127,7 @@ const follow = async (
       await pause(retryMs, signal)
       continue
     }
-    dispatch({ kind: 'snapshot', snapshot, renew })
+    dispatch({ kind: 'snapshot', snapshot })
     await followRun(
       run,
       snapshot.change_seq,
@@ -154,7 +144,6 @@ const follow = async (
       },
       AbortSignal.any([signal, pass.signal]),
     )
-    renew = !pass.signal.aborted
   }
 }
 
@@ -188,7 +177,7 @@ const unlessAborted =
   }
 
 export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeed => {
-  const [state, dispatch] = useReducer(reduce, undefined, initial)
+  const [state, dispatch] = useReducer(reduce, undefined, cleared)
   const resync = useRef<AbortController | null>(null)
   useEffect(() => {
     const controller = new AbortController()
@@ -222,6 +211,6 @@ export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeed => {
     dispatch({ kind: 'view', view })
     resync.current?.abort()
   }, [])
-  const { snapshot, chat, history, connection, generation } = state
-  return { snapshot, chat, history, connection, generation, record, noteView }
+  const { snapshot, chat, history, connection } = state
+  return { snapshot, chat, history, connection, record, noteView }
 }

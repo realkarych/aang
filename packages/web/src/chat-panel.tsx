@@ -24,7 +24,6 @@ import {
 } from 'react'
 import { flushSync } from 'react-dom'
 import { askChat, failureText, SignedOut } from './api.js'
-import { attentionAnchor } from './attention-zone.js'
 import { ActionBadge } from './badges.js'
 import {
   citationKindLabel,
@@ -42,8 +41,9 @@ import { attentionKindLabel, stageRevisionLabel } from './labels.js'
 import { mapHeading, type StageChoice } from './map-section.js'
 import { Moment } from './moment.js'
 import { factPlace, placeOf } from './objects.js'
-import { isPlainClick, runHref } from './route.js'
+import { isPlainClick, stageHref } from './route.js'
 import { fullHint, ShortIds, shortIds, StageName, useKnownAgents } from './short-ids.js'
+import { StageSummary } from './stage-summary.js'
 import type { ChatHistory } from './use-run-feed.js'
 import { ruleText } from './view-labels.js'
 import './chat.css'
@@ -109,7 +109,7 @@ const StageCite = ({ id, context }: { readonly id: Stage['id']; readonly context
   return (
     <a
       className="chat-cite"
-      href={`${runHref(snapshot.summary.id)}&${new URLSearchParams({ stage: id }).toString()}`}
+      href={stageHref(snapshot.summary.id, id)}
       onClick={(event: MouseEvent<HTMLAnchorElement>) => {
         if (!isPlainClick(event)) {
           return
@@ -130,19 +130,13 @@ const StageCite = ({ id, context }: { readonly id: Stage['id']; readonly context
   )
 }
 
-const QuestionCite = ({ item }: { readonly item: AttentionItem }): ReactElement =>
-  item.resolution === 'open' ? (
-    <a className="chat-cite" href={`#${attentionAnchor(item.id)}`}>
-      <CiteKind label={attentionKindLabel[item.kind]} />
-      <span className="cite-text">{item.text}</span>
-    </a>
-  ) : (
-    <span className="chat-cite" data-closed="true">
-      <CiteKind label={attentionKindLabel[item.kind]} />
-      <span className="cite-text">{item.text}</span>
-      <span className="cite-note"> closed</span>
-    </span>
-  )
+const QuestionCite = ({ item }: { readonly item: AttentionItem }): ReactElement => (
+  <span className="chat-cite" data-closed={item.resolution === 'open' ? undefined : 'true'}>
+    <CiteKind label={attentionKindLabel[item.kind]} />
+    <span className="cite-text">{item.text}</span>
+    {item.resolution === 'open' ? null : <span className="cite-note"> closed</span>}
+  </span>
+)
 
 const ActionCite = ({
   action,
@@ -549,6 +543,17 @@ export const ChatPanel = ({
       <h2 id={heading} className="section-title">
         Chat
       </h2>
+      {choice.selection === null ? null : (
+        <StageSummary
+          stage={choice.selection.stage}
+          open={snapshot.attention.items.filter(
+            ({ stage, resolution }) => stage === choice.selection?.stage.id && resolution === 'open',
+          )}
+          onClear={() => {
+            choice.choose(null)
+          }}
+        />
+      )}
       <p className="chat-note">
         The observer answers from a map snapshot and cites stages, facts and actions. Chat does not change the map and sends
         nothing to the solver; a view rule from an answer applies immediately, and you can undo it in the rule list.

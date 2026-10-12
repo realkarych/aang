@@ -68,12 +68,3 @@ export const useNavigate = (): ((event: MouseEvent<HTMLAnchorElement>) => void) 
     go(event.currentTarget.href)
     window.scrollTo(0, 0)
   }, [])
-
-export const useSelect = (): ((event: MouseEvent<HTMLAnchorElement>) => void) =>
-  useCallback((event: MouseEvent<HTMLAnchorElement>) => {
-    if (!isPlainClick(event)) {
-      return
-    }
-    event.preventDefault()
-    go(event.currentTarget.href)
-  }, [])

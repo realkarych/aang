@@ -1,26 +1,14 @@
 import type { RunId, RunSnapshot, StatusResponse } from '@aang/contract'
-import {
-  type ReactElement,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react'
 import { readRuns, readStatus } from './api.js'
 import { nowNs } from './format.js'
-import { GenerationContext } from './generation.js'
 import { type FocusedRun, lampsOf } from './lamps.js'
-import { listHref, selectStage, useNavigate, useRoute, useRoutedStage } from './route.js'
+import { listHref, useNavigate, useRoute } from './route.js'
 import { RunList, runTitle, untitledRun } from './run-list.js'
 import { RunPage } from './run-page.js'
 import { agentIds, KnownAgents } from './short-ids.js'
-import { StageInspector } from './stage-inspector.js'
 import { StatusStrip } from './status-strip.js'
 import { type Polled, usePolled } from './use-polled.js'
-import { SignedOutContext } from './use-read.js'
 import { useRunFeed } from './use-run-feed.js'
 
 const useNow = (intervalMs = 1_000): bigint => {
@@ -104,55 +92,9 @@ const focusOf = (snapshot: RunSnapshot | null): FocusedRun | null =>
     ? null
     : { summary: snapshot.summary, sessions: snapshot.objects.sessions, gaps: snapshot.objects.gaps }
 
-interface ClickedPlace {
-  readonly element: Element
-  readonly top: number
-}
-
-const useClickedPlaceKept = (
-  screen: RefObject<HTMLElement | null>,
-  pane: RefObject<HTMLElement | null>,
-  inspecting: boolean,
-): void => {
-  const clicked = useRef<ClickedPlace | null>(null)
-  useEffect(() => {
-    const element = screen.current
-    if (element === null) {
-      return
-    }
-    const remember = ({ target }: Event): void => {
-      if (target instanceof Element && pane.current?.contains(target) === true) {
-        clicked.current = { element: target, top: target.getBoundingClientRect().top }
-        setTimeout(() => {
-          clicked.current = null
-        }, 0)
-      }
-    }
-    element.addEventListener('click', remember, true)
-    return () => {
-      element.removeEventListener('click', remember, true)
-    }
-  }, [screen, pane])
-  useLayoutEffect(() => {
-    const kept = clicked.current
-    const element = pane.current
-    clicked.current = null
-    if (kept !== null && element !== null && kept.element.isConnected) {
-      element.scrollBy({ top: kept.element.getBoundingClientRect().top - kept.top })
-    }
-  }, [pane, inspecting])
-}
-
 const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly run: RunId }): ReactElement => {
   const feed = useRunFeed(run, onSignedOut)
   const runs = usePolled(readRuns, onSignedOut)
-  const stage = useRoutedStage()
-  const screen = useRef<HTMLDivElement>(null)
-  const pane = useRef<HTMLElement>(null)
-  useClickedPlaceKept(screen, pane, stage !== null)
-  const close = useCallback(() => {
-    selectStage(run, null)
-  }, [run])
   const agents = useMemo(() => agentIds(feed.snapshot?.objects.agents ?? []), [feed.snapshot])
   const title = snapshotTitle(feed.snapshot)
   useTitle(`${title ?? 'Run'} — aang`)
@@ -168,26 +110,12 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
     <>
       <Masthead title={title ?? 'Run'} />
       <StatusStrip lamps={lamps} />
-      <div ref={screen} className="run-screen" data-inspecting={stage !== null}>
-        <GenerationContext value={feed.generation}>
-          <KnownAgents value={agents}>
-            <div className="run-pane">
-              <RunPage feed={feed} pane={pane} now={now} onSignedOut={onSignedOut} />
-            </div>
-            {stage === null ? null : (
-              <SignedOutContext value={onSignedOut}>
-                <StageInspector
-                  key={stage}
-                  run={run}
-                  stage={stage}
-                  feed={feed}
-                  onSignedOut={onSignedOut}
-                  onClose={close}
-                />
-              </SignedOutContext>
-            )}
-          </KnownAgents>
-        </GenerationContext>
+      <div className="run-screen">
+        <KnownAgents value={agents}>
+          <div className="run-pane">
+            <RunPage feed={feed} now={now} onSignedOut={onSignedOut} />
+          </div>
+        </KnownAgents>
       </div>
     </>
   )
