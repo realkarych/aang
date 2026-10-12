@@ -1,4 +1,4 @@
-import { type ReactElement, type ReactNode, useEffect, useState } from 'react'
+import { type ReactElement, type ReactNode, useEffect, useId, useState } from 'react'
 import './dock.css'
 
 const collapsedKey = 'aang:chat-collapsed'
@@ -39,6 +39,7 @@ export const ChatDock = ({ children }: { readonly children: ReactNode }): ReactE
   const wide = useWide()
   const [collapsedWide, setCollapsedWide] = useState(storedCollapsed)
   const [openNarrow, setOpenNarrow] = useState(false)
+  const body = useId()
   const collapsed = wide ? collapsedWide : !openNarrow
   const toggle = (): void => {
     if (wide) {
@@ -50,10 +51,10 @@ export const ChatDock = ({ children }: { readonly children: ReactNode }): ReactE
   }
   return (
     <aside className="chat-dock" aria-label="Chat panel" data-collapsed={collapsed}>
-      <button type="button" className="dock-toggle" aria-expanded={!collapsed} onClick={toggle}>
+      <button type="button" className="dock-toggle" aria-expanded={!collapsed} aria-controls={body} onClick={toggle}>
         {collapsed ? 'Expand chat' : 'Collapse chat'}
       </button>
-      <div className="dock-body" hidden={collapsed}>
+      <div id={body} className="dock-body" hidden={collapsed}>
         {children}
       </div>
     </aside>

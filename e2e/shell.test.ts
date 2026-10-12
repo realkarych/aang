@@ -7,7 +7,7 @@ import { sampleScenarioManifest } from '@aang/testkit'
 import type { Route } from '@playwright/test'
 import { aangEntry, expect, test } from './fixtures.js'
 import { claudeGoal, claudeOriginal, codexGoal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
-import { lamp, runRowOf } from './screens.js'
+import { lamp, runRowOf, zone, zoneItem } from './screens.js'
 
 const claudeSession = claudeOriginal.session
 const claudeRun = runOf(claudeOriginal)
@@ -15,6 +15,8 @@ const codexRun = runOf(codexThread)
 const claudeProject = 'projects/-tmp-aang-spike-cc-transcripts-run'
 
 const watchAll = { watch: { all: true } }
+
+const approvalText = 'Bash: touch probe-perm.txt'
 
 test.use({ config: watchAll })
 
@@ -68,6 +70,7 @@ test('a Claude session without hook events shows inactive hooks and the files-on
 
   await hook.claude('PermissionRequest.Bash.json', hookFields(profile, claudeOriginal))
 
+  await expect(zoneItem(page, approvalText)).toContainText('awaiting an answer')
   await expect(lamp(page, 'Mode')).toHaveText('Mode full')
   await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.support_modes).toEqual(['full'])
   await expect
@@ -154,6 +157,7 @@ test('the run page follows the stream live and re-reads the run when the stream 
   context,
   player,
   profile,
+  hook,
   daemon,
 }) => {
   await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
@@ -166,10 +170,14 @@ test('the run page follows the stream live and re-reads the run when the stream 
   await page.goto(`/?run=${claudeRun}`)
   expect(await execution(daemon.request, claudeRun)).toBe('running')
   await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
+  await expect(zone(page)).toContainText('No open items.')
 
   await claude.play()
   await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.agents).toBe(2)
   await expect.poll(async () => execution(daemon.request, claudeRun)).toBe('waiting:idle')
+  const fields = hookFields(profile, claudeOriginal)
+  await hook.claude('PermissionRequest.Bash.json', fields)
+  await expect(zoneItem(page, approvalText)).toContainText('awaiting an answer')
   const complete = await readFile(transcript)
 
   await context.setOffline(true)
@@ -190,9 +198,16 @@ test('the run page follows the stream live and re-reads the run when the stream 
   await context.setOffline(false)
   expect(await execution(restarted.request, claudeRun)).toBe('running')
   await expect(lamp(page, 'Link')).toHaveText('Link stream connected')
+  await expect(zoneItem(page, approvalText)).toHaveCount(0)
+  await expect(zone(page)).toContainText('No open items.')
 
   await appendFile(transcript, complete.subarray(beforeSubagent.length))
   await expect.poll(async () => execution(restarted.request, claudeRun)).toBe('waiting:idle')
+  await hook.claude('PermissionRequest.Bash.json', {
+    ...fields,
+    tool_input: { command: 'echo after-reset', description: 'After the reset' },
+  })
+  await expect(zoneItem(page, 'Bash: echo after-reset')).toContainText('awaiting an answer')
   expect(await restarted.stop(), restarted.output()).toEqual({ code: 0, signal: null })
 })
 
