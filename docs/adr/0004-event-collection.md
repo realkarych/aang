@@ -1,5 +1,7 @@
 # ADR-0004: Event collection
 
+Superseded in part by [ADR-0015](0015-ui-simplification.md).
+
 Status: accepted by the owner 2026-10-01; the `stat` check of active files (decision 14) and Claude session process liveness (decision 13) approved by the owner 2026-10-07. The addendum on the Codex hooks check after the Q.1 finding (section "Channels") approved by the owner 2026-10-08.
 
 ## Context
@@ -217,7 +219,7 @@ Q.4 showed (`docs/research/q4-live-resilience.md`, finding Q4-5): a Claude sessi
 - Codex TUI, `exec`, Desktop Local/worktree and SDK are served by one adapter. By `originator`/`source` only `exec`, subagents and the guardian are reliably distinguished. The SDK is recognized by `originator: codex_sdk_ts` unless the application has overridden the environment. TUI and Desktop are shown as a guess.
 - Sessions spawned by Desktop (spawn task, Dispatch, scheduled tasks) are linked to the parent only via Desktop metadata (decision 4) or an explicit binding. Until then the link is shown as unknown.
 - SSH modes of both Desktops and one's own VM/Docker: the aang daemon runs on the same host as the solver (ADR-0011), the UI is reachable via an SSH tunnel (ADR-0003). Merging several hosts into one UI is not offered.
-- **Cowork and cloud modes (Claude Cloud, Codex Cloud, Work Cloud) are excluded; the UI shows them as "Not observable" (approved by the owner).** Display method: a persistent notice in the status bar and in `/api/status`. aang does not read Cowork and cloud session directories, so individual such sessions are not listed (decision 10).
+- **Cowork and cloud modes (Claude Cloud, Codex Cloud, Work Cloud) are excluded; the UI shows them as "Not observable" (approved by the owner).** Display method: a persistent notice in the status bar and in `/api/status`. The status-bar notice is superseded by ADR-0015: coverage does not light the health dot, and "Not observable" stays in `/api/status` and `aang status`. aang does not read Cowork and cloud session directories, so individual such sessions are not listed (decision 10).
 
 ## Consequences
 

@@ -1087,7 +1087,7 @@ The web UI is reduced to a chat list, a full-screen stage map and a collapsible 
 | After an iteration: unresolved questions after the end of the session stay on their stages and in the header chip; "what changed" is asked in the chat (RFC §2, §5; ADR-0015) | 5, 18; `attention-badges.test.ts` | E.6, M.5b–M.5c, M.8, K, V.4 |
 | Chat with links and view rules as filter chips (RFC §4, §5) | 5, 18; filter chip scenarios in `chat.test.ts` | K, M.7, H.8, V.4 |
 | Preserving the selection, color with a label (RFC §5) | 14; `stage-focus.test.ts` | H.4–H.5, V.3–V.4 |
-| Links, fork, three axes, grounds, criterion confirmation on the established version (RFC §6) | 1 (map), 8 | E.4–E.7c, M.2–M.5c |
+| Links, fork, three axes, grounds, criterion confirmation on the established version (RFC §6) | 1 (map), 8; criterion confirmation without E2E: `engine/test/criteria.test.ts`, `engine/test/check-contracts.test.ts`, `engine/test/results.test.ts` | E.4–E.7c, M.2–M.5c |
 | Saved artifact versions and access to sources (RFC §6, §7) | 18 | A.8, E.7b, F.7c, K.1 |
 | An explicit input request without an LLM, LLM refusal, restart without duplicates (RFC §8) | 6, 7; `attention-badges.test.ts` | A, E.1, E.6, F.9, V.4 |
 | Separate usage (RFC §8) | — (`aang usage`) | E.8, U |
@@ -1097,7 +1097,7 @@ The web UI is reduced to a chat list, a full-screen stage map and a collapsible 
 | Freshness: waiting for a human, no new events, source lost; a false compaction `SubagentStop` is not an agent (old E2E 10, 12; RFC §6, §8, ADR-0006) | — (covered without E2E) | E.3, E.4: `engine/test/session-freshness.test.ts`, `engine/test/sample-scenarios.test.ts`, `adapter-claude/test/session-hooks.test.ts` |
 | Chat list with the project folder and the waiting count (ADR-0015) | `runs.test.ts`, chat row scenario in `shell.test.ts` | V.1, V.6 |
 
-ADR-0015 removes the views that E2E 2, 3, 4, 10, 11, 12, 15, 16 and 17 and the inspector part of E2E 1 went through; their files (`facts-view`, `attention-zone`, `inspector`, `inspector-selection`, `since-last-view`, `since-last-view-variants`, `usage`) are deleted in V.2–V.4. The engine and API behaviour behind them is unchanged and keeps its functional and integration tests.
+ADR-0015 removes the views that E2E 2, 4, 10, 11, 12, 16 and 17 and the inspector part of E2E 1 went through; their files (`facts-view`, `attention-zone`, `inspector`, `inspector-selection`, `since-last-view`, `since-last-view-variants`, `usage`) are deleted in V.2–V.4. E2E 3 (its attention part) and E2E 15 are not removed: `attention-badges.test.ts` carries them on badges and the header chip. The engine and API behaviour behind them is unchanged and keeps its functional and integration tests.
 
 ## Owner decisions
 

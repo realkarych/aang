@@ -89,7 +89,7 @@ RFC §7 allows declaring support only for a specific version and launch method a
   - contract tests for all scenarios above on recordings of this OS: a scenario is not recorded or does not pass;
   - E2E scenarios 1 and 4 (ADR-0012) on reference sessions of this surface and OS do not run or do not pass.
 - If Desktop does not pass both scenarios, the limitation is put to the owner rather than silently excluded.
-- Support is declared per exact engine version. An unverified version works in tolerant mode; the UI shows it in the status bar, without an alarming mark on every session.
+- Support is declared per exact engine version. An unverified version works in tolerant mode; the UI shows it in the status bar, without an alarming mark on every session. The status-bar display is superseded by ADR-0015: an unverified version does not light the health dot and is shown only in `aang status`.
 - `aang doctor` lists the versions encountered and their status. The appearance of a new version is a signal to record reference sessions for it.
 
 ### Current state of versions
