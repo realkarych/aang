@@ -14,7 +14,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { aangEntry, expect, getWithoutKeepAlive, type HookFields, type HookSamples, test } from './fixtures.js'
 import { tornAt } from './recordings.js'
 import { claudeFork, claudeOriginal, hookFields, runOf, sessionFile } from './samples.js'
-import { lamp, runRowOf, zone, zoneItem } from './screens.js'
+import { lamp, runRowOf, waitingFor } from './screens.js'
 
 const run = runOf(claudeOriginal)
 
@@ -220,8 +220,8 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   await hooks.send('UserPromptSubmit.json', fields)
   await hooks.send('PermissionRequest.Bash.json', fields)
   await ask(formatQuestion, 'toolu_h10_format')
-  await expect(zoneItem(page, approvalText)).toContainText('awaiting an answer')
-  await expect(zoneItem(page, formatQuestion)).toContainText('awaiting an answer')
+  await expect(waitingFor(page)).toContainText(`Approval request: ${approvalText}`)
+  await expect(waitingFor(page)).toContainText(`Question: ${formatQuestion}`)
 
   const before = await snapshotOf(page.request)
   await write(daemon, attentionPath(itemOf(before, approvalText), 'attentionDismiss'), 'POST', {})
@@ -290,9 +290,9 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   await expect(lamp(page, 'Link')).toHaveText('Link stream connected', reconnected)
   await expect.poll(() => queued(profile), reconnected).toEqual([])
 
-  await expect(zoneItem(page, downtimeQuestion)).toContainText('awaiting an answer')
-  await expect(zoneItem(page, downtimeQuestion)).toHaveCount(1)
-  await expect(zoneItem(page, formatQuestion)).toHaveCount(1)
+  await expect(waitingFor(page)).toContainText(`Question: ${downtimeQuestion}`)
+  await expect(waitingFor(page).getByText(downtimeQuestion)).toHaveCount(1)
+  await expect(waitingFor(page).getByText(formatQuestion)).toHaveCount(1)
   await expect
     .poll(async () => {
       const snapshot = await snapshotOf(page.request)
@@ -341,7 +341,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
 
   const returned = await context.newPage()
   await returned.goto(`/?run=${run}`)
-  await expect(zone(returned).getByRole('listitem').filter({ hasText: downtimeQuestion })).toHaveCount(1)
+  await expect(waitingFor(returned).getByText(downtimeQuestion)).toHaveCount(1)
   await returned.goto('/')
   await expect(runRowOf(returned, run)).toHaveCount(1)
   await expect(runRowOf(returned, runOf(claudeFork))).toHaveCount(1)

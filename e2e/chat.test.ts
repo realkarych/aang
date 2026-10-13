@@ -36,7 +36,7 @@ import type { Locator, Page, Route } from '@playwright/test'
 import { expect, getWithoutKeepAlive, type HookFields, test } from './fixtures.js'
 import { codexRecording, threadsOf } from './recordings.js'
 import { claudeOriginal, codexThread, hookFields, runOf } from './samples.js'
-import { versionOf, zoneItem } from './screens.js'
+import { chips, versionOf, waitingFor } from './screens.js'
 
 const observed = { timeout: 30_000 }
 
@@ -193,8 +193,8 @@ const collapsesTheReviewers = async ({
   advance,
   calls,
 }: ReviewerChat): Promise<void> => {
-  const request = zoneItem(page, approval)
-  await expect(request).toContainText('awaiting an answer')
+  const request = waitingFor(page).getByText(`Approval request: ${approval}`)
+  await expect(request).toHaveCount(1)
   const main = stage(page, mainStageTitle)
 
   const overview = await ask(page, 'What is happening in the run now?')
@@ -252,23 +252,21 @@ const collapsesTheReviewers = async ({
   expect(await collapsedAgents(page, run)).toEqual([])
   const collapse = await ask(page, 'Collapse the reviewers')
   await expect(collapse).toContainText('Collapsed 1 reviewer agents', observed)
-  await expect(collapse).toContainText(
-    `View rule applied: collapse ${collapsed}. You can undo it in the rule list.`,
-  )
+  await expect(collapse).toContainText(`Filter applied: collapse ${collapsed}. Remove it with its chip over the map.`)
+  await expect(chips(page)).toHaveCount(1)
+  await expect(chips(page)).toContainText(`Filter: collapse ${collapsed}`)
   const [applied, ...others] = (await snapshotOf(page, run)).view.rules
   expect(others).toEqual([])
   expect(applied?.rule).toMatchObject({ action: 'collapse', source: 'chat' })
   expect(applied?.affected).toHaveLength(1)
   expect(await collapsedAgents(page, run)).toEqual([reviewing.id])
-  await expect(request).toBeVisible()
-  await expect(request).toContainText('awaiting an answer')
+  await expect(request).toHaveCount(1)
 
-  if (applied !== undefined) {
-    await revokeRule(daemon, run, applied)
-  }
+  await chips(page).getByRole('button', { name: `Remove filter: collapse ${collapsed}` }).click()
+  await expect(chips(page)).toHaveCount(0)
+  await expect(collapse).toContainText('The filter from this answer was removed.')
   expect(await collapsedAgents(page, run)).toEqual([])
-  await expect(collapse).toContainText('The view rule from this answer was undone.')
-  await expect(request).toBeVisible()
+  await expect(request).toHaveCount(1)
   expect((await snapshotOf(page, run)).view.rules).toEqual([])
 }
 
@@ -286,7 +284,7 @@ test.describe('with the Claude observer answering the chat', () => {
     await admitted(daemon, 'claude')
   })
 
-  test('the chat answers with links and the map version, collapses the reviewers on request, the rule is revoked, and the reviewer request stays in the attention zone (E2E 5)', async ({
+  test('the chat answers with links and the map version, collapses the reviewers on request, the filter chip removes the rule, and the reviewer request stays waiting (E2E 5)', async ({
     page,
     player,
     profile,
@@ -305,7 +303,7 @@ test.describe('with the Claude observer answering the chat', () => {
     await expect(stage(page, reviewerStage)).toBeVisible(observed)
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('PermissionRequest.Bash.json', { ...fields, agent_id: reviewerAgent })
-    await expect(zoneItem(page, approvalText)).toContainText('code-reviewer')
+    await expect(waitingFor(page)).toContainText(`Approval request: ${approvalText}`)
 
     await collapsesTheReviewers({
       page,
@@ -318,6 +316,69 @@ test.describe('with the Claude observer answering the chat', () => {
       advance: () => hook.claude('UserPromptSubmit.json', fields),
       calls: () => fakeClaude.calls(),
     })
+  })
+})
+
+test.describe('with the Claude observer collapsing the reviewers from the chat', () => {
+  test.use({ claudeScenario: { ...chatScenario.live, chatReplies: [collapseReply] } })
+  test.beforeEach(async ({ daemon }) => {
+    await admitted(daemon, 'claude')
+  })
+
+  const reviewerStage = /^Stage "code-reviewer \(.+\)"$/
+
+  test('a filter asked in the chat shows as a chip over the map and removing it restores the map', async ({
+    page,
+    player,
+    profile,
+  }) => {
+    test.setTimeout(120_000)
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await (await player(await withReviewer(join(profile.root, 'reviewer')), { timeScale: 0 })).play()
+    await page.goto(`/?run=${claudeRun}`)
+    const reviewer = stage(page, reviewerStage)
+    await expect(reviewer).toBeVisible(observed)
+    await expect(chips(page)).toHaveCount(0)
+
+    await ask(page, 'Collapse the reviewers')
+    await expect(chips(page)).toHaveCount(1, observed)
+    await expect(chips(page)).toHaveText(/^Filter: collapse agents of type "code-reviewer"/)
+    await chips(page).first().getByRole('button', { name: /^Remove filter: / }).click()
+    await expect(chips(page)).toHaveCount(0, observed)
+    await expect(reviewer).toBeVisible()
+  })
+
+  test('a filter that hides the selected stage keeps the stage summary and whole run clears it', async ({
+    page,
+    player,
+    profile,
+    daemon,
+  }) => {
+    test.setTimeout(120_000)
+    await page.setViewportSize({ width: 1400, height: 900 })
+    await (await player(await withReviewer(join(profile.root, 'reviewer')), { timeScale: 0 })).play()
+    await page.goto(`/?run=${claudeRun}`)
+    const reviewer = stage(page, reviewerStage)
+    await expect(reviewer).toBeVisible(observed)
+    const title = (await reviewer.getByRole('heading', { level: 3 }).innerText()).trim()
+    const fullTitle = (await reviewer.getByRole('heading', { level: 3 }).getAttribute('title')) ?? title
+    await pick(reviewer, title).click()
+    const selected = page.getByRole('complementary', { name: 'Chat panel' }).getByRole('region', { name: 'Selected stage' })
+    await expect(selected.getByRole('heading')).toHaveText(title)
+
+    await ask(page, 'Collapse the reviewers')
+    await expect(chips(page)).toHaveCount(1, observed)
+    await expect(selected.getByRole('heading')).toHaveText(title)
+    await createRule(daemon, claudeRun, {
+      action: 'hide',
+      selector: { kind: 'stage_ids', stages: [await stageId(page, claudeRun, fullTitle)] },
+      params: null,
+    })
+    await expect(chips(page)).toHaveCount(2)
+    await expect(reviewer).toHaveCount(0)
+    await expect(selected.getByRole('heading')).toHaveText(title)
+    await selected.getByRole('button', { name: 'Whole run' }).click()
+    await expect(selected).toHaveCount(0)
   })
 })
 
@@ -388,7 +449,7 @@ test.describe('with the Codex observer answering the chat', () => {
     await admitted(daemon, 'codex')
   })
 
-  test('on the R.4 codex exec subagents recording the chat answers with links and the map version, collapses the reviewer subagent on request, the rule is revoked, and the reviewer request stays in the attention zone (E2E 5, Codex)', async ({
+  test('on the R.4 codex exec subagents recording the chat answers with links and the map version, collapses the reviewer subagent on request, the filter chip removes the rule, and the reviewer request stays waiting (E2E 5, Codex)', async ({
     page,
     player,
     hook,
@@ -615,7 +676,7 @@ test.describe('with the Claude observer answering the chat in every state', () =
     await expect(partial).toContainText('Only the main stage is known.', observed)
     await expect(partial).toContainText('some citations were unconfirmed and removed')
     await expect(partial).toContainText(
-      'View rule not applied: invalid_selector: the run has no stages h8-missing-stage',
+      'Filter not applied: invalid_selector: the run has no stages h8-missing-stage',
     )
     await expect(citations(partial).getByRole('listitem')).toHaveCount(2)
     await expect(citations(partial)).toContainText('Fact not read, retrying in a few seconds')
@@ -670,7 +731,7 @@ test.describe('with the Claude observer answering while the chat history cannot 
     await expect(chat(page)).not.toContainText('No questions about this run yet.')
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('PermissionRequest.Bash.json', fields)
-    await expect(zoneItem(page, approvalText)).toContainText('awaiting an answer')
+    await expect(waitingFor(page)).toContainText(`Approval request: ${approvalText}`)
 
     dropping = false
     await expect(before.getByText(/^By map version \d+:/)).toBeVisible()
@@ -689,13 +750,13 @@ test.describe('with the Claude observer answering while the chat history cannot 
     expect((await reread).status()).toBe(200)
     await expect(trouble).toHaveText('Chat history not loaded: no connection to the daemon. aang keeps retrying.')
     await expect(before).toBeVisible()
-    await expect(zoneItem(page, 'Bash: echo after-reset')).toContainText('awaiting an answer')
+    await expect(waitingFor(page)).toContainText('Approval request: Bash: echo after-reset')
     await hook.claude('PermissionRequest.Bash.json', {
       ...fields,
       tool_input: { command: 'echo still-live', description: 'Still live' },
     })
-    await expect(zoneItem(page, 'Bash: echo still-live')).toContainText('awaiting an answer')
-    await expect(zoneItem(page, approvalText)).toContainText('awaiting an answer')
+    await expect(waitingFor(page)).toContainText('Approval request: Bash: echo still-live')
+    await expect(waitingFor(page)).toContainText(`Approval request: ${approvalText}`)
 
     dropping = false
     await expect(trouble).toHaveCount(0)
@@ -734,7 +795,7 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
       selector: { kind: 'stage_ids', stages: [mainId] },
       params: null,
     })
-    await expect(main).toContainText(/collapsed by a view rule: .*\d+ action/)
+    await expect(main).toContainText(/collapsed by a filter: .*\d+ action/)
     await expect(pinger).toHaveCount(0)
     await expect(main.getByRole('button', { name: `Collapse "${mainStageTitle}"` })).toHaveCount(0)
     expect(folded.rule.source).toBe('ui')
@@ -744,12 +805,11 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
       selector: { kind: 'stage_title', contains: 'Main' },
       params: { level: 'stages' },
     })
-    await expect(main).toContainText('detail: stages only')
+    await expect(chips(page).filter({ hasText: 'show stages whose title contains "Main" with detail level "stages only"' })).toHaveCount(1)
     expect(mainDetail.affected).toEqual([{ kind: 'stage', id: mainId }])
     await revokeRule(daemon, claudeRun, folded)
     await expect(pinger).toBeVisible()
-    await expect(main).not.toContainText('collapsed by a view rule')
-    await expect(pinger).not.toContainText('agent: pinger')
+    await expect(main).not.toContainText('collapsed by a filter')
 
     const preparation = stage(page, preparationStageTitle)
     const report = stage(page, reportStageTitle)
@@ -778,7 +838,7 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
       params: null,
     })
     await expect(pinger).toHaveCount(0)
-    await expect(map(page)).toContainText('hidden by view rules: 1 stage')
+    await expect(chips(page).filter({ hasText: 'Filter: hide stages whose title contains "pinger"' })).toHaveCount(1)
 
     const team = await createRule(daemon, claudeRun, {
       action: 'group',

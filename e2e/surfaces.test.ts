@@ -20,7 +20,6 @@ interface Delegate {
 
 interface Variant extends SurfaceVariant {
   readonly origin: string
-  readonly agentType: string
   readonly firstEvent: string
   readonly early: string
   readonly whole: string
@@ -53,10 +52,9 @@ const origins: Readonly<Record<Surface, string>> = {
 const claudeVariant = (variant: SurfaceVariant): Variant => ({
   ...variant,
   origin: `${origins[variant.surface]} ${variant.version}`,
-  agentType: 'general-purpose',
   firstEvent: 'solo-finished',
-  early: '1 substage',
-  whole: '4 substages',
+  early: '2 stages',
+  whole: '5 stages',
   delegates: claudeDelegates,
   selected: claudeDelegates[1],
 })
@@ -64,10 +62,9 @@ const claudeVariant = (variant: SurfaceVariant): Variant => ({
 const codexVariant = (variant: SurfaceVariant): Variant => ({
   ...variant,
   origin: `${origins[variant.surface]} ${variant.version}`,
-  agentType: 'default',
   firstEvent: 'child-finished',
-  early: '2 substages',
-  whole: '2 substages',
+  early: '3 stages',
+  whole: '3 stages',
   delegates: codexDelegates,
   selected: codexDelegates[1],
 })
@@ -187,12 +184,13 @@ for (const variant of variants) {
       await page.goto(`/?run=${run}`)
       await played.play({ until: variant.firstEvent })
       const main = stage(page, mainStageTitle)
-      await expect(main).toContainText(variant.early, observed)
+      await expect(main).toBeVisible(observed)
+      await expect(map(page).getByText(variant.early, { exact: true })).toBeVisible(observed)
       expect(await sessionOrigin(page, run, session)).toEqual({ surface, version: variant.version })
       const early = await versionOf(daemon, run)
 
       await played.play()
-      await expect(main).toContainText(variant.whole, observed)
+      await expect(map(page).getByText(variant.whole, { exact: true })).toBeVisible(observed)
       const staged = await interpreted(page, run, variant.delegates)
       await expect.poll(async () => versionOf(daemon, run)).toBeGreaterThan(early)
       expect(await sessionOrigin(page, run, session)).toEqual({ surface, version: variant.version })
@@ -203,8 +201,6 @@ for (const variant of variants) {
         const card = stage(page, titleOnMap(delegated))
         await expect(card.getByRole('heading', { level: 3 })).toHaveText(titleOnMap(delegated))
         await expect(card.getByRole('heading', { level: 3 })).toHaveAttribute('title', agentStageTitle(delegated))
-        await expect(card).toContainText(`agent: ${variant.agentType}`)
-        await expect(card).toContainText('1 action')
         const heading = await box(card.getByRole('heading', { level: 3 }))
         expect(heading.bottom - heading.y).toBeGreaterThanOrEqual(14)
         const inner = await box(card)

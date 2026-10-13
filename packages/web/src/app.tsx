@@ -1,7 +1,8 @@
-import type { RunId, RunSnapshot, StatusResponse } from '@aang/contract'
+import type { AttentionItem, RunId, RunSnapshot, StatusResponse } from '@aang/contract'
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react'
 import { readRuns, readStatus } from './api.js'
 import { nowNs } from './format.js'
+import { attentionKindLabel } from './labels.js'
 import { type FocusedRun, lampsOf } from './lamps.js'
 import { listHref, useNavigate, useRoute } from './route.js'
 import { RunList, runTitle, untitledRun } from './run-list.js'
@@ -30,7 +31,15 @@ const useTitle = (title: string): void => {
   }, [title])
 }
 
-const Masthead = ({ title }: { readonly title: string | null }): ReactElement => {
+const noWaiting: readonly AttentionItem[] = []
+
+const Masthead = ({
+  title,
+  waiting,
+}: {
+  readonly title: string | null
+  readonly waiting: readonly AttentionItem[]
+}): ReactElement => {
   const navigate = useNavigate()
   return (
     <header className="masthead">
@@ -45,6 +54,16 @@ const Masthead = ({ title }: { readonly title: string | null }): ReactElement =>
           <h1 className="masthead-title" title={title}>
             {title}
           </h1>
+          {waiting.length === 0 ? null : (
+            <p className="masthead-waiting" aria-label="Waiting for you" tabIndex={0}>
+              <span>{waiting.length}</span>
+              <span role="tooltip" className="masthead-tooltip">
+                {waiting.map(({ id, kind, text }) => (
+                  <span key={id}>{`${attentionKindLabel[kind]}: ${text}`}</span>
+                ))}
+              </span>
+            </p>
+          )}
         </nav>
       )}
     </header>
@@ -70,7 +89,7 @@ const ListScreen = ({ status, now, onSignedOut }: ScreenProps): ReactElement => 
   })
   return (
     <>
-      <Masthead title={null} />
+      <Masthead title={null} waiting={noWaiting} />
       <StatusStrip lamps={lamps} />
       <main className="page">
         <RunList
@@ -97,6 +116,12 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
   const runs = usePolled(readRuns, onSignedOut)
   const agents = useMemo(() => agentIds(feed.snapshot?.objects.agents ?? []), [feed.snapshot])
   const title = snapshotTitle(feed.snapshot)
+  const waiting = useMemo(
+    () =>
+      feed.snapshot?.attention.items.filter(({ stage, resolution }) => stage === null && resolution === 'open') ??
+      noWaiting,
+    [feed.snapshot],
+  )
   useTitle(`${title ?? 'Run'} — aang`)
   const lamps = lampsOf({
     status: status.value,
@@ -108,7 +133,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
   })
   return (
     <>
-      <Masthead title={title ?? 'Run'} />
+      <Masthead title={title ?? 'Run'} waiting={waiting} />
       <StatusStrip lamps={lamps} />
       <div className="run-screen">
         <KnownAgents value={agents}>

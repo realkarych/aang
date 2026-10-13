@@ -1,6 +1,5 @@
 import type { RunSnapshot } from '@aang/contract'
 import type { ReactElement } from 'react'
-import { AttentionZone } from './attention-zone.js'
 import { ChatDock } from './chat-dock.js'
 import { ChatPanel } from './chat-panel.js'
 import { MapSection, useStageChoice } from './map-section.js'
@@ -37,8 +36,7 @@ const RunContent = ({ snapshot, feed, now, onSignedOut }: RunContentProps): Reac
   return (
     <div className="run-screen-body">
       <main className="run-main">
-        <AttentionZone snapshot={snapshot} now={now} handlers={{ onView: feed.noteView, onSignedOut }} />
-        <MapSection snapshot={snapshot} choice={choice} />
+        <MapSection snapshot={snapshot} choice={choice} onSignedOut={onSignedOut} />
       </main>
       <ChatDock reveal={choice.selection?.stage.id ?? null}>
         <ChatPanel

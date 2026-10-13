@@ -327,7 +327,7 @@ const RuleNote = ({
 }): ReactElement | null => {
   const agents = useKnownAgents()
   if (message.view_rule_error !== null) {
-    return <p className="chat-rule" data-applied="false">{`View rule not applied: ${message.view_rule_error}`}</p>
+    return <p className="chat-rule" data-applied="false">{`Filter not applied: ${message.view_rule_error}`}</p>
   }
   if (message.view_rule === null) {
     return null
@@ -336,14 +336,14 @@ const RuleNote = ({
   if (applied === undefined) {
     return (
       <p className="chat-rule" data-applied="false">
-        The view rule from this answer was undone.
+        The filter from this answer was removed.
       </p>
     )
   }
   const text = ruleText(applied.rule, snapshot.model.stages)
   return (
     <p className="chat-rule" data-applied="true" title={fullHint(text, agents)}>
-      {`View rule applied: ${shortIds(text, agents)}. You can undo it in the rule list.`}
+      {`Filter applied: ${shortIds(text, agents)}. Remove it with its chip over the map.`}
     </p>
   )
 }
@@ -556,7 +556,8 @@ export const ChatPanel = ({
       )}
       <p className="chat-note">
         The observer answers from a map snapshot and cites stages, facts and actions. Chat does not change the map and sends
-        nothing to the solver; a view rule from an answer applies immediately, and you can undo it in the rule list.
+        nothing to the solver; a filter from an answer applies to the map immediately, and its chip over the map removes
+        it.
       </p>
       <HistoryNote history={history} empty={messages.length === 0} />
       {messages.length === 0 ? null : (

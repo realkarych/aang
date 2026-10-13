@@ -1,7 +1,7 @@
-import type { AttentionView, ChatMessage, RunId, RunSnapshot } from '@aang/contract'
+import type { ChatMessage, RunId, RunSnapshot } from '@aang/contract'
 import { type RefObject, useCallback, useEffect, useReducer, useRef } from 'react'
 import { failureText, NotFound, readChat, readRun, SignedOut } from './api.js'
-import { applyAttentionView, applyEvent } from './feed.js'
+import { applyEvent } from './feed.js'
 import { pause } from './pause.js'
 import { type FeedEvent, followRun } from './stream.js'
 
@@ -18,7 +18,6 @@ export interface RunFeed {
   readonly history: ChatHistory
   readonly connection: FeedConnection
   readonly record: (message: ChatMessage) => void
-  readonly noteView: (view: AttentionView) => void
 }
 
 interface FeedState {
@@ -37,7 +36,6 @@ type FeedAction =
   | { readonly kind: 'message'; readonly message: ChatMessage }
   | { readonly kind: 'history'; readonly messages: readonly ChatMessage[] }
   | { readonly kind: 'history-failed'; readonly reason: string }
-  | { readonly kind: 'view'; readonly view: AttentionView }
   | { readonly kind: 'connection'; readonly connection: FeedConnection }
   | { readonly kind: 'missing' }
 
@@ -95,8 +93,6 @@ const reduce = (state: FeedState, action: FeedAction): FeedState => {
       }
     case 'history-failed':
       return { ...state, history: { state: 'failed', reason: action.reason } }
-    case 'view':
-      return state.snapshot === null ? state : { ...state, snapshot: applyAttentionView(state.snapshot, action.view) }
     case 'connection':
       return state.connection === action.connection ? state : { ...state, connection: action.connection }
     case 'missing':
@@ -206,10 +202,6 @@ export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeed => {
   const record = useCallback((message: ChatMessage) => {
     dispatch({ kind: 'message', message })
   }, [])
-  const noteView = useCallback((view: AttentionView) => {
-    dispatch({ kind: 'view', view })
-    resync.current?.abort()
-  }, [])
   const { snapshot, chat, history, connection } = state
-  return { snapshot, chat, history, connection, record, noteView }
+  return { snapshot, chat, history, connection, record }
 }

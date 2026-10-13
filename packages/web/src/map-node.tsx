@@ -1,29 +1,20 @@
-import type { Agent, DetailLevel, StageId, ViewTotals } from '@aang/contract'
+import type { StageId, ViewTotals } from '@aang/contract'
 import { type Edge, type EdgeProps, Handle, type Node, type NodeProps, Position } from '@xyflow/react'
 import type { ElkPoint } from 'elkjs/lib/elk.bundled.js'
 import type { ReactElement } from 'react'
-import { BasisBadge, DecisionBadge, ExecutionBadge, executionTone } from './badges.js'
+import { BasisBadge, ExecutionBadge, executionTone } from './badges.js'
 import { plural } from './format.js'
 import { DisclosureGlyph } from './glyphs.js'
-import {
-  actionForms,
-  agentRoleLabel,
-  serviceAgentLabel,
-  stageForms,
-  stageOriginLabel,
-  substageForms,
-} from './labels.js'
+import { stageForms } from './labels.js'
 import type { EdgeKind, MapStage } from './map-graph.js'
 import { shortIds, useKnownAgents } from './short-ids.js'
-import { detailLevelLabel, totalsText } from './view-labels.js'
+import { totalsText } from './view-labels.js'
 
 export type Selection = 'self' | 'inside' | 'none'
 
 export interface StageView {
   readonly folded: ViewTotals | null
   readonly group: string | null
-  readonly detail: DetailLevel | null
-  readonly level: DetailLevel
 }
 
 type StageNodeData = {
@@ -53,14 +44,8 @@ type RouteEdgeData = {
 
 export type RouteFlowEdge = Edge<RouteEdgeData, 'route'>
 
-const agentLabel = (agent: Agent): string =>
-  agent.agent_type ??
-  agent.name ??
-  (agent.service === null ? agentRoleLabel[agent.role] : serviceAgentLabel[agent.service])
-
 const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: StageNodeData): ReactElement => {
-  const { stage, children, actions, agents } = node
-  const team = agents.map(agentLabel).join(', ')
+  const { stage, children } = node
   const selected = selection === 'self'
   const title = shortIds(stage.title, useKnownAgents())
   return (
@@ -105,30 +90,19 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
           <span className="visually-hidden">Basis: </span>
           <BasisBadge basis={stage.execution.basis} />
         </li>
-        <li>
-          <span className="visually-hidden">Human decision: </span>
-          <DecisionBadge decision={stage.decision.value} />
-        </li>
       </ul>
-      <p className="stage-meta">
-        {view.detail === null ? null : <span>{`detail: ${detailLevelLabel[view.detail]}`}</span>}
-        {view.folded === null ? (
-          <>
-            <span>{stageOriginLabel[stage.origin]}</span>
-            {children.length === 0 ? null : <span>{plural(children.length, substageForms)}</span>}
-            {actions === 0 || view.level !== 'all_actions' ? null : <span>{plural(actions, actionForms)}</span>}
-            {agents.length === 0 || view.level === 'stages' ? null : (
-              <span className="stage-team" title={team}>
-                {`${agents.length === 1 ? 'agent' : 'agents'}: ${team}`}
-              </span>
-            )}
-          </>
-        ) : (
+      {node.waiting === 0 ? null : (
+        <p className="stage-waiting" aria-label="Waiting for you" title={`Waiting for you: ${String(node.waiting)}`}>
+          {node.waiting}
+        </p>
+      )}
+      {view.folded === null ? null : (
+        <p className="stage-meta">
           <span className="stage-folded" title={totalsText(view.folded)}>
-            {`collapsed by a view rule: ${totalsText(view.folded)}`}
+            {`collapsed by a filter: ${totalsText(view.folded)}`}
           </span>
-        )}
-      </p>
+        </p>
+      )}
     </article>
   )
 }

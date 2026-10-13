@@ -12,7 +12,7 @@ import {
 import { plural, whole } from './format.js'
 import { actionForms, agentForms, outcomeLabel } from './labels.js'
 
-export const detailLevelLabel: Readonly<Record<DetailLevel, string>> = {
+const detailLevelLabel: Readonly<Record<DetailLevel, string>> = {
   stages: 'stages only',
   stages_and_agents: 'stages and agents',
   all_actions: 'all actions',

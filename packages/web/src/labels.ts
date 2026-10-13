@@ -1,17 +1,12 @@
 import type {
   ActionOutcome,
-  AgentRole,
-  AttentionAuthor,
   AttentionKind,
-  AttentionPriority,
-  AttentionResolution,
   BasisKind,
   Execution,
   FactKind,
   Freshness,
   GapKind,
   HookInstallation,
-  HumanDecision,
   Interpreter,
   NotObservableSurface,
   ObserverState,
@@ -19,7 +14,6 @@ import type {
   ServiceAgent,
   Speaker,
   StageLifecycle,
-  StageOrigin,
   Surface,
   SupportMode,
   SupportStatus,
@@ -178,42 +172,6 @@ export const attentionKindLabel: Readonly<Record<AttentionKind, string>> = {
   failed_check: 'Failed check',
 }
 
-export const attentionAuthorLabel: Readonly<Record<AttentionAuthor, string>> = {
-  rule: 'by aang rule',
-  observer: 'from the observer',
-}
-
-export const attentionPriorityLabel: Readonly<Record<AttentionPriority, string>> = {
-  high: 'high priority',
-  medium: 'medium priority',
-  low: 'low priority',
-}
-
-const closedLabel: Readonly<Record<Exclude<AttentionResolution, 'open' | 'answered'>, string>> = {
-  resolved: 'resolved',
-  ended_without_answer: 'wait ended without an answer',
-}
-
-const answeredLabel: Readonly<Record<AttentionKind, string>> = {
-  question: 'answered',
-  permission: 'decision made',
-  review_request: 'answered',
-  blocker: 'resolved',
-  failed_check: 'check passed',
-}
-
-export const attentionOutcomeLabel = (kind: AttentionKind, resolution: Exclude<AttentionResolution, 'open'>): string =>
-  resolution === 'answered' ? answeredLabel[kind] : closedLabel[resolution]
-
-export const decisionLabel: Readonly<Record<HumanDecision, string>> = {
-  none: 'no decision',
-  requested: 'awaiting decision',
-  approved: 'approved',
-  rejected: 'rejected',
-  answered: 'answered',
-  unknown: 'decision not visible',
-}
-
 export const outcomeLabel: Readonly<Record<ActionOutcome, string>> = {
   ok: 'succeeded',
   error: 'error',
@@ -222,22 +180,10 @@ export const outcomeLabel: Readonly<Record<ActionOutcome, string>> = {
   unknown: 'outcome unknown',
 }
 
-export const agentRoleLabel: Readonly<Record<AgentRole, string>> = {
-  main: 'main',
-  subagent: 'subagent',
-  teammate: 'teammate',
-  service: 'service',
-}
-
 export const serviceAgentLabel: Readonly<Record<ServiceAgent, string>> = {
   guardian: 'guardian',
   compaction: 'context compaction',
   desktop_summary: 'Desktop summaries',
-}
-
-export const stageOriginLabel: Readonly<Record<StageOrigin, string>> = {
-  plan: 'from the plan',
-  inferred: 'inferred by aang',
 }
 
 export const stageRevisionLabel: Readonly<Record<Exclude<StageLifecycle['state'], 'active'>, string>> = {
@@ -257,9 +203,7 @@ export const fileForms = { one: 'file', other: 'files' } as const
 export const recordForms = { one: 'record', other: 'records' } as const
 export const versionForms = { one: 'version', other: 'versions' } as const
 export const stageForms = { one: 'stage', other: 'stages' } as const
-export const substageForms = { one: 'substage', other: 'substages' } as const
 export const actionForms = { one: 'action', other: 'actions' } as const
-export const itemForms = { one: 'item', other: 'items' } as const
 
 export const sessionsIn = (count: number): string => plural(count, sessionInForms)
 

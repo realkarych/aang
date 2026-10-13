@@ -4,7 +4,7 @@ import { type FakeCall, type LoadedManifest, loadManifest, observerScenarios } f
 import type { Page, Route } from '@playwright/test'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { after, codexRecording, filesOnly, startingAt, threadsOf, through } from './recordings.js'
-import { lamp, lampDetails, runRowOf, versionOf, zone, zoneItem } from './screens.js'
+import { lamp, lampDetails, runRowOf, versionOf, waitingChip, waitingFor } from './screens.js'
 
 const secondMs = 1_000
 
@@ -13,8 +13,6 @@ const hourMs = 60 * 60 * secondMs
 const observed = { timeout: 30_000 }
 
 const recovery = { timeout: 90_000 }
-
-const calmZone = 'No open items.'
 
 const earlyFacts = 'The map counts early facts only through a summary, with less detail.'
 
@@ -133,9 +131,8 @@ test.describe('with the Codex observer drawing the map', () => {
     await page.goto(`/?run=${codexRun(asking)}`)
     await (await player(approval, played)).play({ until: 'approval-granted' })
 
-    const request = zoneItem(page, 'Bash: touch approved.txt')
-    await expect(request).toContainText('Approval request')
-    await expect(request).toContainText('awaiting an answer')
+    await expect(waitingChip(page)).toContainText('1')
+    await expect(waitingFor(page)).toHaveText('Approval request: Bash: touch approved.txt')
     await expect
       .poll(async () => (await snapshotOf(page, codexRun(asking)))?.summary.attention.waiting_for_human ?? null)
       .toBe(1)
@@ -148,7 +145,7 @@ test.describe('with the Codex observer drawing the map', () => {
       recordTime: { startsAt: Date.now() + secondMs },
     })
     await granted.play()
-    await expect(zone(page)).toContainText(calmZone)
+    await expect(waitingChip(page)).toHaveCount(0)
     await expect
       .poll(async () => (await snapshotOf(page, codexRun(asking)))?.summary.attention.waiting_for_human ?? null)
       .toBe(0)

@@ -206,8 +206,8 @@ test.describe('with the observer building the map', () => {
     const preparation = stage(page, preparationStageTitle)
     await expect(preparation).toContainText('Execution: done')
     await expect(preparation).toContainText('Basis: aang interpretation')
-    await expect(preparation).toContainText('Human decision: no decision')
-    await expect(preparation.getByRole('listitem')).toHaveCount(3)
+    await expect(preparation.getByRole('listitem')).toHaveCount(2)
+    await expect(preparation).not.toContainText('Human decision')
     for (const axis of await preparation.getByRole('listitem').all()) {
       await expect(axis.locator('svg')).toHaveCount(1)
     }
@@ -220,9 +220,7 @@ test.describe('with the observer building the map', () => {
     await expect(pinger).toBeVisible()
     await expect(report).toContainText('Execution: done')
     await expect(report).toContainText('Basis: solver claim')
-    await expect(report).toContainText('Human decision: awaiting decision')
-    await expect(pinger).toContainText('agent: pinger')
-    await expect(main).toContainText('3 substages')
+    await expect(report).not.toContainText('Human decision')
     await expect(map(page).getByText('3 stages', { exact: true })).toHaveCount(0)
     await expect(map(page).getByText('4 stages', { exact: true })).toBeVisible()
 
@@ -269,7 +267,6 @@ test.describe('with the observer building the map', () => {
       await expect(hidden).toHaveCount(0)
     }
     await expect(edges(page)).toHaveCount(0)
-    await expect(main).toContainText('3 substages')
 
     await expand.click()
     await expect(report).toBeVisible()

@@ -28,7 +28,7 @@ const stageNode = (id: string, parent: string | null, children: MapStage[]): Map
     created_version: 1,
     updated_version: 1,
   })
-  return { stage, parent: stage.parent, children, depth: 0, agents: [], actions: 0, span: null }
+  return { stage, parent: stage.parent, children, depth: 0, agents: [], actions: 0, span: null, waiting: 0 }
 }
 
 const sign = stageNode('sign', 'bundle', [])

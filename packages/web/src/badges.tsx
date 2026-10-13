@@ -4,13 +4,11 @@ import type {
   Basis,
   Execution,
   Freshness,
-  HumanDecision,
   RunSummary,
 } from '@aang/contract'
 import type { ReactElement } from 'react'
 import {
   BasisGlyph,
-  DecisionGlyph,
   ExecutionGlyph,
   FreshnessGlyph,
   LevelGlyph,
@@ -18,7 +16,6 @@ import {
 } from './glyphs.js'
 import {
   basisLabel,
-  decisionLabel,
   executionLabel,
   freshnessLabel,
   interpreterLabel,
@@ -109,29 +106,6 @@ export const ActionBadge = ({ action }: { readonly action: Pick<Action, 'executi
     </span>
   )
 }
-
-const decisionTone: Readonly<Record<HumanDecision, Tone>> = {
-  none: 'idle',
-  requested: 'ask',
-  approved: 'done',
-  rejected: 'fail',
-  answered: 'done',
-  unknown: 'idle',
-}
-
-export const DecisionBadge = ({
-  decision,
-  basis,
-}: {
-  readonly decision: HumanDecision
-  readonly basis?: Basis
-}): ReactElement => (
-  <span className="badge" data-tone={decisionTone[decision]}>
-    <DecisionGlyph decision={decision} />
-    {decisionLabel[decision]}
-    {basis === undefined ? null : <BasisNote basis={basis} />}
-  </span>
-)
 
 export const BasisBadge = ({ basis }: { readonly basis: Basis }): ReactElement => (
   <span

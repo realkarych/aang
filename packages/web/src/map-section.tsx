@@ -1,5 +1,6 @@
 import type { RunSnapshot, StageId } from '@aang/contract'
 import { lazy, type ReactElement, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { FilterChips } from './filter-chips.js'
 import { plural } from './format.js'
 import { HandoverGlyph } from './glyphs.js'
 import { stageForms } from './labels.js'
@@ -77,14 +78,13 @@ const HandoverNote = ({
 export const MapSection = ({
   snapshot,
   choice,
+  onSignedOut,
 }: {
   readonly snapshot: RunSnapshot
   readonly choice: StageChoice
+  readonly onSignedOut: () => void
 }): ReactElement => {
   const stages = snapshot.model.stages.filter(({ lifecycle }) => lifecycle.state === 'active').length
-  const hidden = snapshot.view.placements.filter(
-    ({ element, visibility }) => element.kind === 'stage' && visibility?.state === 'hidden',
-  ).length
   const { selection, choose, dismissHandover } = choice
   return (
     <section className="map" aria-labelledby={mapHeading}>
@@ -93,7 +93,7 @@ export const MapSection = ({
           Stage map
         </h2>
         {stages === 0 ? null : <p className="map-count">{plural(stages, stageForms)}</p>}
-        {hidden === 0 ? null : <p className="map-count">{`hidden by view rules: ${plural(hidden, stageForms)}`}</p>}
+        <FilterChips snapshot={snapshot} onSignedOut={onSignedOut} />
       </header>
       <HandoverNote
         handover={selection?.handover ?? null}

@@ -112,11 +112,6 @@ const applyAttention = (snapshot: RunSnapshot, delta: AttentionDelta): RunSnapsh
   },
 })
 
-export const applyAttentionView = (snapshot: RunSnapshot, view: AttentionView): RunSnapshot => ({
-  ...snapshot,
-  attention: { ...snapshot.attention, views: withViews(snapshot.attention.views, [view]) },
-})
-
 export const applyEvent = (snapshot: RunSnapshot, event: FeedEvent): RunSnapshot => {
   switch (event.event) {
     case 'run':

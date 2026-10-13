@@ -12,12 +12,15 @@ export const lamp = (page: Page, label: string): Locator =>
 export const runRowOf = (page: Page, run: RunId): Locator =>
   page.getByRole('row').filter({ has: page.locator(`a[href="?run=${run}"]`) })
 
-export const zone = (page: Page): Locator => page.getByRole('region', { name: 'Attention', exact: true })
+export const waitingChip = (page: Page): Locator => page.getByRole('banner').getByLabel('Waiting for you', { exact: true })
 
-export const openItems = (page: Page): Locator =>
-  zone(page).getByRole('list', { name: 'Open items', exact: true }).getByRole('listitem')
+export const waitingFor = (page: Page): Locator => page.getByRole('banner').getByRole('tooltip', { includeHidden: true })
 
-export const zoneItem = (page: Page, kind: string): Locator => openItems(page).filter({ hasText: kind })
+export const chips = (page: Page): Locator =>
+  page
+    .getByRole('region', { name: 'Stage map' })
+    .getByRole('list', { name: 'Active filters', exact: true })
+    .getByRole('listitem')
 
 export const textShown = async (scope: Locator, text: string): Promise<boolean> => {
   await scope.scrollIntoViewIfNeeded()
@@ -55,11 +58,6 @@ export const textShown = async (scope: Locator, text: string): Promise<boolean> 
     return false
   }, text)
 }
-
-export const historyToggle = (page: Page): Locator => zone(page).getByRole('button', { name: /^History: / })
-
-export const history = (page: Page): Locator =>
-  zone(page).getByRole('list', { name: 'Attention zone history', exact: true }).getByRole('listitem')
 
 export const lampDetails = async (page: Page, label: string): Promise<Locator> => {
   const button = lamp(page, label).getByRole('button')

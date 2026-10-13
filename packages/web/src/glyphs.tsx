@@ -1,10 +1,8 @@
 import type {
   ActionOutcome,
-  AttentionKind,
   BasisKind,
   Execution,
   Freshness,
-  HumanDecision,
 } from '@aang/contract'
 import type { ReactElement } from 'react'
 import type { Level } from './lamps.js'
@@ -109,101 +107,12 @@ export const FreshnessGlyph = ({ freshness }: { readonly freshness: Freshness })
   }
 }
 
-const Lock = (): ReactElement => (
-  <>
-    <path d="M3.8 5.2V3.9a2.2 2.2 0 0 1 4.4 0v1.3" fill="none" stroke="currentColor" strokeWidth="1.4" />
-    <rect x="2.2" y="5.2" width="7.6" height="5.6" rx="1" fill="currentColor" />
-  </>
-)
-
 const Eye = (): ReactElement => (
   <>
     <path d="M1 6c1.4-2.4 3.1-3.6 5-3.6S9.6 3.6 11 6c-1.4 2.4-3.1 3.6-5 3.6S2.4 8.4 1 6Z" fill="none" stroke="currentColor" strokeWidth="1.3" />
     <circle cx="6" cy="6" r="1.5" fill="currentColor" />
   </>
 )
-
-export const AttentionGlyph = ({ kind }: { readonly kind: AttentionKind }): ReactElement => {
-  switch (kind) {
-    case 'permission':
-      return <Glyph><Lock /></Glyph>
-    case 'question':
-      return <Glyph><Unknown /></Glyph>
-    case 'review_request':
-      return <Glyph><Eye /></Glyph>
-    case 'blocker':
-      return <Glyph><Octagon /></Glyph>
-    case 'failed_check':
-      return <Glyph><Cross /></Glyph>
-  }
-}
-
-const Clock = (): ReactElement => (
-  <>
-    <Ring />
-    <path d="M6 3.8V6l1.6 1.1" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-  </>
-)
-
-const FanOut = (): ReactElement => (
-  <>
-    <path d="M2.4 6 9.4 2.8M2.4 6l7 3.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
-    <circle cx="2.4" cy="6" r="1.7" fill="currentColor" />
-    <circle cx="9.6" cy="2.8" r="1.5" fill="currentColor" />
-    <circle cx="9.6" cy="9.2" r="1.5" fill="currentColor" />
-  </>
-)
-
-const Seen = (): ReactElement => (
-  <>
-    <Ring />
-    <path d="M4.3 6.1 5.5 7.3l2.3-2.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-  </>
-)
-
-const EyeOff = (): ReactElement => (
-  <>
-    <Eye />
-    <path d="M1.8 10.6 10.2 1.4" stroke="var(--glyph-cut)" strokeWidth="2.6" />
-    <path d="M1.8 10.6 10.2 1.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-  </>
-)
-
-const Stop = (): ReactElement => <rect x="2.6" y="2.6" width="6.8" height="6.8" rx="1" fill="currentColor" />
-
-const Spark = (): ReactElement => (
-  <path d="M6 1.2 7.3 4.7 10.8 6 7.3 7.3 6 10.8 4.7 7.3 1.2 6 4.7 4.7Z" fill="currentColor" />
-)
-
-const Minus = (): ReactElement => (
-  <>
-    <Ring />
-    <path d="M4 6h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-  </>
-)
-
-export type ZoneMark = 'age' | 'blocks' | 'viewed' | 'hidden' | 'ended' | 'recommended' | 'likely' | 'dismissed'
-
-export const ZoneGlyph = ({ mark }: { readonly mark: ZoneMark }): ReactElement => {
-  switch (mark) {
-    case 'age':
-      return <Glyph><Clock /></Glyph>
-    case 'blocks':
-      return <Glyph><FanOut /></Glyph>
-    case 'viewed':
-      return <Glyph><Seen /></Glyph>
-    case 'hidden':
-      return <Glyph><EyeOff /></Glyph>
-    case 'ended':
-      return <Glyph><Stop /></Glyph>
-    case 'recommended':
-      return <Glyph><Spark /></Glyph>
-    case 'likely':
-      return <Glyph><Check /></Glyph>
-    case 'dismissed':
-      return <Glyph><Minus /></Glyph>
-  }
-}
 
 export const OutcomeGlyph =({ outcome }: { readonly outcome: ActionOutcome }): ReactElement => {
   switch (outcome) {
@@ -215,22 +124,6 @@ export const OutcomeGlyph =({ outcome }: { readonly outcome: ActionOutcome }): R
       return <Glyph><Octagon /></Glyph>
     case 'interrupted':
       return <Glyph><Slash /></Glyph>
-    case 'unknown':
-      return <Glyph><Unknown /></Glyph>
-  }
-}
-
-export const DecisionGlyph = ({ decision }: { readonly decision: HumanDecision }): ReactElement => {
-  switch (decision) {
-    case 'requested':
-      return <Glyph><Pause /></Glyph>
-    case 'approved':
-    case 'answered':
-      return <Glyph><Check /></Glyph>
-    case 'rejected':
-      return <Glyph><Cross /></Glyph>
-    case 'none':
-      return <Glyph><Ring /></Glyph>
     case 'unknown':
       return <Glyph><Unknown /></Glyph>
   }

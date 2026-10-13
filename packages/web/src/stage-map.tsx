@@ -1,5 +1,5 @@
 import '@xyflow/react/dist/base.css'
-import type { DetailLevel, RunSnapshot, StageId } from '@aang/contract'
+import type { RunSnapshot, StageId } from '@aang/contract'
 import {
   Background,
   BackgroundVariant,
@@ -165,27 +165,23 @@ const KeepPlace = ({ layout, following, selection, onPlaced }: KeepPlaceProps): 
 
 const openByDefault = ({ depth }: MapStage): boolean => depth === 0
 
-const plainView: StageView = { folded: null, group: null, detail: null, level: 'all_actions' }
+const plainView: StageView = { folded: null, group: null }
 
 const stageViews = (graph: StageGraph, placement: PlacementOf): ReadonlyMap<StageId, StageView> => {
   const views = new Map<StageId, StageView>()
-  const visit = (node: MapStage, level: DetailLevel): void => {
+  const visit = (node: MapStage): void => {
     const placed = placement({ kind: 'stage', id: node.stage.id })
     const visibility = placed?.visibility ?? null
-    const detail = placed?.detail?.level ?? null
-    const own = detail ?? level
     views.set(node.stage.id, {
       folded: visibility?.state === 'collapsed' ? visibility.totals : null,
       group: placed?.group?.name ?? null,
-      detail,
-      level: own,
     })
     for (const child of node.children) {
-      visit(child, own)
+      visit(child)
     }
   }
   for (const root of graph.roots) {
-    visit(root, plainView.level)
+    visit(root)
   }
   return views
 }

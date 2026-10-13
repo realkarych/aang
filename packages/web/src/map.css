@@ -223,10 +223,78 @@
   white-space: nowrap;
 }
 
-.stage-team {
+.stage-waiting {
+  align-self: flex-start;
+  margin: 6px 0 0;
+  padding: 0 8px;
+  border: 1px solid var(--tone-ask);
+  border-radius: 999px;
+  color: var(--tone-ask);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stage-waiting::before {
+  content: 'waiting for you: ';
+  font-weight: 400;
+}
+
+.filters {
+  display: contents;
+}
+
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   max-width: 100%;
+  padding: 1px 2px 1px 9px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: var(--sheet);
+  font-size: 12px;
+}
+
+.filter-chip > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-chip > button {
+  flex: none;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.filter-chip > button:hover:not(:disabled) {
+  color: var(--tone-fail);
+}
+
+.filter-chip > button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.filters-error {
+  margin: 0;
+  color: var(--tone-fail);
+  font-size: 12.5px;
 }
 
 .map-handover {

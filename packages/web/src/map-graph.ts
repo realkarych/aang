@@ -1,4 +1,4 @@
-import type { Action, Agent, Basis, BasisKind, RunSnapshot, Stage, StageId } from '@aang/contract'
+import type { Action, Agent, AttentionItem, Basis, BasisKind, RunSnapshot, Stage, StageId } from '@aang/contract'
 import { predecessorsOf } from './stage-lineage.js'
 import { isHidden, placementsOf } from './view-placement.js'
 
@@ -15,6 +15,7 @@ export interface MapStage {
   readonly agents: readonly Agent[]
   readonly actions: number
   readonly span: Span | null
+  readonly waiting: number
 }
 
 interface Dependency {
@@ -105,7 +106,18 @@ const listed = <K, V>(map: Map<K, V[]>, key: K, value: V): void => {
   map.set(key, [...(map.get(key) ?? []), value])
 }
 
+const waitingByStage = (items: readonly AttentionItem[]): ReadonlyMap<StageId, number> => {
+  const counts = new Map<StageId, number>()
+  for (const { stage, resolution } of items) {
+    if (stage !== null && resolution === 'open') {
+      counts.set(stage, (counts.get(stage) ?? 0) + 1)
+    }
+  }
+  return counts
+}
+
 export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
+  const waiting = waitingByStage(snapshot.attention.items)
   const all = new Map(snapshot.model.stages.map((stage) => [stage.id, stage]))
   const predecessors = predecessorsOf(snapshot.model.stages)
   const placeOf = inheritedPlaces(all, predecessors)
@@ -180,6 +192,7 @@ export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
         ...team.filter(({ role }) => role !== 'main').flatMap(spanOf),
         ...children.flatMap(({ span }) => (span === null ? [] : [span])),
       ]),
+      waiting: waiting.get(stage.id) ?? 0,
     }
     stages.set(stage.id, node)
     return node
