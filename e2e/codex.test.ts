@@ -4,7 +4,7 @@ import { type FakeCall, type LoadedManifest, loadManifest, observerScenarios } f
 import type { Page, Route } from '@playwright/test'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { after, codexRecording, filesOnly, startingAt, threadsOf, through } from './recordings.js'
-import { healthDot, healthProblems, runRowOf, versionOf, waitingChip, waitingFor } from './screens.js'
+import { healthDot, healthLacks, healthProblems, runRowOf, versionOf, waitingChip, waitingFor } from './screens.js'
 
 const secondMs = 1_000
 
@@ -73,13 +73,12 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
 
   await expect.poll(async () => (await snapshotOf(page, codexRun(session)))?.objects.actions.length ?? 0, observed).toBeGreaterThan(0)
   await expect(healthDot(page)).toBeVisible(observed)
-  const problems = await healthProblems(page)
-  await expect(problems).toContainText('Observer: unavailable: subscription limit reached', observed)
-  await expect(problems).toContainText(/Next observer probe at \d{2}:\d{2}:\d{2}\s[AP]M\./)
-  await expect(problems).toContainText('Facts and attention items keep arriving')
-  await expect(problems).toContainText(/Catching up: the observer sees \d+ early facts? only as a summary/)
-  await expect(problems).toContainText('Model: not built')
-  await expect(problems).toContainText(earlyFacts)
+  await expect(await healthProblems(page)).toContainText('Observer: unavailable: subscription limit reached', observed)
+  await expect(await healthProblems(page)).toContainText(/Next observer probe at \d{2}:\d{2}:\d{2}\s[AP]M\./)
+  await expect(await healthProblems(page)).toContainText('Facts and attention items keep arriving')
+  await expect(await healthProblems(page)).toContainText(/Catching up: the observer sees \d+ early facts? only as a summary/)
+  await expect(await healthProblems(page)).toContainText('Model: not built')
+  await expect(await healthProblems(page)).toContainText(earlyFacts)
   const sent = observerInputs(fakeCodex.calls()).length
   fakeCodex.setScenario(recovered)
 
@@ -91,17 +90,17 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
     .poll(async () => (await sessionOf(page, codexRun(session), session))?.launches.map(({ launch }) => launch) ?? [], observed)
     .toContain('resume')
   expect((await sessionOf(page, codexRun(session), session))?.support_mode).toBe('full')
-  await expect(problems).toContainText('Observer: unavailable: subscription limit reached')
-  await expect(problems).toContainText(/Waiting for the observer: \d+ fact/)
-  const waited = async (): Promise<number> => Number(/oldest (\d+) s ago/.exec(await problems.innerText())?.[1] ?? NaN)
+  await expect(await healthProblems(page)).toContainText('Observer: unavailable: subscription limit reached')
+  await expect(await healthProblems(page)).toContainText(/Waiting for the observer: \d+ fact/)
+  const waited = async (): Promise<number> => Number(/oldest (\d+) s ago/.exec(await (await healthProblems(page)).innerText())?.[1] ?? NaN)
   const before = await waited()
   expect(before).toBeGreaterThanOrEqual(0)
   await expect.poll(waited, observed).toBeGreaterThan(before)
   expect(observerInputs(fakeCodex.calls())).toHaveLength(sent)
 
-  await expect(problems).not.toContainText('Observer:', recovery)
-  await expect(problems).not.toContainText('Model:')
-  await expect(problems).not.toContainText('Waiting for the observer')
+  await healthLacks(page, 'Observer:', recovery)
+  await healthLacks(page, 'Model:')
+  await healthLacks(page, 'Waiting for the observer')
   expect(await versionOf(daemon, codexRun(session))).toBeGreaterThan(1)
 
   const [catchUp] = observerInputs(fakeCodex.calls())
@@ -182,10 +181,9 @@ test.describe('with the Codex observer drawing the map', () => {
     const runsRoute = `**${endpoints.runs.path}`
     const dropRuns = (route: Route): Promise<void> => route.abort('connectionfailed')
     await page.route(runsRoute, dropRuns)
-    const problems = await healthProblems(page)
-    await expect(problems).toContainText('Link: branches not updating')
-    await expect(problems).toContainText('branches and names of linked runs may be stale')
+    await expect(await healthProblems(page)).toContainText('Link: branches not updating')
+    await expect(await healthProblems(page)).toContainText('branches and names of linked runs may be stale')
     await page.unroute(runsRoute, dropRuns)
-    await expect(problems).not.toContainText('Link:')
+    await healthLacks(page, 'Link:')
   })
 })

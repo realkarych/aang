@@ -269,6 +269,12 @@ h2 {
   font-weight: 600;
 }
 
+.health-panel li .glyph {
+  position: relative;
+  top: 1px;
+  color: var(--ink-faint);
+}
+
 .health-panel li[data-level='caution'] .glyph {
   color: var(--tone-ask);
 }

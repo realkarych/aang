@@ -111,6 +111,21 @@ const spoolGapKinds: ReadonlySet<GapKind> = new Set(['spool_over_threshold', 'sp
 const observerLevel = ({ state }: ObserverState): Level =>
   state === 'ok' ? 'normal' : state === 'unavailable' ? 'warning' : 'caution'
 
+const admissionFailed = (backends: readonly ObserverBackendStatus[]): boolean =>
+  backends.some(({ admission }) => admission?.outcome === 'failed')
+
+const stateLevel = (state: ObserverState, failedAdmission: boolean): Level =>
+  state.state === 'disabled' && state.reason === 'version_not_admitted' && !failedAdmission
+    ? 'normal'
+    : observerLevel(state)
+
+const backendLevel = (backend: ObserverBackendStatus, runs: readonly RunSummary[] | null): Level =>
+  backend.state.state === 'disabled' && backend.state.reason === 'cli_missing'
+    ? (runs ?? []).some(({ runtime }) => runtime === backend.vendor)
+      ? 'caution'
+      : 'normal'
+    : stateLevel(backend.state, admissionFailed([backend]))
+
 const interpreting = ({ state }: ObserverState): boolean => state === 'ok' || state === 'lagging'
 
 const retryDetails = (state: ObserverState): LampDetail[] =>
@@ -183,13 +198,13 @@ const observerLamp = ({ status, runs, focus }: LampInput): Lamp => {
   const backendDetails = backends.map((backend) =>
     detail(
       `${backendName(backend)}, model ${backend.model}: ${observerStateLabel(backend.state)}.`,
-      observerLevel(backend.state),
+      backendLevel(backend, runs),
     ),
   )
   const focused = focus?.run ?? null
   if (focused !== null) {
     const { observer } = focused.summary
-    return lamp('observer', 'Observer', observerStateLabel(observer.state), observerLevel(observer.state), [
+    return lamp('observer', 'Observer', observerStateLabel(observer.state), stateLevel(observer.state, admissionFailed(backends)), [
       ...retryDetails(observer.state),
       ...pausedDetails(observer.state),
       ...(observer.isolation_unverified ? [detail('Observer isolation is not confirmed.', 'caution')] : []),
@@ -200,13 +215,13 @@ const observerLamp = ({ status, runs, focus }: LampInput): Lamp => {
       ...backendDetails,
     ])
   }
-  const backend = worstOf(backends, ({ state }) => observerLevel(state))
+  const backend = worstOf(backends, (shown) => backendLevel(shown, runs))
   if (backend !== null) {
     return lamp(
       'observer',
       'Observer',
       `${runtimeLabel[backend.vendor]}: ${observerStateLabel(backend.state)}`,
-      observerLevel(backend.state),
+      backendLevel(backend, runs),
       backendDetails,
     )
   }
@@ -279,7 +294,7 @@ const modeLamp = ({ summary, sessions }: FocusedRun): Lamp => {
 }
 
 const installationLevel = (hooks: HookInstallation): Level =>
-  hooks === 'not_installed' || hooks === 'untrusted' || hooks === 'disabled' ? 'caution' : 'normal'
+  hooks === 'untrusted' || hooks === 'disabled' ? 'caution' : 'normal'
 
 const runtimeHookDetails = ({
   runtime,
@@ -431,11 +446,11 @@ const versionsLamp = ({ status }: LampInput): Lamp | null => {
     'versions',
     'Versions',
     doubtful.length === 0 ? 'verified' : `${plural(doubtful.length, versionForms)} without full support`,
-    doubtful.length === 0 ? 'normal' : 'caution',
+    doubtful.some(({ status: support }) => support === 'limited') ? 'caution' : 'normal',
     versions.map(({ key, status: support, sessions }) =>
       detail(
         `${supportKeyLabel(key)}: ${supportStatusLabel[support]}, ${plural(sessions, sessionForms)}.`,
-        support === 'full' ? 'normal' : 'caution',
+        support === 'limited' ? 'caution' : 'normal',
       ),
     ),
   )

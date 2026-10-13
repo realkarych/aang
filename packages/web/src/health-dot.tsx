@@ -10,6 +10,9 @@ export const HealthDot = ({ lamps }: { readonly lamps: readonly Lamp[] }): React
   const panel = useId()
   const problems = problemsOf(lamps)
   if (problems.length === 0) {
+    if (open) {
+      setOpen(false)
+    }
     return null
   }
   const level = worst(problems)
@@ -43,6 +46,7 @@ export const HealthDot = ({ lamps }: { readonly lamps: readonly Lamp[] }): React
               </li>,
               ...lamp.details.map((detail, index) => (
                 <li key={`${lamp.id}-${String(index)}`} data-level={detail.level} className="health-detail">
+                  <LevelGlyph level={detail.level} />
                   <span>{detail.text}</span>
                 </li>
               )),

@@ -14,7 +14,7 @@ import type { APIRequestContext } from '@playwright/test'
 import { aangEntry, expect, getWithoutKeepAlive, type HookFields, type HookSamples, test } from './fixtures.js'
 import { tornAt } from './recordings.js'
 import { claudeFork, claudeOriginal, hookFields, runOf, sessionFile } from './samples.js'
-import { healthProblems, runRowOf, waitingFor } from './screens.js'
+import { healthLacks, healthProblems, runRowOf, waitingFor } from './screens.js'
 
 const run = runOf(claudeOriginal)
 
@@ -264,8 +264,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   await daemon.kill()
   const queuedAtKill = await queued(profile)
   expect((await readFile(transcripts.main)).at(-1)).not.toBe(0x0a)
-  const problems = await healthProblems(page)
-  await expect(problems).toContainText('Link: no connection to the daemon')
+  await expect(await healthProblems(page)).toContainText('Link: no connection to the daemon')
 
   const [first] = checks
   await hooks.send('PostToolUse.Bash.json', {
@@ -288,7 +287,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
     api: { port: daemon.api.port },
   })
   const restarted = await profile.startDaemon({ entry: aangEntry })
-  await expect(problems).not.toContainText('Link:', reconnected)
+  await healthLacks(page, 'Link:', reconnected)
   await expect.poll(() => queued(profile), reconnected).toEqual([])
 
   await expect(waitingFor(page)).toContainText(`Question: ${downtimeQuestion}`)
