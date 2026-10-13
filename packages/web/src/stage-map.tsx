@@ -17,6 +17,7 @@ import {
   type MapEdge,
   type MapStage,
   type StageGraph,
+  openOnMap,
   stageGraph,
   type VisibleGroup,
   type VisibleMap,
@@ -167,8 +168,6 @@ const KeepPlace = ({ layout, following, selection, onPlaced }: KeepPlaceProps): 
   }, [layout, following, selection, width, height, canvas, onPlaced, getViewport, setViewport])
   return null
 }
-
-const openByDefault = ({ depth }: MapStage): boolean => depth === 0
 
 const plainView: StageView = { folded: null, group: null }
 
@@ -348,19 +347,20 @@ interface StageMapProps {
   readonly snapshot: RunSnapshot
   readonly selection: StageSelection | null
   readonly onSelect: (stage: StageId | null) => void
+  readonly toggled: ReadonlyMap<StageId, boolean>
+  readonly onToggle: (stage: StageId, open: boolean) => void
 }
 
-export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): ReactElement => {
+export const StageMap = ({ snapshot, selection, onSelect, toggled, onToggle }: StageMapProps): ReactElement => {
   const selected = selection?.stage.id ?? null
   const graph = useMemo(() => stageGraph(snapshot), [snapshot])
   const placement = useMemo(() => placementsOf(snapshot.view), [snapshot.view])
   const views = useMemo(() => stageViews(graph, placement), [graph, placement])
-  const [toggled, setToggled] = useState<ReadonlyMap<StageId, boolean>>(() => new Map())
   const visible = useMemo(() => {
     const folded = (stage: MapStage): boolean => (views.get(stage.stage.id)?.folded ?? null) !== null
     return visibleMap(
       graph,
-      (stage) => !folded(stage) && (toggled.get(stage.stage.id) ?? openByDefault(stage)),
+      (stage) => openOnMap(stage, toggled, folded(stage)),
       (stage) => views.get(stage.stage.id)?.group ?? null,
     )
   }, [graph, toggled, views])
@@ -370,9 +370,6 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
   const [placed, setPlaced] = useState<MapLayout | null>(null)
   const onPlaced = useCallback((shown: MapLayout) => {
     setPlaced(shown)
-  }, [])
-  const onToggle = useCallback((stage: StageId, open: boolean) => {
-    setToggled((current) => new Map(current).set(stage, open))
   }, [])
   const agents = useKnownAgents()
   const nodes = useMemo(

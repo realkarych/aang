@@ -187,12 +187,10 @@ export const stageRevisionLabel: Readonly<Record<Exclude<StageLifecycle['state']
 export const sessionForms = { one: 'session', other: 'sessions' } as const
 export const sessionInForms = { one: 'session', other: 'sessions' } as const
 export const agentForms = { one: 'agent', other: 'agents' } as const
-export const runForms = { one: 'run', other: 'runs' } as const
 export const runInForms = { one: 'run', other: 'runs' } as const
 export const factForms = { one: 'fact', other: 'facts' } as const
 export const earlyFactForms = { one: 'early fact', other: 'early facts' } as const
 export const fileForms = { one: 'file', other: 'files' } as const
-export const recordForms = { one: 'record', other: 'records' } as const
 export const versionForms = { one: 'version', other: 'versions' } as const
 export const stageForms = { one: 'stage', other: 'stages' } as const
 export const actionForms = { one: 'action', other: 'actions' } as const

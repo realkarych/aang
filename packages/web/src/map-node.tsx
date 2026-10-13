@@ -93,7 +93,7 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
         </li>
       </ul>
       {waiting === 0 ? null : (
-        <p className="stage-waiting">
+        <p className="stage-waiting" title={`Waiting for you: ${String(waiting)}`}>
           <span className="visually-hidden">Waiting for you: </span>
           <LevelGlyph level="caution" />
           {waiting}

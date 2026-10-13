@@ -17,6 +17,8 @@ export interface StageChoice {
   readonly selection: StageSelection | null
   readonly choose: (stage: StageId | null) => void
   readonly dismissHandover: () => void
+  readonly toggled: ReadonlyMap<StageId, boolean>
+  readonly toggle: (stage: StageId, open: boolean) => void
 }
 
 export const useStageChoice = (snapshot: RunSnapshot): StageChoice => {
@@ -24,6 +26,7 @@ export const useStageChoice = (snapshot: RunSnapshot): StageChoice => {
   const routed = useRoutedStage()
   const [chosen, setChosen] = useState(routed)
   const [seen, setSeen] = useState(routed)
+  const [toggled, setToggled] = useState<ReadonlyMap<StageId, boolean>>(() => new Map())
   const selection = useMemo(
     () => (chosen === null ? null : selectionOf(snapshot.model.stages, chosen)),
     [snapshot.model.stages, chosen],
@@ -48,7 +51,10 @@ export const useStageChoice = (snapshot: RunSnapshot): StageChoice => {
   const dismissHandover = useCallback(() => {
     setChosen(selected)
   }, [selected])
-  return { selection, choose, dismissHandover }
+  const toggle = useCallback((stage: StageId, open: boolean) => {
+    setToggled((current) => new Map(current).set(stage, open))
+  }, [])
+  return { selection, choose, dismissHandover, toggled, toggle }
 }
 
 const HandoverNote = ({
@@ -85,7 +91,7 @@ export const MapSection = ({
   readonly onSignedOut: () => void
 }): ReactElement => {
   const stages = snapshot.model.stages.filter(({ lifecycle }) => lifecycle.state === 'active').length
-  const { selection, choose, dismissHandover } = choice
+  const { selection, choose, dismissHandover, toggled, toggle } = choice
   return (
     <section className="map" aria-labelledby={mapHeading}>
       <header className="map-head">
@@ -103,7 +109,7 @@ export const MapSection = ({
         <p className="map-note">The observer builds the stages. The map will appear after its first response for this run.</p>
       ) : (
         <Suspense fallback={<p className="map-note">Loading map…</p>}>
-          <StageMap snapshot={snapshot} selection={selection} onSelect={choose} />
+          <StageMap snapshot={snapshot} selection={selection} onSelect={choose} toggled={toggled} onToggle={toggle} />
         </Suspense>
       )}
     </section>

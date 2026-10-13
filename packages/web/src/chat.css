@@ -1,5 +1,4 @@
-.chat,
-.rules {
+.chat {
   padding: 14px 20px 18px;
   background: var(--sheet);
   border: 1px solid var(--rule);
@@ -276,8 +275,7 @@ button.chat-cite:hover {
 }
 
 @media (max-width: 760px) {
-  .chat,
-  .rules {
+  .chat {
     padding-inline: 12px;
   }
 }

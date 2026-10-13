@@ -1,16 +1,17 @@
-import type { AttentionItem, Stage } from '@aang/contract'
+import type { Stage } from '@aang/contract'
 import type { ReactElement } from 'react'
 import { BasisBadge, ExecutionBadge } from './badges.js'
 import { attentionKindLabel } from './labels.js'
+import type { HeldItem } from './map-graph.js'
 import { fullHint, shortIds, useKnownAgents } from './short-ids.js'
 
 export const StageSummary = ({
   stage,
-  open,
+  held,
   onClear,
 }: {
   readonly stage: Stage
-  readonly open: readonly AttentionItem[]
+  readonly held: readonly HeldItem[]
   readonly onClear: () => void
 }): ReactElement => {
   const agents = useKnownAgents()
@@ -21,6 +22,7 @@ export const StageSummary = ({
           {shortIds(stage.title, agents)}
         </h2>
         <button type="button" className="stage-summary-clear" onClick={onClear}>
+          <span aria-hidden="true">✕ </span>
           Whole run
         </button>
       </header>
@@ -31,10 +33,12 @@ export const StageSummary = ({
         <BasisBadge basis={stage.execution.basis} />
       </p>
       {stage.summary === null ? null : <p className="stage-summary-text">{stage.summary}</p>}
-      {open.length === 0 ? null : (
+      {held.length === 0 ? null : (
         <ul className="stage-summary-waiting" aria-label="Waiting for you">
-          {open.map((item) => (
-            <li key={item.id}>{`${attentionKindLabel[item.kind]}: ${item.text}`}</li>
+          {held.map(({ item, within }) => (
+            <li key={item.id} title={within === null ? undefined : fullHint(within.title, agents)}>
+              {`${within === null ? '' : `${shortIds(within.title, agents)} · `}${attentionKindLabel[item.kind]}: ${item.text}`}
+            </li>
           ))}
         </ul>
       )}

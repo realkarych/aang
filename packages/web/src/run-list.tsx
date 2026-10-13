@@ -37,7 +37,7 @@ const EmptyList = ({ watch }: { readonly watch: WatchState | null }): ReactEleme
   </div>
 )
 
-const folderOf = (cwd: string): string => cwd.split(/[\\/]/).filter(Boolean).slice(-2).join('/')
+const folderOf = (cwd: string): string => cwd.split(/[\\/]/).filter(Boolean).slice(-2).join('/') || cwd
 
 const newestFirst = (left: RunSummary, right: RunSummary): number =>
   Math.sign(Number(right.last_event_at - left.last_event_at))
@@ -45,7 +45,7 @@ const newestFirst = (left: RunSummary, right: RunSummary): number =>
 const ChatRow = ({ run, now }: { readonly run: RunSummary; readonly now: bigint }): ReactElement => {
   const navigate = useNavigate()
   const title = runTitle(run)
-  const waiting = run.attention.waiting_for_human
+  const waiting = run.attention.open
   return (
     <li className="chat-row">
       <a className="chat-row-link" href={runHref(run.id)} onClick={navigate} title={title ?? undefined}>

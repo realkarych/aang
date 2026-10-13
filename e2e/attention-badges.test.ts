@@ -145,8 +145,14 @@ test.describe('with the observer opening attention items', () => {
     const selected = dock(page).getByRole('region', { name: 'Selected stage' })
     await expect(selected.getByRole('heading')).toHaveText(checksStageTitle)
     await expect(selected.getByRole('list', { name: 'Waiting for you' })).toContainText(`Blocker: ${checksBlockerText}`)
+    await expect(selected.getByRole('button', { name: 'Whole run', exact: true })).toHaveText('✕ Whole run')
     await selected.getByRole('button', { name: 'Whole run' }).click()
     await expect(selected).toHaveCount(0)
+
+    const open = (await snapshotOf(page, run)).attention.items.filter(({ resolution }) => resolution === 'open')
+    expect(open.some(({ runtime_wait: wait }) => wait === 'active')).toBe(false)
+    await page.goto('/')
+    await expect(runRowOf(page, run)).toContainText(`Waiting for you: ${String(open.length)}`)
   })
 })
 
@@ -164,10 +170,19 @@ test.describe('with the observer opening an item on a substage', () => {
     await expect(badge(pinger, 1)).toBeVisible(observed)
     await expect(main.getByText(/^Waiting for you: /)).toHaveCount(0)
 
+    await expect(badge(pinger, 1)).toHaveAttribute('title', 'Waiting for you: 1')
     await main.getByRole('button', { name: `Collapse "${mainStageTitle}"` }).click()
     await expect(pinger).toHaveCount(0)
     await expect(badge(main, 1)).toBeVisible()
+    await expect(badge(main, 1)).toHaveAttribute('title', 'Waiting for you: 1')
     await expect(waitingChip(page)).toHaveCount(0)
+    await main.getByRole('button', { name: mainStageTitle, exact: true }).click()
+    const selected = dock(page).getByRole('region', { name: 'Selected stage' })
+    await expect(selected.getByRole('heading')).toHaveText(mainStageTitle)
+    await expect(selected.getByRole('list', { name: 'Waiting for you' }).getByRole('listitem')).toHaveText([
+      new RegExp(`^pinger \\(.+\\) · Blocker: ${nestedBlockerText}$`),
+    ])
+    await selected.getByRole('button', { name: 'Whole run' }).click()
 
     await main.getByRole('button', { name: `Expand "${mainStageTitle}"` }).click()
     await expect(badge(pinger, 1)).toBeVisible()

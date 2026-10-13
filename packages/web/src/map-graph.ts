@@ -141,6 +141,32 @@ export const waitingOffMap = (snapshot: RunSnapshot): AttentionItem[] => {
   )
 }
 
+export const openOnMap = (node: MapStage, toggled: ReadonlyMap<StageId, boolean>, folded: boolean): boolean =>
+  !folded && (toggled.get(node.stage.id) ?? node.depth === 0)
+
+export interface HeldItem {
+  readonly item: AttentionItem
+  readonly within: Stage | null
+}
+
+export const heldItems = (
+  snapshot: RunSnapshot,
+  chosen: StageId,
+  toggled: ReadonlyMap<StageId, boolean>,
+): readonly HeldItem[] => {
+  const openOf = (stage: StageId): AttentionItem[] =>
+    snapshot.attention.items.filter((item) => item.stage === stage && item.resolution === 'open')
+  const own = openOf(chosen).map((item) => ({ item, within: null }))
+  const node = stageGraph(snapshot).stages.get(chosen)
+  const folded = placementsOf(snapshot.view)({ kind: 'stage', id: chosen })?.visibility?.state === 'collapsed'
+  if (node === undefined || openOnMap(node, toggled, folded)) {
+    return own
+  }
+  const below = ({ children }: MapStage): HeldItem[] =>
+    children.flatMap((child) => [...openOf(child.stage.id).map((item) => ({ item, within: child.stage })), ...below(child)])
+  return [...own, ...below(node)]
+}
+
 export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
   const waiting = waitingByStage(snapshot.attention.items)
   const all = new Map(snapshot.model.stages.map((stage) => [stage.id, stage]))

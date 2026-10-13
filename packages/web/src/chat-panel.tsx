@@ -38,6 +38,7 @@ import { factRead, versionRead } from './cached-read.js'
 import { absoluteTime, bytes, clockTime } from './format.js'
 import { LevelGlyph } from './glyphs.js'
 import { attentionKindLabel, stageRevisionLabel } from './labels.js'
+import { heldItems } from './map-graph.js'
 import { mapHeading, type StageChoice } from './map-section.js'
 import { Moment } from './moment.js'
 import { factPlace, placeOf } from './objects.js'
@@ -546,9 +547,7 @@ export const ChatPanel = ({
       {choice.selection === null ? null : (
         <StageSummary
           stage={choice.selection.stage}
-          open={snapshot.attention.items.filter(
-            ({ stage, resolution }) => stage === choice.selection?.stage.id && resolution === 'open',
-          )}
+          held={heldItems(snapshot, choice.selection.stage.id, choice.toggled)}
           onClear={() => {
             choice.choose(null)
           }}
