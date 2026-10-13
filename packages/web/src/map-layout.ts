@@ -350,9 +350,9 @@ export const readableZoom = 0.8
 
 const fitPadding = 0.08
 
-export const fittedViewport = (layout: MapLayout, area: Area): Omit<Viewport, keyof Area> => {
+export const fittedViewport = (layout: MapLayout, area: Area, floor: number): Omit<Viewport, keyof Area> => {
   const room = Math.min(area.width / layout.width, area.height / layout.height) / (1 + fitPadding)
-  const zoom = Math.min(1, Math.max(readableZoom, room))
+  const zoom = Math.min(1, Math.max(floor, room))
   const place = (size: number, space: number): number =>
     size * zoom <= space ? (space - size * zoom) / 2 : margin
   return { x: place(layout.width, area.width), y: place(layout.height, area.height), zoom }

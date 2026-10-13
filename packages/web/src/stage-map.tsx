@@ -29,6 +29,7 @@ import {
   layoutMap,
   type MapDirection,
   type MapLayout,
+  readableZoom,
   revealedViewport,
 } from './map-layout.js'
 import {
@@ -102,6 +103,8 @@ const useLayout = (map: VisibleMap): LayoutState => {
   return { layout: laid?.layout ?? null, upToDate: laid?.map === map && laid.direction === direction }
 }
 
+const minZoom = 0.2
+
 interface FollowLayoutProps {
   readonly layout: MapLayout
   readonly following: boolean
@@ -111,13 +114,15 @@ interface FollowLayoutProps {
 
 const FollowLayout = ({ layout, following, request, onPlaced }: FollowLayoutProps): null => {
   const { setViewport } = useReactFlow()
+  const fitted = useRef(request)
   const canvas = useStore((state) => state.domNode)
   const width = useStore((state) => state.width)
   const height = useStore((state) => state.height)
   useEffect(() => {
     const area = { width: canvas?.offsetWidth ?? width, height: canvas?.offsetHeight ?? height }
     if (following && area.width > 0 && area.height > 0) {
-      void setViewport(fittedViewport(layout, area))
+      void setViewport(fittedViewport(layout, area, request === fitted.current ? readableZoom : minZoom))
+      fitted.current = request
       onPlaced(layout)
     }
   }, [layout, following, request, setViewport, onPlaced, canvas, width, height])
@@ -400,7 +405,7 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
           edgeTypes={edgeTypes}
           ariaLabelConfig={ariaLabelConfig}
           proOptions={proOptions}
-          minZoom={0.2}
+          minZoom={minZoom}
           maxZoom={1.5}
           nodesDraggable={false}
           nodesConnectable={false}

@@ -198,7 +198,7 @@ test.describe('with the observer building the map', () => {
     player,
   }) => {
     const played = await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' })
-    await page.setViewportSize({ width: 1680, height: 900 })
+    await page.setViewportSize({ width: 1280, height: 720 })
     await page.goto(`/?run=${claudeRun}`)
     await played.play({ until: 'subagent' })
 
@@ -275,15 +275,20 @@ test.describe('with the observer building the map', () => {
 
     const canvas = map(page).getByRole('application')
     const fitted = async (): Promise<boolean> => {
-      const [frame, whole] = [await box(canvas), await box(main)]
-      return whole.x >= frame.x && whole.y >= frame.y && whole.right <= frame.right && whole.bottom <= frame.bottom
+      const frame = await box(canvas)
+      const cards = await Promise.all([main, preparation, pinger, report].map(box))
+      return cards.every(
+        (whole) => whole.x >= frame.x && whole.y >= frame.y && whole.right <= frame.right && whole.bottom <= frame.bottom,
+      )
     }
     const width = async (locator: Locator): Promise<number> => {
       const { x, right } = await box(locator)
       return right - x
     }
-    const fittedWidth = await width(report)
+    await expect(dock(page).getByRole('region', { name: 'Chat', exact: true })).toBeVisible()
+    await map(page).getByRole('button', { name: 'Fit the map' }).click()
     await expect.poll(fitted).toBe(true)
+    const fittedWidth = await width(report)
     await map(page).getByRole('button', { name: 'Zoom in' }).click()
     await expect.poll(async () => width(report)).toBeGreaterThan(fittedWidth)
     await map(page).getByRole('button', { name: 'Fit the map' }).click()
