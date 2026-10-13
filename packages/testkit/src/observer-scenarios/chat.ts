@@ -87,7 +87,7 @@ export const chatCollapseReviewersScript = (input: ChatInput): ChatOutput => {
   }
   return {
     needs: [],
-    answer: `Collapsed ${String(reviewers.length)} reviewer agents; their questions stay in the attention zone.`,
+    answer: `Collapsed ${String(reviewers.length)} reviewer agents; their questions stay visible as waiting for you (a stage badge or the header chip).`,
     citations: [],
     insufficient_data: false,
     view_rule: { action: 'collapse', selector, params: null },

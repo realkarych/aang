@@ -74,6 +74,11 @@ export const ruleText = (rule: ViewRule, stages: readonly Stage[]): string => {
   }
 }
 
+export const changesStageMap = ({ selector, action }: ViewRule): boolean =>
+  (selector.kind === 'stage_ids' || selector.kind === 'stage_title') && action !== 'detail'
+
+export const noStageMapEffect = 'does not change the stage map'
+
 const usageText = ({ tokens, output_lower_bound: lowerBound }: UsageTotals): string => {
   const input = tokens.uncached_input_tokens + tokens.cache_read_input_tokens + tokens.cache_write_input_tokens
   return `tokens: input ${whole(input)}, output ${lowerBound ? 'at least ' : ''}${whole(tokens.output_tokens)}`

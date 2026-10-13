@@ -2,7 +2,7 @@ import type { RunSnapshot, ViewRuleId } from '@aang/contract'
 import { type ReactElement, useState } from 'react'
 import { failureText, revokeViewRule, SignedOut } from './api.js'
 import { fullHint, shortIds, useKnownAgents } from './short-ids.js'
-import { ruleText } from './view-labels.js'
+import { changesStageMap, noStageMapEffect, ruleText } from './view-labels.js'
 
 export const FilterChips = ({
   snapshot,
@@ -40,7 +40,7 @@ export const FilterChips = ({
           const text = shortIds(full, agents)
           return (
             <li key={rule.id} className="filter-chip" title={fullHint(full, agents)}>
-              <span>{`Filter: ${text}`}</span>
+              <span>{changesStageMap(rule) ? `Filter: ${text}` : `Filter: ${text} · ${noStageMapEffect}`}</span>
               <button
                 type="button"
                 aria-label={`Remove filter: ${text}`}

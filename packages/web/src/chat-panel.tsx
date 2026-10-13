@@ -45,7 +45,7 @@ import { isPlainClick, stageHref } from './route.js'
 import { fullHint, ShortIds, shortIds, StageName, useKnownAgents } from './short-ids.js'
 import { StageSummary } from './stage-summary.js'
 import type { ChatHistory } from './use-run-feed.js'
-import { ruleText } from './view-labels.js'
+import { changesStageMap, noStageMapEffect, ruleText } from './view-labels.js'
 import './chat.css'
 
 interface ChatPanelProps {
@@ -343,7 +343,7 @@ const RuleNote = ({
   const text = ruleText(applied.rule, snapshot.model.stages)
   return (
     <p className="chat-rule" data-applied="true" title={fullHint(text, agents)}>
-      {`Filter applied: ${shortIds(text, agents)}. Remove it with its chip over the map.`}
+      {`Filter applied: ${shortIds(text, agents)}.${changesStageMap(applied.rule) ? '' : ` It ${noStageMapEffect}.`} Remove it with its chip over the map.`}
     </p>
   )
 }

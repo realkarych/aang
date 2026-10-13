@@ -251,10 +251,16 @@ const collapsesTheReviewers = async ({
 
   expect(await collapsedAgents(page, run)).toEqual([])
   const collapse = await ask(page, 'Collapse the reviewers')
-  await expect(collapse).toContainText('Collapsed 1 reviewer agents', observed)
-  await expect(collapse).toContainText(`Filter applied: collapse ${collapsed}. Remove it with its chip over the map.`)
+  await expect(collapse).toContainText(
+    'Collapsed 1 reviewer agents; their questions stay visible as waiting for you (a stage badge or the header chip).',
+    observed,
+  )
+  await expect(collapse).not.toContainText('attention zone')
+  await expect(collapse).toContainText(
+    `Filter applied: collapse ${collapsed}. It does not change the stage map. Remove it with its chip over the map.`,
+  )
   await expect(chips(page)).toHaveCount(1)
-  await expect(chips(page)).toContainText(`Filter: collapse ${collapsed}`)
+  await expect(chips(page)).toContainText(`Filter: collapse ${collapsed} · does not change the stage map`)
   const [applied, ...others] = (await snapshotOf(page, run)).view.rules
   expect(others).toEqual([])
   expect(applied?.rule).toMatchObject({ action: 'collapse', source: 'chat' })
@@ -342,8 +348,10 @@ test.describe('with the Claude observer collapsing the reviewers from the chat',
 
     const asked = await ask(page, 'Collapse the reviewers')
     await expect(chips(page)).toHaveCount(1, observed)
-    await expect(chips(page)).toHaveText(/^Filter: collapse agents of type "code-reviewer"/)
-    await expect(asked).toContainText('Filter applied: collapse agents of type "code-reviewer".')
+    await expect(chips(page)).toHaveText(/^Filter: collapse agents of type "code-reviewer" · does not change the stage map/)
+    await expect(asked).toContainText(
+      'Filter applied: collapse agents of type "code-reviewer". It does not change the stage map.',
+    )
     const reviewing = await agentOf(page, claudeRun, 'Ping the code-reviewer agent')
     expect(await collapsedAgents(page, claudeRun)).toEqual([reviewing.id])
 
@@ -862,7 +870,9 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
       params: null,
     })
     await expect(pinger).toHaveCount(0)
-    await expect(chips(page).filter({ hasText: 'Filter: hide stages whose title contains "pinger"' })).toHaveCount(1)
+    const stageHidden = chips(page).filter({ hasText: 'Filter: hide stages whose title contains "pinger"' })
+    await expect(stageHidden).toHaveCount(1)
+    await expect(stageHidden).not.toContainText('does not change the stage map')
 
     const team = await createRule(daemon, claudeRun, {
       action: 'group',
@@ -871,6 +881,9 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
     })
     const helpers = (placement: ViewPlacement): boolean => placement.group?.name === 'Helpers'
     expect(team.affected).toHaveLength(1)
+    await expect(chips(page).filter({ hasText: 'group agents with role "subagent" under "Helpers"' })).toContainText(
+      '· does not change the stage map',
+    )
     await expect.poll(async () => countOf('agent', helpers)).toBe(1)
     const level = await createRule(daemon, claudeRun, {
       action: 'detail',
