@@ -131,7 +131,7 @@ test.describe('with the Codex observer drawing the map', () => {
     await page.goto(`/?run=${codexRun(asking)}`)
     await (await player(approval, played)).play({ until: 'approval-granted' })
 
-    await expect(waitingChip(page)).toContainText('1')
+    await expect(waitingChip(page)).toHaveAccessibleName('Waiting for you: 1')
     await expect(waitingFor(page)).toHaveText('Approval request: Bash: touch approved.txt')
     await expect
       .poll(async () => (await snapshotOf(page, codexRun(asking)))?.summary.attention.waiting_for_human ?? null)

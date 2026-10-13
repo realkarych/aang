@@ -12,7 +12,8 @@ export const lamp = (page: Page, label: string): Locator =>
 export const runRowOf = (page: Page, run: RunId): Locator =>
   page.getByRole('row').filter({ has: page.locator(`a[href="?run=${run}"]`) })
 
-export const waitingChip = (page: Page): Locator => page.getByRole('banner').getByLabel('Waiting for you', { exact: true })
+export const waitingChip = (page: Page): Locator =>
+  page.getByRole('banner').getByRole('button', { name: /^Waiting for you: \d+$/ })
 
 export const waitingFor = (page: Page): Locator => page.getByRole('banner').getByRole('tooltip', { includeHidden: true })
 

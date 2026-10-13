@@ -179,19 +179,21 @@ h2 {
 .masthead-waiting {
   position: relative;
   flex: none;
-  margin: 0;
+}
+
+.masthead-waiting > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 1px 9px;
   border: 1px solid var(--tone-ask);
   border-radius: 999px;
+  background: none;
   color: var(--tone-ask);
+  font: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: default;
-}
-
-.masthead-waiting::before {
-  content: 'waiting for you: ';
-  font-weight: 400;
 }
 
 .masthead-tooltip {
@@ -207,7 +209,7 @@ h2 {
   border-radius: 4px;
   background: var(--sheet);
   color: var(--ink);
-  font-weight: 400;
+  font-size: 12.5px;
   box-shadow: 0 4px 14px rgb(0 0 0 / 12%);
 }
 
@@ -220,9 +222,7 @@ h2 {
   margin-top: 4px;
 }
 
-.masthead-waiting:hover .masthead-tooltip,
-.masthead-waiting:focus-within .masthead-tooltip,
-.masthead-waiting:focus .masthead-tooltip {
+.masthead-waiting:is(:hover, :focus-within):not([data-quiet='true']) .masthead-tooltip {
   display: block;
 }
 
@@ -741,45 +741,9 @@ button.lamp[data-level='warning']:hover {
   border-top: 1px solid var(--rule);
 }
 
-.zone-text[data-expanded='true'] {
-  display: block;
-  overflow: visible;
-  -webkit-line-clamp: none;
-  line-clamp: none;
-}
-
 @media (max-width: 760px) {
-  .zone,
   .plan {
     padding-inline: 12px;
-  }
-
-  .zone[data-calm='true'] .zone-foot {
-    margin-left: 0;
-  }
-
-  .zone-past {
-    grid-template-columns: minmax(0, 1fr) max-content;
-  }
-
-  .zone-past-kind {
-    grid-row: 1;
-    grid-column: 1;
-  }
-
-  .zone-past-time {
-    grid-row: 1;
-    grid-column: 2;
-  }
-
-  .zone-past-text {
-    grid-row: 2;
-    grid-column: 1 / -1;
-  }
-
-  .zone-past-outcome {
-    grid-row: 3;
-    grid-column: 1 / -1;
   }
 
   .agent .agents {

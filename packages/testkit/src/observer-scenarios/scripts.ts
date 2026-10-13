@@ -1,6 +1,6 @@
 import type { JsonValue } from '@aang/contract'
 import { z } from 'zod'
-import { attentionScript } from './attention.js'
+import { attentionScript, nestedAttentionScript } from './attention.js'
 import { chatAnswerScript, chatCollapseReviewersScript, chatOldGroundScript, readChatInput } from './chat.js'
 import {
   claimedDoneScript,
@@ -33,6 +33,7 @@ export const ScenarioScript = z.enum([
   'outline',
   'reshape',
   'attention',
+  'nested-attention',
   'plan',
   'chat-answer',
   'chat-collapse-reviewers',
@@ -54,6 +55,7 @@ const scripts: Readonly<Record<ScenarioScript, (input: JsonValue | undefined) =>
   outline: (input) => outlineScript(readObserverInput(input)),
   reshape: (input) => reshapeScript(readObserverInput(input)),
   attention: (input) => attentionScript(readObserverInput(input)),
+  'nested-attention': (input) => nestedAttentionScript(readObserverInput(input)),
   plan: (input) => planScript(readObserverInput(input)),
   'chat-answer': (input) => chatAnswerScript(readChatInput(input)),
   'chat-collapse-reviewers': (input) => chatCollapseReviewersScript(readChatInput(input)),

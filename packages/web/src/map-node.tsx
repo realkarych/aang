@@ -4,7 +4,7 @@ import type { ElkPoint } from 'elkjs/lib/elk.bundled.js'
 import type { ReactElement } from 'react'
 import { BasisBadge, ExecutionBadge, executionTone } from './badges.js'
 import { plural } from './format.js'
-import { DisclosureGlyph } from './glyphs.js'
+import { DisclosureGlyph, LevelGlyph } from './glyphs.js'
 import { stageForms } from './labels.js'
 import type { EdgeKind, MapStage } from './map-graph.js'
 import { shortIds, useKnownAgents } from './short-ids.js'
@@ -46,6 +46,7 @@ export type RouteFlowEdge = Edge<RouteEdgeData, 'route'>
 
 const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: StageNodeData): ReactElement => {
   const { stage, children } = node
+  const waiting = open && view.folded === null ? node.waiting : node.waitingWithin
   const selected = selection === 'self'
   const title = shortIds(stage.title, useKnownAgents())
   return (
@@ -91,9 +92,11 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
           <BasisBadge basis={stage.execution.basis} />
         </li>
       </ul>
-      {node.waiting === 0 ? null : (
-        <p className="stage-waiting" aria-label="Waiting for you" title={`Waiting for you: ${String(node.waiting)}`}>
-          {node.waiting}
+      {waiting === 0 ? null : (
+        <p className="stage-waiting">
+          <span className="visually-hidden">Waiting for you: </span>
+          <LevelGlyph level="caution" />
+          {waiting}
         </p>
       )}
       {view.folded === null ? null : (

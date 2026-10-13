@@ -1,9 +1,11 @@
 import type { AttentionItem, RunId, RunSnapshot, StatusResponse } from '@aang/contract'
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react'
+import { type ReactElement, useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { readRuns, readStatus } from './api.js'
 import { nowNs } from './format.js'
+import { LevelGlyph } from './glyphs.js'
 import { attentionKindLabel } from './labels.js'
 import { type FocusedRun, lampsOf } from './lamps.js'
+import { waitingOffMap } from './map-graph.js'
 import { listHref, useNavigate, useRoute } from './route.js'
 import { RunList, runTitle, untitledRun } from './run-list.js'
 import { RunPage } from './run-page.js'
@@ -33,6 +35,37 @@ const useTitle = (title: string): void => {
 
 const noWaiting: readonly AttentionItem[] = []
 
+const WaitingChip = ({ waiting }: { readonly waiting: readonly AttentionItem[] }): ReactElement => {
+  const tip = useId()
+  const [quiet, setQuiet] = useState(false)
+  const speak = (): void => {
+    setQuiet(false)
+  }
+  return (
+    <span className="masthead-waiting" data-quiet={quiet} onMouseLeave={speak}>
+      <button
+        type="button"
+        aria-describedby={tip}
+        onBlur={speak}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            setQuiet(true)
+          }
+        }}
+      >
+        <span className="visually-hidden">Waiting for you: </span>
+        <LevelGlyph level="caution" />
+        {waiting.length}
+      </button>
+      <span role="tooltip" id={tip} className="masthead-tooltip">
+        {waiting.map(({ id, kind, text }) => (
+          <span key={id}>{`${attentionKindLabel[kind]}: ${text}`}</span>
+        ))}
+      </span>
+    </span>
+  )
+}
+
 const Masthead = ({
   title,
   waiting,
@@ -54,16 +87,7 @@ const Masthead = ({
           <h1 className="masthead-title" title={title}>
             {title}
           </h1>
-          {waiting.length === 0 ? null : (
-            <p className="masthead-waiting" aria-label="Waiting for you" tabIndex={0}>
-              <span>{waiting.length}</span>
-              <span role="tooltip" className="masthead-tooltip">
-                {waiting.map(({ id, kind, text }) => (
-                  <span key={id}>{`${attentionKindLabel[kind]}: ${text}`}</span>
-                ))}
-              </span>
-            </p>
-          )}
+          {waiting.length === 0 ? null : <WaitingChip waiting={waiting} />}
         </nav>
       )}
     </header>
@@ -116,12 +140,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
   const runs = usePolled(readRuns, onSignedOut)
   const agents = useMemo(() => agentIds(feed.snapshot?.objects.agents ?? []), [feed.snapshot])
   const title = snapshotTitle(feed.snapshot)
-  const waiting = useMemo(
-    () =>
-      feed.snapshot?.attention.items.filter(({ stage, resolution }) => stage === null && resolution === 'open') ??
-      noWaiting,
-    [feed.snapshot],
-  )
+  const waiting = useMemo(() => (feed.snapshot === null ? noWaiting : waitingOffMap(feed.snapshot)), [feed.snapshot])
   useTitle(`${title ?? 'Run'} — aang`)
   const lamps = lampsOf({
     status: status.value,

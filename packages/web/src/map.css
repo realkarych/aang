@@ -224,7 +224,10 @@
 }
 
 .stage-waiting {
+  display: inline-flex;
   align-self: flex-start;
+  align-items: center;
+  gap: 4px;
   margin: 6px 0 0;
   padding: 0 8px;
   border: 1px solid var(--tone-ask);
@@ -232,11 +235,6 @@
   color: var(--tone-ask);
   font-size: 12px;
   font-weight: 600;
-}
-
-.stage-waiting::before {
-  content: 'waiting for you: ';
-  font-weight: 400;
 }
 
 .filters {

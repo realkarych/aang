@@ -13,9 +13,9 @@ export interface MapStage {
   readonly children: readonly MapStage[]
   readonly depth: number
   readonly agents: readonly Agent[]
-  readonly actions: number
   readonly span: Span | null
   readonly waiting: number
+  readonly waitingWithin: number
 }
 
 interface Dependency {
@@ -116,11 +116,8 @@ const waitingByStage = (items: readonly AttentionItem[]): ReadonlyMap<StageId, n
   return counts
 }
 
-export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
-  const waiting = waitingByStage(snapshot.attention.items)
+const shownStages = (snapshot: RunSnapshot): readonly Stage[] => {
   const all = new Map(snapshot.model.stages.map((stage) => [stage.id, stage]))
-  const predecessors = predecessorsOf(snapshot.model.stages)
-  const placeOf = inheritedPlaces(all, predecessors)
   const placement = placementsOf(snapshot.view)
   const concealed = (stage: Stage): boolean => {
     const passed = new Set<StageId>()
@@ -134,9 +131,23 @@ export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
     }
     return false
   }
-  const active = snapshot.model.stages
-    .filter((stage) => stage.lifecycle.state === 'active' && !concealed(stage))
-    .sort((left, right) => byModelOrder(placeOf(left), placeOf(right)) || byModelOrder(left, right))
+  return snapshot.model.stages.filter((stage) => stage.lifecycle.state === 'active' && !concealed(stage))
+}
+
+export const waitingOffMap = (snapshot: RunSnapshot): AttentionItem[] => {
+  const shown = new Set(shownStages(snapshot).map(({ id }) => id))
+  return snapshot.attention.items.filter(
+    ({ stage, resolution }) => resolution === 'open' && (stage === null || !shown.has(stage)),
+  )
+}
+
+export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
+  const waiting = waitingByStage(snapshot.attention.items)
+  const all = new Map(snapshot.model.stages.map((stage) => [stage.id, stage]))
+  const placeOf = inheritedPlaces(all, predecessorsOf(snapshot.model.stages))
+  const active = shownStages(snapshot).toSorted(
+    (left, right) => byModelOrder(placeOf(left), placeOf(right)) || byModelOrder(left, right),
+  )
   const shown = new Set(active.map(({ id }) => id))
   const actions = new Map(snapshot.objects.actions.map((action) => [action.id, action]))
   const agents = new Map(snapshot.objects.agents.map((agent) => [agent.id, agent]))
@@ -180,19 +191,20 @@ export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
     const children = (childrenOf.get(stage.id) ?? []).map((child) => build(child, stage.id, depth + 1))
     const own = assigned.get(stage.id) ?? []
     const team = [...new Map((participants.get(stage.id) ?? []).map((agent) => [agent.id, agent])).values()]
+    const ownWaiting = waiting.get(stage.id) ?? 0
     const node: MapStage = {
       stage,
       parent,
       children,
       depth,
       agents: team,
-      actions: own.length,
       span: joined([
         ...own.flatMap(spanOf),
         ...team.filter(({ role }) => role !== 'main').flatMap(spanOf),
         ...children.flatMap(({ span }) => (span === null ? [] : [span])),
       ]),
-      waiting: waiting.get(stage.id) ?? 0,
+      waiting: ownWaiting,
+      waitingWithin: children.reduce((sum, child) => sum + child.waitingWithin, ownWaiting),
     }
     stages.set(stage.id, node)
     return node

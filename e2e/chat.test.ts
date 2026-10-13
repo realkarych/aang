@@ -327,7 +327,7 @@ test.describe('with the Claude observer collapsing the reviewers from the chat',
 
   const reviewerStage = /^Stage "code-reviewer \(.+\)"$/
 
-  test('a filter asked in the chat shows as a chip over the map and removing it restores the map', async ({
+  test('a filter asked in the chat shows as a chip over the map and removing the chip undoes the filter', async ({
     page,
     player,
     profile,
@@ -340,15 +340,22 @@ test.describe('with the Claude observer collapsing the reviewers from the chat',
     await expect(reviewer).toBeVisible(observed)
     await expect(chips(page)).toHaveCount(0)
 
-    await ask(page, 'Collapse the reviewers')
+    const asked = await ask(page, 'Collapse the reviewers')
     await expect(chips(page)).toHaveCount(1, observed)
     await expect(chips(page)).toHaveText(/^Filter: collapse agents of type "code-reviewer"/)
+    await expect(asked).toContainText('Filter applied: collapse agents of type "code-reviewer".')
+    const reviewing = await agentOf(page, claudeRun, 'Ping the code-reviewer agent')
+    expect(await collapsedAgents(page, claudeRun)).toEqual([reviewing.id])
+
     await chips(page).first().getByRole('button', { name: /^Remove filter: / }).click()
     await expect(chips(page)).toHaveCount(0, observed)
+    await expect(asked).toContainText('The filter from this answer was removed.')
+    await expect(asked).not.toContainText('Filter applied')
+    expect(await collapsedAgents(page, claudeRun)).toEqual([])
     await expect(reviewer).toBeVisible()
   })
 
-  test('a filter that hides the selected stage keeps the stage summary and whole run clears it', async ({
+  test('a filter rule that hides the selected stage keeps the summary and whole run clears it', async ({
     page,
     player,
     profile,
@@ -366,15 +373,12 @@ test.describe('with the Claude observer collapsing the reviewers from the chat',
     const selected = page.getByRole('complementary', { name: 'Chat panel' }).getByRole('region', { name: 'Selected stage' })
     await expect(selected.getByRole('heading')).toHaveText(title)
 
-    await ask(page, 'Collapse the reviewers')
-    await expect(chips(page)).toHaveCount(1, observed)
-    await expect(selected.getByRole('heading')).toHaveText(title)
     await createRule(daemon, claudeRun, {
       action: 'hide',
       selector: { kind: 'stage_ids', stages: [await stageId(page, claudeRun, fullTitle)] },
       params: null,
     })
-    await expect(chips(page)).toHaveCount(2)
+    await expect(chips(page)).toHaveCount(1)
     await expect(reviewer).toHaveCount(0)
     await expect(selected.getByRole('heading')).toHaveText(title)
     await selected.getByRole('button', { name: 'Whole run' }).click()

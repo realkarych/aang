@@ -15,6 +15,7 @@ export const checksStageTitle = 'Checks'
 export const releaseStageTitle = 'Release'
 export const checksBlockerText = 'The checks wait for a missing secret'
 export const reviewRequestText = 'Review the final result'
+export const nestedBlockerText = 'The subagent waits for a missing token'
 
 const PromptText = z.object({ text: z.string() })
 
@@ -118,5 +119,22 @@ export const attentionScript = (input: ObserverInput): ObserverOutput => {
     })
   }
   ops.push(...ruleItemOps(input, evidence))
+  return { base_version: input.model.version, ops, needs: [] }
+}
+
+export const nestedAttentionScript = (input: ObserverInput): ObserverOutput => {
+  const { ops, agentStages } = planMap(input, mainStageTitle)
+  const [delegated] = agentStages.values()
+  if (delegated !== undefined && !observerItemExists(input, 'blocker', nestedBlockerText)) {
+    ops.push({
+      op: 'attention.add',
+      temp_id: TempId.parse('nested-blocker'),
+      kind: 'blocker',
+      text: nestedBlockerText,
+      stage: delegated,
+      evidence: sentFacts(input),
+      rationale: 'The subagent cannot go on without the token',
+    })
+  }
   return { base_version: input.model.version, ops, needs: [] }
 }
