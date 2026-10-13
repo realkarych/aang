@@ -2,7 +2,6 @@ import type {
   ActionOutcome,
   BasisKind,
   Execution,
-  Freshness,
 } from '@aang/contract'
 import type { ReactElement } from 'react'
 import type { Level } from './lamps.js'
@@ -67,10 +66,6 @@ const Unknown = (): ReactElement => (
   />
 )
 
-const Gap = (): ReactElement => (
-  <path d="M1.5 6h3M7.5 6h3M4.5 3.5v5M7.5 3.5v5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-)
-
 export const LevelGlyph = ({ level }: { readonly level: Level }): ReactElement => (
   <Glyph>{level === 'warning' ? <Octagon /> : level === 'caution' ? <Triangle /> : <Ring />}</Glyph>
 )
@@ -91,19 +86,6 @@ export const ExecutionGlyph = ({ execution }: { readonly execution: Execution })
       return <Glyph><Dashed /></Glyph>
     case 'unknown':
       return <Glyph><Unknown /></Glyph>
-  }
-}
-
-export const FreshnessGlyph = ({ freshness }: { readonly freshness: Freshness }): ReactElement => {
-  switch (freshness) {
-    case 'ok':
-      return <Glyph><Dot /></Glyph>
-    case 'quiet':
-      return <Glyph><Ring /></Glyph>
-    case 'lost':
-      return <Glyph><Gap /></Glyph>
-    case 'hooks_inactive':
-      return <Glyph><Triangle /></Glyph>
   }
 }
 

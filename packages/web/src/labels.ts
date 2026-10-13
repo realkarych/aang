@@ -4,7 +4,6 @@ import type {
   BasisKind,
   Execution,
   FactKind,
-  Freshness,
   GapKind,
   HookInstallation,
   Interpreter,
@@ -45,13 +44,6 @@ const executionLabels: Readonly<Record<Exclude<Execution['state'], 'waiting'>, s
 
 export const executionLabel = (execution: Execution): string =>
   execution.state === 'waiting' ? waitingLabel[execution.reason] : executionLabels[execution.state]
-
-export const freshnessLabel: Readonly<Record<Freshness, string>> = {
-  ok: 'events flowing',
-  quiet: 'no new events',
-  lost: 'source lost',
-  hooks_inactive: 'hooks inactive',
-}
 
 export const supportModeLabel: Readonly<Record<SupportMode, string>> = {
   full: 'full',

@@ -14,7 +14,7 @@ import type { Locator, Page } from '@playwright/test'
 import { expect, getWithoutKeepAlive, type HookFields, test } from './fixtures.js'
 import { hooksOnly, recording } from './recordings.js'
 import { claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
-import { dock, waitingChip, waitingFor } from './screens.js'
+import { dock, runRowOf, waitingChip, waitingFor } from './screens.js'
 
 const observed = { timeout: 30_000 }
 
@@ -209,7 +209,7 @@ test('a question without a stage is counted in the header, listed on hover and f
   const played = await player(hooksOnly(manifest), { timeScale: 0 })
   await played.play({ until: 'question-answered' })
   await page.goto('/')
-  await page.getByRole('row').nth(1).getByRole('link').click()
+  await page.getByRole('list', { name: 'Chats' }).getByRole('listitem').first().getByRole('link').click()
   const run = RunId.parse(new URL(page.url()).searchParams.get('run'))
   await expect
     .poll(async () =>
@@ -238,7 +238,13 @@ test('a question without a stage is counted in the header, listed on hover and f
   await expect(tooltip).toHaveCount(0)
   await expect(waiting).toBeFocused()
 
+  await page.goto('/')
+  await expect(runRowOf(page, run)).toContainText('Waiting for you: 1')
+
   await played.play()
+  await expect(runRowOf(page, run)).not.toContainText('Waiting for you')
+  await runRowOf(page, run).getByRole('link').click()
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(waiting).toHaveCount(0)
 })
 

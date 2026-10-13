@@ -32,7 +32,10 @@ export const healthLacks = async (page: Page, text: string, options: { timeout?:
 }
 
 export const runRowOf = (page: Page, run: RunId): Locator =>
-  page.getByRole('row').filter({ has: page.locator(`a[href="?run=${run}"]`) })
+  page
+    .getByRole('list', { name: 'Chats' })
+    .getByRole('listitem')
+    .filter({ has: page.locator(`a[href="?run=${run}"]`) })
 
 export const waitingChip = (page: Page): Locator =>
   page.getByRole('banner').getByRole('button', { name: /^Waiting for you: \d+$/ })

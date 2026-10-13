@@ -43,9 +43,7 @@ test('a Claude session without hook events shows inactive hooks and the files-on
   await page.goto('/')
 
   const row = runRowOf(page, claudeRun)
-  await expect(row).toContainText('hooks inactive')
-  await expect(row).toContainText('files only')
-  await expect(row.getByRole('link')).toHaveText(claudeGoal)
+  await expect(row.getByRole('link')).toContainText(claudeGoal)
   await expect(await healthProblems(page)).toContainText('Hooks: inactive in 1 session')
   await expect(await healthProblems(page)).toContainText('Claude Code: hooks inactive in 1 session, "files only" mode.')
   await healthLacks(page, 'Versions:')
@@ -73,9 +71,41 @@ test('a Claude session without hook events shows inactive hooks and the files-on
   await healthLacks(page, 'Hooks: inactive in')
 
   await page.getByRole('navigation').getByRole('link', { name: '← Chats' }).click()
-  await expect(runRowOf(page, claudeRun)).toContainText('full')
-  await expect(runRowOf(page, claudeRun)).toContainText('awaiting an answer: 1')
-  await expect(runRowOf(page, claudeRun)).not.toContainText('hooks inactive')
+  await expect(runRowOf(page, claudeRun)).toContainText('Waiting for you: 1')
+})
+
+test('a chat row shows the goal, the project folder, the state and the time, newest first', async ({ page, player, daemon }) => {
+  await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+  const run = runOf(claudeOriginal)
+  await expect.poll(async () => (await readRunSummary(daemon.request, run))?.cwd ?? null).toBeTruthy()
+  const summary = await readRunSummary(daemon.request, run)
+  const folder = (summary?.cwd ?? '').split(/[\\/]/).filter(Boolean).slice(-2).join('/')
+
+  await page.goto('/')
+  const row = runRowOf(page, run)
+  await expect(row).toContainText(claudeGoal)
+  await expect(row).toContainText(folder)
+  await expect(row.getByTitle(summary?.cwd ?? '')).toBeVisible()
+  await expect(row.locator('time')).toHaveText(/^(?:just now|\d+ (?:second|minute|hour)s? ago|[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2}\s[AP]M)$/)
+  await expect(page.getByRole('table')).toHaveCount(0)
+  await expect(row).not.toContainText('Waiting for you')
+
+  await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
+  await expect(runRowOf(page, codexRun)).toBeVisible()
+  const listed = endpoints.runs.response.parse(await (await daemon.request(endpoints.runs.path)).json()).runs
+  const newestFirst = [...listed]
+    .sort((left, right) => (left.last_event_at === right.last_event_at ? 0 : left.last_event_at > right.last_event_at ? -1 : 1))
+    .map(({ id }) => `?run=${id}`)
+  expect(new Set(listed.map(({ last_event_at: at }) => at)).size).toBe(listed.length)
+  await expect
+    .poll(() =>
+      page
+        .getByRole('list', { name: 'Chats' })
+        .getByRole('listitem')
+        .getByRole('link')
+        .evaluateAll((links) => links.map((link) => link.getAttribute('href'))),
+    )
+    .toEqual(newestFirst)
 })
 
 test('a Codex session without hook events shows inactive hooks and the files-only mode (E2E 9)', async ({
@@ -96,9 +126,7 @@ test('a Codex session without hook events shows inactive hooks and the files-onl
   await healthLacks(page, 'Link:')
 
   await page.getByRole('link', { name: 'aang' }).click()
-  const row = runRowOf(page, codexRun)
-  await expect(row).toContainText('hooks inactive')
-  await expect(row).toContainText('files only')
+  await expect(runRowOf(page, codexRun)).toContainText(codexGoal)
 })
 
 test.describe('a session that loses its hooks mid-session', () => {
@@ -377,7 +405,6 @@ test.describe('the health dot', () => {
     await expect(await healthProblems(page)).toContainText('Records in an unknown format are kept in the journal')
 
     await rm(transcript)
-    await expect(runRowOf(page, claudeRun)).toContainText('source lost')
     await expect(await healthProblems(page)).toContainText('Sources: 1 source lost')
 
     await runRowOf(page, claudeRun).getByRole('link').click()

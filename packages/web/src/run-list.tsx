@@ -1,9 +1,9 @@
 import type { RunSummary, WatchState } from '@aang/contract'
 import type { ReactElement } from 'react'
-import { AttentionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
+import { ExecutionBadge } from './badges.js'
 import { dayTime } from './format.js'
 import { LevelGlyph } from './glyphs.js'
-import { runtimeLabel, supportModeLabel } from './labels.js'
+import { runtimeLabel } from './labels.js'
 import { Moment } from './moment.js'
 import { runHref, useNavigate } from './route.js'
 
@@ -37,52 +37,37 @@ const EmptyList = ({ watch }: { readonly watch: WatchState | null }): ReactEleme
   </div>
 )
 
-const forkOrigin = (source: RunSummary | undefined): string =>
-  source === undefined ? 'fork' : `fork of "${runTitle(source) ?? untitledRun(source)}"`
+const folderOf = (cwd: string): string => cwd.split(/[\\/]/).filter(Boolean).slice(-2).join('/')
 
-interface RunRowProps {
-  readonly run: RunSummary
-  readonly runs: readonly RunSummary[]
-  readonly now: bigint
-}
+const newestFirst = (left: RunSummary, right: RunSummary): number =>
+  Math.sign(Number(right.last_event_at - left.last_event_at))
 
-const RunRow = ({ run, runs, now }: RunRowProps): ReactElement => {
+const ChatRow = ({ run, now }: { readonly run: RunSummary; readonly now: bigint }): ReactElement => {
   const navigate = useNavigate()
   const title = runTitle(run)
+  const waiting = run.attention.waiting_for_human
   return (
-    <tr>
-      <td data-label="State">
+    <li className="chat-row">
+      <a className="chat-row-link" href={runHref(run.id)} onClick={navigate} title={title ?? undefined}>
+        <span className="chat-row-goal">{title ?? <span className="untitled">{untitledRun(run)}</span>}</span>
+        {run.cwd === null ? null : (
+          <span className="chat-row-folder" title={run.cwd}>
+            {folderOf(run.cwd)}
+          </span>
+        )}
         <ExecutionBadge execution={run.execution} />
-      </td>
-      <td className="run-cell">
-        <a className="run-link" href={runHref(run.id)} onClick={navigate} title={title ?? undefined}>
-          <span className="run-name">{title ?? <span className="untitled">{untitledRun(run)}</span>}</span>
-        </a>
-        <span className="run-origin">
-          {title === null ? <span>goal unknown</span> : <span>{runtimeLabel[run.runtime]}</span>}
-          {run.forked_from === null ? null : (
-            <span>{forkOrigin(runs.find(({ id }) => id === run.forked_from))}</span>
-          )}
-          {run.start_pruned ? <span>start pruned</span> : null}
+        {waiting === 0 ? null : (
+          <span className="chat-row-waiting">
+            <span className="visually-hidden">Waiting for you: </span>
+            <LevelGlyph level="caution" />
+            {waiting}
+          </span>
+        )}
+        <span className="chat-row-time">
+          <Moment at={run.last_event_at} now={now} />
         </span>
-      </td>
-      <td data-label="Attention">
-        <AttentionBadge attention={run.attention} />
-      </td>
-      <td data-label="Freshness">
-        <FreshnessBadge freshness={run.freshness} />
-      </td>
-      <td data-label="Mode">{run.support_modes.map((mode) => supportModeLabel[mode]).join(', ')}</td>
-      <td data-label="Sessions" className="number">
-        {run.sessions}
-      </td>
-      <td data-label="Agents" className="number">
-        {run.agents}
-      </td>
-      <td data-label="Last event">
-        <Moment at={run.last_event_at} now={now} />
-      </td>
-    </tr>
+      </a>
+    </li>
   )
 }
 
@@ -93,31 +78,12 @@ const ListTrouble = ({ children }: { readonly children: string }): ReactElement 
   </p>
 )
 
-const RunTable = ({ runs, now }: { readonly runs: readonly RunSummary[]; readonly now: bigint }): ReactElement => (
-  <table className="runs">
-    <caption className="visually-hidden">Runs</caption>
-    <thead>
-      <tr>
-        <th scope="col">State</th>
-        <th scope="col">Run</th>
-        <th scope="col">Attention</th>
-        <th scope="col">Freshness</th>
-        <th scope="col">Mode</th>
-        <th scope="col" className="number">
-          Sessions
-        </th>
-        <th scope="col" className="number">
-          Agents
-        </th>
-        <th scope="col">Last event</th>
-      </tr>
-    </thead>
-    <tbody>
-      {runs.map((run) => (
-        <RunRow key={run.id} run={run} runs={runs} now={now} />
-      ))}
-    </tbody>
-  </table>
+const ChatRows = ({ runs, now }: { readonly runs: readonly RunSummary[]; readonly now: bigint }): ReactElement => (
+  <ul className="chats" aria-label="Chats">
+    {[...runs].sort(newestFirst).map((run) => (
+      <ChatRow key={run.id} run={run} now={now} />
+    ))}
+  </ul>
 )
 
 export interface RunListProps {
@@ -140,7 +106,7 @@ export const RunList = ({ runs, failing, watch, now }: RunListProps): ReactEleme
       {failing ? (
         <ListTrouble>Could not refresh the run list. Showing earlier data, which may be stale.</ListTrouble>
       ) : null}
-      {runs.length === 0 ? <EmptyList watch={watch} /> : <RunTable runs={runs} now={now} />}
+      {runs.length === 0 ? <EmptyList watch={watch} /> : <ChatRows runs={runs} now={now} />}
     </>
   )
 }

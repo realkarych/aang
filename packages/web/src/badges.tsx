@@ -3,21 +3,16 @@ import type {
   ActionOutcome,
   Basis,
   Execution,
-  Freshness,
-  RunSummary,
 } from '@aang/contract'
 import type { ReactElement } from 'react'
 import {
   BasisGlyph,
   ExecutionGlyph,
-  FreshnessGlyph,
-  LevelGlyph,
   OutcomeGlyph,
 } from './glyphs.js'
 import {
   basisLabel,
   executionLabel,
-  freshnessLabel,
   interpreterLabel,
   outcomeLabel,
 } from './labels.js'
@@ -41,46 +36,12 @@ export const executionTone = (execution: Execution): Tone => {
   }
 }
 
-const freshnessTone: Readonly<Record<Freshness, Tone>> = {
-  ok: 'go',
-  quiet: 'hold',
-  lost: 'fail',
-  hooks_inactive: 'ask',
-}
-
 export const ExecutionBadge = ({ execution }: { readonly execution: Execution }): ReactElement => (
   <span className="badge" data-tone={executionTone(execution)}>
     <ExecutionGlyph execution={execution} />
     {executionLabel(execution)}
   </span>
 )
-
-export const FreshnessBadge = ({ freshness }: { readonly freshness: Freshness }): ReactElement => (
-  <span className="badge" data-tone={freshnessTone[freshness]}>
-    <FreshnessGlyph freshness={freshness} />
-    {freshnessLabel[freshness]}
-  </span>
-)
-
-export const AttentionBadge = ({ attention }: { readonly attention: RunSummary['attention'] }): ReactElement => {
-  if (attention.waiting_for_human > 0) {
-    return (
-      <span className="badge" data-tone="ask">
-        <LevelGlyph level="caution" />
-        {`awaiting an answer: ${String(attention.waiting_for_human)}`}
-      </span>
-    )
-  }
-  if (attention.open > 0) {
-    return (
-      <span className="badge" data-tone="hold">
-        <LevelGlyph level="normal" />
-        {`open: ${String(attention.open)}`}
-      </span>
-    )
-  }
-  return <span className="quiet">none</span>
-}
 
 const BasisNote = ({ basis }: { readonly basis: Basis }): ReactElement | null =>
   basis.kind === 'observed' ? null : <span className="badge-basis">{basisLabel[basis.kind]}</span>

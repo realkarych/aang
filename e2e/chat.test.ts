@@ -327,7 +327,7 @@ test.describe('with the Claude observer collapsing the reviewers from the chat',
 
   const reviewerStage = /^Stage "code-reviewer \(.+\)"$/
 
-  test('a filter asked in the chat shows as a chip over the map and removing the chip undoes the filter', async ({
+  test('a filter asked in the chat shows as a chip over the map, a failed removal keeps the chip with the reason, removing the chip undoes the filter, and a rotated token signs out', async ({
     page,
     player,
     profile,
@@ -347,12 +347,32 @@ test.describe('with the Claude observer collapsing the reviewers from the chat',
     const reviewing = await agentOf(page, claudeRun, 'Ping the code-reviewer agent')
     expect(await collapsedAgents(page, claudeRun)).toEqual([reviewing.id])
 
-    await chips(page).first().getByRole('button', { name: /^Remove filter: / }).click()
+    const removeFilter = /^Remove filter: /
+    const revoke = '**/view-rules/**'
+    const refuse = (route: Route): Promise<void> =>
+      route.request().method() === 'DELETE' ? route.abort('connectionfailed') : route.continue()
+    await page.route(revoke, refuse)
+    await chips(page).first().getByRole('button', { name: removeFilter }).click()
+    await expect(page.getByRole('alert')).toContainText('Filter not removed: ')
+    await expect(chips(page)).toHaveCount(1)
+    await expect(chips(page).first().getByRole('button', { name: removeFilter })).toBeEnabled()
+    await page.unroute(revoke, refuse)
+
+    await chips(page).first().getByRole('button', { name: removeFilter }).click()
+    await expect(page.getByRole('alert')).toHaveCount(0)
     await expect(chips(page)).toHaveCount(0, observed)
     await expect(asked).toContainText('The filter from this answer was removed.')
     await expect(asked).not.toContainText('Filter applied')
     expect(await collapsedAgents(page, claudeRun)).toEqual([])
     await expect(reviewer).toBeVisible()
+
+    await ask(page, 'Collapse the reviewers')
+    await expect(chips(page)).toHaveCount(1, observed)
+    await page.route(revoke, (route: Route) =>
+      route.request().method() === 'DELETE' ? route.fulfill({ status: 401 }) : route.continue(),
+    )
+    await chips(page).first().getByRole('button', { name: removeFilter }).click()
+    await expect(page.getByRole('heading', { name: 'Signed out' })).toBeVisible()
   })
 
   test('a filter rule that hides the selected stage keeps the summary and whole run clears it', async ({
