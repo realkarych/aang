@@ -2,12 +2,15 @@ import { endpoints, type RunId } from '@aang/contract'
 import type { RunningDaemon } from '@aang/testkit'
 import type { Locator, Page } from '@playwright/test'
 
-export const strip = (page: Page): Locator => page.getByRole('region', { name: 'Observation status' })
+export const healthDot = (page: Page): Locator =>
+  page.getByRole('banner').getByRole('button', { name: /^Observation problems: / })
 
-export const lamp = (page: Page, label: string): Locator =>
-  strip(page)
-    .getByRole('listitem')
-    .filter({ has: page.getByText(label, { exact: true }) })
+export const healthProblems = async (page: Page): Promise<Locator> => {
+  if ((await healthDot(page).getAttribute('aria-expanded')) !== 'true') {
+    await healthDot(page).click()
+  }
+  return page.getByRole('region', { name: 'Observation problems', exact: true })
+}
 
 export const runRowOf = (page: Page, run: RunId): Locator =>
   page.getByRole('row').filter({ has: page.locator(`a[href="?run=${run}"]`) })
@@ -58,14 +61,6 @@ export const textShown = async (scope: Locator, text: string): Promise<boolean> 
     }
     return false
   }, text)
-}
-
-export const lampDetails = async (page: Page, label: string): Promise<Locator> => {
-  const button = lamp(page, label).getByRole('button')
-  if ((await button.getAttribute('aria-expanded')) !== 'true') {
-    await button.click()
-  }
-  return page.getByRole('region', { name: `${label}: details`, exact: true })
 }
 
 export const dock = (page: Page): Locator => page.getByRole('complementary', { name: 'Chat panel' })

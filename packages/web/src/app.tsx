@@ -3,14 +3,14 @@ import { type ReactElement, useCallback, useEffect, useId, useMemo, useState } f
 import { readRuns, readStatus } from './api.js'
 import { nowNs } from './format.js'
 import { LevelGlyph } from './glyphs.js'
+import { HealthDot } from './health-dot.js'
 import { attentionKindLabel } from './labels.js'
-import { type FocusedRun, lampsOf } from './lamps.js'
+import { type FocusedRun, type Lamp, lampsOf } from './lamps.js'
 import { waitingOffMap } from './map-graph.js'
 import { listHref, useNavigate, useRoute } from './route.js'
 import { RunList, runTitle, untitledRun } from './run-list.js'
 import { RunPage } from './run-page.js'
 import { agentIds, KnownAgents } from './short-ids.js'
-import { StatusStrip } from './status-strip.js'
 import { type Polled, usePolled } from './use-polled.js'
 import { useRunFeed } from './use-run-feed.js'
 
@@ -69,9 +69,11 @@ const WaitingChip = ({ waiting }: { readonly waiting: readonly AttentionItem[] }
 const Masthead = ({
   title,
   waiting,
+  lamps,
 }: {
   readonly title: string | null
   readonly waiting: readonly AttentionItem[]
+  readonly lamps: readonly Lamp[]
 }): ReactElement => {
   const navigate = useNavigate()
   return (
@@ -90,6 +92,7 @@ const Masthead = ({
           {waiting.length === 0 ? null : <WaitingChip waiting={waiting} />}
         </nav>
       )}
+      <HealthDot lamps={lamps} />
     </header>
   )
 }
@@ -113,8 +116,7 @@ const ListScreen = ({ status, now, onSignedOut }: ScreenProps): ReactElement => 
   })
   return (
     <>
-      <Masthead title={null} waiting={noWaiting} />
-      <StatusStrip lamps={lamps} />
+      <Masthead title={null} waiting={noWaiting} lamps={lamps} />
       <main className="page">
         <RunList
           runs={runs.value?.runs ?? null}
@@ -152,8 +154,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
   })
   return (
     <>
-      <Masthead title={title ?? 'Run'} waiting={waiting} />
-      <StatusStrip lamps={lamps} />
+      <Masthead title={title ?? 'Run'} waiting={waiting} lamps={lamps} />
       <div className="run-screen">
         <KnownAgents value={agents}>
           <RunPage feed={feed} now={now} onSignedOut={onSignedOut} />

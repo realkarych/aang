@@ -471,3 +471,6 @@ export const lampsOf = (input: LampInput): Lamp[] => {
     coverageLamp(input),
   ].filter((shown) => shown !== null)
 }
+
+export const problemsOf = (lamps: readonly Lamp[]): Lamp[] =>
+  lamps.filter(({ id, level }) => level !== 'normal' && id !== 'coverage')
