@@ -111,11 +111,12 @@ const spoolGapKinds: ReadonlySet<GapKind> = new Set(['spool_over_threshold', 'sp
 const observerLevel = ({ state }: ObserverState): Level =>
   state === 'ok' ? 'normal' : state === 'unavailable' ? 'warning' : 'caution'
 
-const admissionFailed = (backends: readonly ObserverBackendStatus[]): boolean =>
-  backends.some(({ admission }) => admission?.outcome === 'failed')
+const admissionPending = (backends: readonly ObserverBackendStatus[]): boolean =>
+  backends.some(({ state, admission }) => state.state === 'disabled' && admission?.outcome === 'pending') &&
+  !backends.some(({ admission }) => admission?.outcome === 'failed')
 
-const stateLevel = (state: ObserverState, failedAdmission: boolean): Level =>
-  state.state === 'disabled' && state.reason === 'version_not_admitted' && !failedAdmission
+const stateLevel = (state: ObserverState, pendingAdmission: boolean): Level =>
+  state.state === 'disabled' && state.reason === 'version_not_admitted' && pendingAdmission
     ? 'normal'
     : observerLevel(state)
 
@@ -124,7 +125,7 @@ const backendLevel = (backend: ObserverBackendStatus, runs: readonly RunSummary[
     ? (runs ?? []).some(({ runtime }) => runtime === backend.vendor)
       ? 'caution'
       : 'normal'
-    : stateLevel(backend.state, admissionFailed([backend]))
+    : stateLevel(backend.state, admissionPending([backend]))
 
 const interpreting = ({ state }: ObserverState): boolean => state === 'ok' || state === 'lagging'
 
@@ -204,7 +205,7 @@ const observerLamp = ({ status, runs, focus }: LampInput): Lamp => {
   const focused = focus?.run ?? null
   if (focused !== null) {
     const { observer } = focused.summary
-    return lamp('observer', 'Observer', observerStateLabel(observer.state), stateLevel(observer.state, admissionFailed(backends)), [
+    return lamp('observer', 'Observer', observerStateLabel(observer.state), stateLevel(observer.state, admissionPending(backends)), [
       ...retryDetails(observer.state),
       ...pausedDetails(observer.state),
       ...(observer.isolation_unverified ? [detail('Observer isolation is not confirmed.', 'caution')] : []),

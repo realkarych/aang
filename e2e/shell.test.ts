@@ -329,6 +329,29 @@ test.describe('a Claude-only install', () => {
   })
 })
 
+test.describe('a Claude CLI that reports an unrecognizable version', () => {
+  test.use({ claudeScenario: { version: 'nightly build' } })
+
+  test('lights the health dot and names the disabled observer', async ({ page, daemon }) => {
+    await expect
+      .poll(async () => {
+        const { observer } = endpoints.status.response.parse(await (await daemon.request(endpoints.status.path)).json())
+        const claude = observer.backends.find(({ vendor }) => vendor === 'claude')
+        return claude === undefined
+          ? 'no backend'
+          : claude.state.state === 'disabled'
+            ? `disabled: ${claude.state.reason}, admission ${claude.admission?.outcome ?? 'none'}`
+            : claude.state.state
+      }, observed)
+      .toBe('disabled: version_not_admitted, admission none')
+
+    await page.goto('/')
+    const problems = await healthProblems(page)
+    await expect(problems).toContainText('Observer: Claude Code: disabled: CLI version not admitted')
+    await expect(problems).toContainText('Claude Code, model ')
+  })
+})
+
 test.describe('the health dot', () => {
   test.use({ config: { ...watchAll, spool: { thresholdBytes: 4_096, checkIntervalMs: 50 } } })
 
