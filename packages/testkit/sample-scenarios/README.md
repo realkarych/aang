@@ -3,7 +3,7 @@
 Player manifests (`PlayerManifest`, T.2) for the spike samples from `docs/research/samples` that do not need hooks and files to be merged. Transcripts and rollouts are taken from the samples by relative path, without copies. Coordinated scenarios with hooks and files are the R.4 recordings.
 
 ```ts
-import { createPlayer, loadManifest, sampleScenarioManifest } from '@aang/testkit'
+import { createPlayer, loadManifest, sampleScenarioManifest } from '@catacomb/testkit'
 
 const player = createPlayer(await loadManifest(sampleScenarioManifest('claude-fork')), { roots, timeScale: 0 })
 await player.play({ until: 'fork' })
@@ -34,6 +34,6 @@ Times inside records are spike times. The observer's work queue is limited to 24
 - Registry snapshots `sessions/*.json`: the samples have only the status change log without the full file contents.
 - Hook events: the hook and transcript samples were taken in different sessions.
 
-The sessions' working directories are `/tmp/aang-spike/cc-transcripts/run` and `/tmp/aang-spike/codex-cli/run1`. Tests include them in scope via `watch.all`.
+The sessions' working directories are `/tmp/catacomb-spike/cc-transcripts/run` and `/tmp/catacomb-spike/codex-cli/run1`. Tests include them in scope via `watch.all`.
 
 Conformance of the manifests to the samples is checked by `packages/testkit/test/sample-scenarios.test.ts` (each step's time, files at labels, OTLP bodies) and `packages/engine/test/sample-scenarios.test.ts` (a pass through the real collector, adapters and `engine`).

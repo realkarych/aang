@@ -8,7 +8,7 @@ import {
   type RunId,
   type Runtime,
   runtimes,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import {
   applyObserverResponse,
   beginObserverFollowUp,
@@ -20,8 +20,8 @@ import {
   recordRunContext,
   skipObserverFollowUp,
   startObserverBatch,
-} from '@aang/engine'
-import type { PendingFact, Store, Transaction } from '@aang/store'
+} from '@catacomb/engine'
+import type { PendingFact, Store, Transaction } from '@catacomb/store'
 import type { AuthResult, LaunchFailure, ObserverRequest, ObserverResult } from './backend.js'
 import type { LaunchStatus } from './process.js'
 import {

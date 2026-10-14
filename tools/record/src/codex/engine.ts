@@ -62,8 +62,8 @@ const versionOf = async (executable: string): Promise<string> => {
 }
 
 export const resolveCodex = async (selected: string | undefined): Promise<Engine> => {
-  const path = selected ?? process.env['AANG_RECORD_CODEX'] ?? await locateCodex()
-  if (path === undefined) throw new EngineUnavailableError('Codex CLI is not on PATH; pass --codex or AANG_RECORD_CODEX')
+  const path = selected ?? process.env['CATACOMB_RECORD_CODEX'] ?? await locateCodex()
+  if (path === undefined) throw new EngineUnavailableError('Codex CLI is not on PATH; pass --codex or CATACOMB_RECORD_CODEX')
   if (windows && /\.(cmd|bat|ps1)$/i.test(path)) throw new Error(`Codex CLI must be the native executable, not the ${path} shim`)
   const executable = resolve(path)
   if (!await isExecutable(executable)) throw new EngineUnavailableError(`Codex CLI is not an executable file: ${executable}`)
@@ -87,8 +87,8 @@ const sdkPackage = async (directory: string): Promise<{ readonly directory: stri
 }
 
 export const resolveCodexSdk = async (selected: string | undefined): Promise<Engine> => {
-  const given = selected ?? process.env['AANG_RECORD_CODEX_SDK']
-  if (given === undefined) throw new EngineUnavailableError('Codex SDK package directory is not given (--codex-sdk or AANG_RECORD_CODEX_SDK)')
+  const given = selected ?? process.env['CATACOMB_RECORD_CODEX_SDK']
+  if (given === undefined) throw new EngineUnavailableError('Codex SDK package directory is not given (--codex-sdk or CATACOMB_RECORD_CODEX_SDK)')
   const found = await sdkPackage(resolve(given))
   if (found === undefined) throw new EngineUnavailableError(`${given} does not contain @openai/codex-sdk`)
   const { directory, manifest } = found
@@ -108,7 +108,7 @@ const bundleVersion = async (executable: string): Promise<string | undefined> =>
 }
 
 export const resolveCodexDesktop = async (selected: string | undefined): Promise<Engine> => {
-  const executable = resolve(selected ?? process.env['AANG_RECORD_CODEX_DESKTOP'] ?? desktopEngine)
+  const executable = resolve(selected ?? process.env['CATACOMB_RECORD_CODEX_DESKTOP'] ?? desktopEngine)
   if (!await isExecutable(executable)) throw new EngineUnavailableError(`Codex Desktop engine is not installed at ${executable}`)
   const appVersion = await bundleVersion(executable)
   return { executable, version: await versionOf(executable), ...appVersion === undefined ? {} : { appVersion } }

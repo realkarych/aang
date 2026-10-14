@@ -14,24 +14,24 @@ export interface CodexHooksCheckResult extends CodexHooksCheck {
 }
 
 export const checkCodexHooks = async ({ codex, known, fresh, ...options }: CodexHooksCheckOptions): Promise<CodexHooksCheckResult> => {
-  const { aangHome, codexHome, signal } = options
-  const unlocked = await readCodexHooksFiles(aangHome, codexHome)
+  const { catacombHome, codexHome, signal } = options
+  const unlocked = await readCodexHooksFiles(catacombHome, codexHome)
   if (unlocked.unregistered) {
     return { status: 'not_installed', fingerprint: unlocked.fingerprint, listed: false }
   }
   return withCodexHooksLock(codexHome, signal, async () => {
-    const files = await readCodexHooksFiles(aangHome, codexHome)
+    const files = await readCodexHooksFiles(catacombHome, codexHome)
     if (files.unregistered) {
       return { status: 'not_installed', fingerprint: files.fingerprint, listed: false }
     }
     if (!fresh) {
-      for (const remembered of [known, await readCodexHooksRecord(aangHome, codexHome)]) {
+      for (const remembered of [known, await readCodexHooksRecord(catacombHome, codexHome)]) {
         if (remembered?.fingerprint === files.fingerprint) {
           return { ...remembered, listed: true }
         }
       }
     }
     const { status } = await codexHooksState({ ...options, codex: codex() })
-    return { status, fingerprint: await unchangedFingerprint(aangHome, codexHome, files), listed: true }
+    return { status, fingerprint: await unchangedFingerprint(catacombHome, codexHome, files), listed: true }
   })
 }

@@ -3,7 +3,7 @@ import { once } from 'node:events'
 import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { request as httpRequest } from 'node:http'
 import { join } from 'node:path'
-import { type Listener } from '@aang/contract'
+import { type Listener } from '@catacomb/contract'
 import { expect, onTestFinished, test, vi } from 'vitest'
 import { createSandbox, filesUnder, prepareCollector, runCollector, type Sandbox, sleep } from './sandbox.js'
 

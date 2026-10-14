@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { CollectedRecord } from '@aang/contract'
+import type { CollectedRecord } from '@catacomb/contract'
 import { expect, test, vi } from 'vitest'
 import { createSandbox, runCollector, type Running, sleep } from './sandbox.js'
 

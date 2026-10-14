@@ -1,5 +1,5 @@
-import { type AgentId, ChangeSeq, type ObservationRemoval } from '@aang/contract'
-import type { Change, Store } from '@aang/store'
+import { type AgentId, ChangeSeq, type ObservationRemoval } from '@catacomb/contract'
+import type { Change, Store } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { createHome } from './home.js'
 import { type AgentDraft, agentDraft, instant } from './records.js'

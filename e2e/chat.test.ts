@@ -15,8 +15,8 @@ import {
   type ViewElement,
   type ViewPlacement,
   type ViewRuleSpec,
-} from '@aang/contract'
-import { runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
 import {
   chatAnswerReport,
   type ClaudeReply,
@@ -31,7 +31,7 @@ import {
   reportStageTitle,
   type RunningDaemon,
   sampleScenarioManifest,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import type { Locator, Page, Route } from '@playwright/test'
 import { expect, getWithoutKeepAlive, type HookFields, test } from './fixtures.js'
 import { codexRecording, threadsOf } from './recordings.js'
@@ -757,7 +757,7 @@ test.describe('with the Claude observer answering while the chat history cannot 
     await page.goto(`/?run=${claudeRun}`)
     await expect(stage(page, mainStageTitle)).toBeVisible(observed)
     const trouble = chat(page).getByRole('status').filter({ hasText: 'Chat history not loaded' })
-    await expect(trouble).toHaveText('Chat history not loaded: no connection to the daemon. aang keeps retrying.')
+    await expect(trouble).toHaveText('Chat history not loaded: no connection to the daemon. catacomb keeps retrying.')
     const before = entry(page, earlier)
     await expect(before).toHaveCount(0)
     await expect(chat(page)).not.toContainText('No questions about this run yet.')
@@ -780,7 +780,7 @@ test.describe('with the Claude observer answering while the chat history cannot 
       tool_input: { command: 'echo after-reset', description: 'After the reset' },
     })
     expect((await reread).status()).toBe(200)
-    await expect(trouble).toHaveText('Chat history not loaded: no connection to the daemon. aang keeps retrying.')
+    await expect(trouble).toHaveText('Chat history not loaded: no connection to the daemon. catacomb keeps retrying.')
     await expect(before).toBeVisible()
     await expect(waitingFor(page)).toContainText('Approval request: Bash: echo after-reset')
     await hook.claude('PermissionRequest.Bash.json', {

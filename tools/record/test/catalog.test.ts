@@ -8,19 +8,19 @@ import { afterAll, expect, test } from 'vitest'
 import { driverOf, EngineUnavailableError, recordScenario, type Scenario, scenarioModel, scenarios, supportsOs, verifyRecording } from '../dist/index.js'
 
 const os = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
-const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
+const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook')
 const env = process.env
 const selection = {
-  claude: env['AANG_RECORD_CLAUDE'],
-  codex: env['AANG_RECORD_CODEX'],
-  claudeSdk: env['AANG_RECORD_CLAUDE_SDK'],
-  codexSdk: env['AANG_RECORD_CODEX_SDK'],
-  claudeDesktop: env['AANG_RECORD_CLAUDE_DESKTOP'],
-  codexDesktop: env['AANG_RECORD_CODEX_DESKTOP'],
+  claude: env['CATACOMB_RECORD_CLAUDE'],
+  codex: env['CATACOMB_RECORD_CODEX'],
+  claudeSdk: env['CATACOMB_RECORD_CLAUDE_SDK'],
+  codexSdk: env['CATACOMB_RECORD_CODEX_SDK'],
+  claudeDesktop: env['CATACOMB_RECORD_CLAUDE_DESKTOP'],
+  codexDesktop: env['CATACOMB_RECORD_CODEX_DESKTOP'],
 }
-const required = new Set((env['AANG_RECORD_REQUIRE'] ?? '').split(',').filter(Boolean))
-const kept = env['AANG_RECORD_FIXTURES']
-const fixturesRoot = kept === undefined ? await mkdtemp(join(tmpdir(), 'aang-catalog-')) : resolve(kept)
+const required = new Set((env['CATACOMB_RECORD_REQUIRE'] ?? '').split(',').filter(Boolean))
+const kept = env['CATACOMB_RECORD_FIXTURES']
+const fixturesRoot = kept === undefined ? await mkdtemp(join(tmpdir(), 'catacomb-catalog-')) : resolve(kept)
 
 afterAll(async () => {
   if (kept === undefined) await rm(fixturesRoot, { recursive: true, force: true })
@@ -67,7 +67,7 @@ test.runIf(inputDialogs !== undefined)(
       context.skip()
       return
     }
-    const outside = await mkdtemp(join(tmpdir(), 'aang-inside-tmux-'))
+    const outside = await mkdtemp(join(tmpdir(), 'catacomb-inside-tmux-'))
     try {
       const tools = join(outside, 'bin')
       await mkdir(tools)

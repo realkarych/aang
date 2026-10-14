@@ -1,4 +1,4 @@
-import type { CollectedRecord, EpochNs, ParseResult } from '@aang/contract'
+import type { CollectedRecord, EpochNs, ParseResult } from '@catacomb/contract'
 import { z } from 'zod'
 import { fact, type FactOrigin, invalid, noRuntimeIds, parsed, schemaViolation, unknown } from './facts.js'
 import { name, optionalText } from './fields.js'

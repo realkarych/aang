@@ -9,7 +9,7 @@ import type { HostPlanInput } from './plan.js'
 import { findTranscript, named, toolResult, toolUses, type Transcript } from './transcripts.js'
 
 const server = fileURLToPath(new URL('./elicitation-server.js', import.meta.url))
-export const elicitationServer = 'aang-elicitation'
+export const elicitationServer = 'catacomb-elicitation'
 export const greetingTool = `mcp__${elicitationServer}__choose_greeting`
 export const linkTool = `mcp__${elicitationServer}__confirm_link`
 
@@ -56,7 +56,7 @@ export const elicitation: Definition = {
   name: 'elicitation',
   models: ['stub'],
   expectedFacts: [
-    'The MCP server aang-elicitation asks for a greeting through a form elicitation; the host answers Hello after ~1.5 s',
+    'The MCP server catacomb-elicitation asks for a greeting through a form elicitation; the host answers Hello after ~1.5 s',
     'The same server asks the user to open a link through a URL elicitation; the host opens the link after ~1 s and the server confirms completion',
     'Both MCP actions finish with results that carry the answers; Elicitation and ElicitationResult hooks record each request and answer',
   ],
@@ -69,7 +69,7 @@ export const elicitation: Definition = {
   }),
   run: async ({ session, stage }) => {
     const summary = await stage('elicitation', {
-      turns: [{ prompt: `[aang:elicitation] Call the choose_greeting tool of the ${elicitationServer} MCP server, then call its confirm_link tool. Reply with one sentence.` }],
+      turns: [{ prompt: `[catacomb:elicitation] Call the choose_greeting tool of the ${elicitationServer} MCP server, then call its confirm_link tool. Reply with one sentence.` }],
       mcpServers: elicitationServers(session),
       decisions: [{ tool: greetingTool, behavior: 'allow', delayMs: 500 }, { tool: linkTool, behavior: 'allow', delayMs: 500 }],
       elicitations: [{ mode: 'form', action: 'accept', content: { greeting: 'Hello' }, delayMs: 1500 }, { mode: 'url', action: 'accept', delayMs: 1000 }],

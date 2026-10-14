@@ -50,7 +50,7 @@ export const isAlive = (pid: number): boolean => {
 const windowsProcessControl = (pid: number, operation: 'NtSuspendProcess' | 'NtResumeProcess'): string =>
   [
     "$signature = '[DllImport(\"ntdll.dll\")] public static extern int NtSuspendProcess(IntPtr handle); [DllImport(\"ntdll.dll\")] public static extern int NtResumeProcess(IntPtr handle);'",
-    '$ntdll = Add-Type -MemberDefinition $signature -Name Ntdll -Namespace AangHookTest -PassThru',
+    '$ntdll = Add-Type -MemberDefinition $signature -Name Ntdll -Namespace CatacombHookTest -PassThru',
     `$process = [System.Diagnostics.Process]::GetProcessById(${String(pid)})`,
     `$status = $ntdll::${operation}($process.Handle)`,
     'if ($status -ne 0) { exit 1 }',
@@ -116,7 +116,7 @@ const recordedPids = async (directory: string): Promise<number[]> =>
   )
 
 export const createLaunchSandbox = async (onTestFinished: TestContext['onTestFinished']): Promise<LaunchSandbox> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-launch-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-launch-')))
   const directory = join(root, 'Όνομα Επώνυμο')
   await mkdir(directory)
   const launches: Launch[] = []

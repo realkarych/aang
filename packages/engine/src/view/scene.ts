@@ -9,8 +9,8 @@ import {
   type StageId,
   type UsageRecord,
   type ViewRule,
-} from '@aang/contract'
-import type { ArtifactReader, Observation, ViewReader } from '@aang/store'
+} from '@catacomb/contract'
+import type { ArtifactReader, Observation, ViewReader } from '@catacomb/store'
 import { byId, type ModelParts, partsOf } from '../read/context.js'
 import { type UsageSource, usageByStage } from '../usage/solver.js'
 

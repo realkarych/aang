@@ -15,14 +15,16 @@ import {
   leaseSpool,
   type Profile,
   readSpool,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import { afterAll, beforeAll, describe, test, type TestContext } from 'vitest'
 import {
   buildNpmPackages,
+  catacombPackageName,
   hookBinaryName,
   hookPackageName,
   type HookPlatform,
   hookPlatforms,
+  npmScope,
   type PackedPackage,
   run,
 } from '../dist/index.js'
@@ -32,11 +34,11 @@ import { type Registry, startRegistry } from './registry.js'
 
 const hostPlatform = `${process.platform}-${process.arch}`
 const windows = process.platform === 'win32'
-const hostBinaryName = windows ? 'aang-hook.exe' : 'aang-hook'
+const hostBinaryName = windows ? 'catacomb-hook.exe' : 'catacomb-hook'
 const codexShell = windows ? { command: 'pwsh', args: ['-NoProfile', '-Command'] } : { command: '/bin/sh', args: ['-c'] }
 const codexHookSlowdown = 'on Windows Codex starts PowerShell for every hook event, which slows each event by 0.25–0.4 s'
-const started = /^aang started: pid ([0-9]+), (http:\/\/127\.0\.0\.1:[0-9]+)$/m
-const webRoot = dirname(fileURLToPath(import.meta.resolve('@aang/web')))
+const started = /^catacomb started: pid ([0-9]+), (http:\/\/127\.0\.0\.1:[0-9]+)$/m
+const webRoot = dirname(fileURLToPath(import.meta.resolve('@catacomb/web')))
 const samples = new URL('../../../docs/research/samples/', import.meta.url)
 const commandTimeoutMs = 180_000
 
@@ -79,7 +81,7 @@ const watchedProfile = async (
   await mkdir(workspace)
   await profile.configure({ collector: { rootsScanIntervalMs: 200 }, watch: { roots: [{ path: workspace }] }, ...config })
   onTestFinished(async () => {
-    const state = await readFile(join(profile.aangHome, 'daemon.json'), 'utf8').catch(() => null)
+    const state = await readFile(join(profile.catacombHome, 'daemon.json'), 'utf8').catch(() => null)
     const pid = state === null ? null : (JSON.parse(state) as { readonly pid: number }).pid
     if (pid !== null && isAlive(pid)) {
       process.kill(pid, 'SIGKILL')
@@ -130,7 +132,7 @@ interface Connected extends WatchedProfile {
 }
 
 const connectedProfile = async (onTestFinished: TestContext['onTestFinished']): Promise<Connected> => {
-  const fakes = await realpath(await mkdtemp(join(tmpdir(), 'aang-npm-fakes-')))
+  const fakes = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-npm-fakes-')))
   onTestFinished(() => rm(fakes, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }))
   const claude = installFakeClaude(fakes)
   const codex = installFakeCodex(fakes)
@@ -148,8 +150,8 @@ const exists = (path: string): Promise<boolean> =>
     () => false,
   )
 
-const runtimesOfRuns = async (url: string, aangHome: string): Promise<string[]> => {
-  const token = (await readFile(join(aangHome, 'token'), 'utf8')).trim()
+const runtimesOfRuns = async (url: string, catacombHome: string): Promise<string[]> => {
+  const token = (await readFile(join(catacombHome, 'token'), 'utf8')).trim()
   const response = await fetch(`${url}/api/runs`, { headers: { authorization: `Bearer ${token}` } })
   const { runs } = (await response.json()) as { readonly runs: readonly { readonly runtime: string }[] }
   return runs.map(({ runtime }) => runtime).sort()
@@ -160,8 +162,8 @@ interface Admission {
   readonly failure: string | null
 }
 
-const claudeAdmission = async (url: string, aangHome: string): Promise<Admission | null> => {
-  const token = (await readFile(join(aangHome, 'token'), 'utf8')).trim()
+const claudeAdmission = async (url: string, catacombHome: string): Promise<Admission | null> => {
+  const token = (await readFile(join(catacombHome, 'token'), 'utf8')).trim()
   const response = await fetch(`${url}/api/status`, { headers: { authorization: `Bearer ${token}` } })
   const { observer } = (await response.json()) as {
     readonly observer: { readonly backends: readonly { readonly vendor: string; readonly admission: Admission | null }[] }
@@ -169,7 +171,7 @@ const claudeAdmission = async (url: string, aangHome: string): Promise<Admission
   return observer.backends.find(({ vendor }) => vendor === 'claude')?.admission ?? null
 }
 
-describe('the packed aang package installs from a registry and runs', { tags: ['package'] }, () => {
+describe('the packed catacomb package installs from a registry and runs', { tags: ['package'] }, () => {
   let packages: readonly PackedPackage[] = []
   let registry: Registry | undefined
   let installation: Installation | undefined
@@ -177,7 +179,7 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
 
   const installed = (): Installation => {
     if (installation === undefined) {
-      throw new Error('aang is not installed')
+      throw new Error('catacomb is not installed')
     }
     return installation
   }
@@ -190,7 +192,7 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
   }
 
   beforeAll(async () => {
-    output = await realpath(await mkdtemp(join(tmpdir(), 'aang-npm-package-')))
+    output = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-npm-package-')))
     packages = await buildNpmPackages(output)
     registry = await startRegistry(packages)
     installation = await install(registry.url, 'global')
@@ -204,19 +206,19 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     }
   })
 
-  test('npm installs aang for Node 26 and later with the aang-hook package of this platform only', async ({ expect }) => {
+  test('npm installs catacomb for Node 26 and later with the catacomb-hook package of this platform only', async ({ expect }) => {
     const manifest: unknown = JSON.parse(await readFile(join(installed().packageDirectory, 'package.json'), 'utf8'))
-    const dependencies = await readdir(join(installed().packageDirectory, 'node_modules'))
+    const dependencies = await readdir(join(installed().packageDirectory, 'node_modules', npmScope))
 
     expect(manifest).toMatchObject({
-      name: 'aang',
+      name: catacombPackageName,
       engines: { node: '>=26' },
-      bin: { aang: 'dist/aang.js', 'aang-hook': 'dist/aang-hook.js' },
+      bin: { catacomb: 'dist/catacomb.js', 'catacomb-hook': 'dist/catacomb-hook.js' },
     })
-    expect(dependencies.filter((name) => name.startsWith('aang-hook-'))).toEqual([`aang-hook-${hostPlatform}`])
+    expect(dependencies.filter((name) => name.startsWith('catacomb-hook-'))).toEqual([`catacomb-hook-${hostPlatform}`])
   })
 
-  test('in a temporary HOME the installed aang-hook writes to the spool and aang starts, ingests it, reports status, serves the web build and stops', { timeout: commandTimeoutMs }, async ({
+  test('in a temporary HOME the installed catacomb-hook writes to the spool and catacomb starts, ingests it, reports status, serves the web build and stops', { timeout: commandTimeoutMs }, async ({
     expect,
     onTestFinished,
   }) => {
@@ -225,25 +227,25 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     const payload = await sessionStart(workspace)
     await leaseSpool(profile.spool)
 
-    const hooked = await installed().run('aang-hook', ['claude', 'plugin', profile.spool], { env, input: payload })
+    const hooked = await installed().run('catacomb-hook', ['claude', 'plugin', profile.spool], { env, input: payload })
 
     expect(hooked).toEqual({ code: 0, stdout: '', stderr: '' })
     expect(
       (await readSpool(profile.spool)).map(({ header, payload: body }) => [header.runtime, header.registration, body.toString()]),
     ).toEqual([['claude', 'plugin', payload]])
-    expect((await installed().run('aang', ['status'], { env })).stdout).toContain('daemon: not running\nspool: 1 files')
+    expect((await installed().run('catacomb', ['status'], { env })).stdout).toContain('daemon: not running\nspool: 1 files')
 
-    const start = await installed().run('aang', ['start'], { env })
+    const start = await installed().run('catacomb', ['start'], { env })
 
     const [, pid = '', url = ''] = started.exec(start.stdout) ?? []
     expect(start.code, start.stderr).toBe(0)
     expect(start.stdout).toMatch(started)
     await waitUntil(async () => (await readSpool(profile.spool)).length === 0)
-    const status = await installed().run('aang', ['status'], { env })
+    const status = await installed().run('catacomb', ['status'], { env })
     expect(status).toMatchObject({ code: 0, stderr: '' })
     expect(status.stdout).toContain(`daemon: running, pid ${pid}, ${url}\nspool: 0 files`)
 
-    const open = await installed().run('aang', ['open'], { env })
+    const open = await installed().run('catacomb', ['open'], { env })
 
     expect(open).toMatchObject({ code: 0, stderr: '' })
     expect(open.stdout.trim().startsWith(`${url}/auth/`)).toBe(true)
@@ -258,41 +260,41 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
       expect(Buffer.from(await response.arrayBuffer()).equals(await readFile(join(webRoot, file))), file).toBe(true)
     }
 
-    const stop = await installed().run('aang', ['stop'], { env })
+    const stop = await installed().run('catacomb', ['stop'], { env })
 
-    expect(stop).toMatchObject({ code: 0, stdout: `aang stopped: pid ${pid}\n` })
+    expect(stop).toMatchObject({ code: 0, stdout: `catacomb stopped: pid ${pid}\n` })
     expect(isAlive(Number(pid))).toBe(false)
   })
 
-  test('in a temporary HOME the installed aang install deploys the binary of the aang-hook package and registers hooks whose commands deliver events to the running daemon, on Windows the Codex hooks only with --codex, and the running daemon admits the Claude observer', { timeout: commandTimeoutMs }, async ({
+  test('in a temporary HOME the installed catacomb install deploys the binary of the catacomb-hook package and registers hooks whose commands deliver events to the running daemon, on Windows the Codex hooks only with --codex, and the running daemon admits the Claude observer', { timeout: commandTimeoutMs }, async ({
     expect,
     onTestFinished,
   }) => {
     const { profile, workspace, claude, codex, codexHome } = await connectedProfile(onTestFinished)
     const env = profile.env
-    const pluginDirectory = join(profile.aangHome, 'claude-plugin')
+    const pluginDirectory = join(profile.catacombHome, 'claude-plugin')
     const codexHooks = join(codexHome, 'hooks.json')
-    const hookBinary = join(profile.aangHome, 'bin', hostBinaryName)
-    const packagedBinary = join(installed().packageDirectory, 'node_modules', `aang-hook-${hostPlatform}`, hostBinaryName)
+    const hookBinary = join(profile.catacombHome, 'bin', hostBinaryName)
+    const packagedBinary = join(installed().packageDirectory, 'node_modules', npmScope, `catacomb-hook-${hostPlatform}`, hostBinaryName)
     const codexRegistered = [
-      `codex: aang hooks registered in ${codexHooks}`,
-      'codex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them',
+      `codex: catacomb hooks registered in ${codexHooks}`,
+      'codex: catacomb hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them',
       ...(windows ? [`codex: ${codexHookSlowdown}`] : []),
     ]
     const codexByDefault = windows
       ? [
           'codex: hooks are not installed by default on Windows: Codex sessions are observed from their files only, so approval waits are not visible',
-          `codex: \`aang install --codex\` installs them anyway; ${codexHookSlowdown}`,
+          `codex: \`catacomb install --codex\` installs them anyway; ${codexHookSlowdown}`,
         ]
       : codexRegistered
 
-    const connected = await installed().run('aang', ['install'], { env })
+    const connected = await installed().run('catacomb', ['install'], { env })
 
     expect(connected).toEqual({
       code: 0,
       stdout: [
-        `claude: plugin aang@aang installed from ${pluginDirectory}`,
-        'claude: plugin aang@aang is enabled',
+        `claude: plugin catacomb@catacomb installed from ${pluginDirectory}`,
+        'claude: plugin catacomb@catacomb is enabled',
         ...codexByDefault,
         '',
       ].join('\n'),
@@ -300,7 +302,7 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     })
     expect(claude.calls().filter((call) => call.command === 'plugin').map((call) => call.argv)).toEqual([
       ['plugin', 'marketplace', 'add', pluginDirectory, '--scope', 'user', '--json'],
-      ['plugin', 'install', 'aang@aang', '--scope', 'user', '--json'],
+      ['plugin', 'install', 'catacomb@catacomb', '--scope', 'user', '--json'],
       ['plugin', 'list', '--json'],
     ])
     expect((await readFile(hookBinary)).equals(await readFile(packagedBinary))).toBe(true)
@@ -308,7 +310,7 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
       expect(codex.calls()).toEqual([])
       expect(await exists(codexHooks)).toBe(false)
 
-      const optedIn = await installed().run('aang', ['install', '--codex'], { env })
+      const optedIn = await installed().run('catacomb', ['install', '--codex'], { env })
 
       expect(optedIn).toEqual({ code: 0, stdout: [...codexRegistered, ''].join('\n'), stderr: '' })
     }
@@ -319,7 +321,7 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     expect(pluginHandler).toEqual({ type: 'command', command: hookBinary, args: ['claude', 'plugin', profile.spool], timeout: 2 })
     const codexHandlers = await sessionStartHandlers(codexHooks)
     expect(codexHandlers).toEqual([{ type: 'command', command: codexHookCommand(hookBinary, profile.spool), timeout: 2 }])
-    const start = await installed().run('aang', ['start'], { env })
+    const start = await installed().run('catacomb', ['start'], { env })
     const [, pid = '', url = ''] = started.exec(start.stdout) ?? []
     expect(start.code, start.stderr).toBe(0)
 
@@ -334,15 +336,15 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
 
     expect(fromClaude).toEqual({ code: 0, stdout: '', stderr: '' })
     expect(fromCodex).toEqual({ code: 0, stdout: '', stderr: '' })
-    await waitUntil(async () => (await runtimesOfRuns(url, profile.aangHome)).length === 2)
-    expect(await runtimesOfRuns(url, profile.aangHome)).toEqual(['claude', 'codex'])
-    await waitUntil(async () => ![undefined, 'pending'].includes((await claudeAdmission(url, profile.aangHome))?.outcome))
-    expect(await claudeAdmission(url, profile.aangHome)).toMatchObject({ outcome: 'admitted', failure: null })
-    const stop = await installed().run('aang', ['stop'], { env })
-    expect(stop).toMatchObject({ code: 0, stdout: `aang stopped: pid ${pid}\n` })
+    await waitUntil(async () => (await runtimesOfRuns(url, profile.catacombHome)).length === 2)
+    expect(await runtimesOfRuns(url, profile.catacombHome)).toEqual(['claude', 'codex'])
+    await waitUntil(async () => ![undefined, 'pending'].includes((await claudeAdmission(url, profile.catacombHome))?.outcome))
+    expect(await claudeAdmission(url, profile.catacombHome)).toMatchObject({ outcome: 'admitted', failure: null })
+    const stop = await installed().run('catacomb', ['stop'], { env })
+    expect(stop).toMatchObject({ code: 0, stdout: `catacomb stopped: pid ${pid}\n` })
   })
 
-  test('installed into a project without optional dependencies, aang-hook and aang install name the missing binary and aang still runs', { timeout: commandTimeoutMs }, async ({
+  test('installed into a project without optional dependencies, catacomb-hook and catacomb install name the missing binary and catacomb still runs', { timeout: commandTimeoutMs }, async ({
     expect,
     onTestFinished,
   }) => {
@@ -351,27 +353,27 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     const { profile, workspace } = await watchedProfile(onTestFinished)
     await leaseSpool(profile.spool)
 
-    const hooked = await bare.run('aang-hook', ['claude', 'plugin', profile.spool], {
+    const hooked = await bare.run('catacomb-hook', ['claude', 'plugin', profile.spool], {
       env: profile.env,
       input: await sessionStart(workspace),
     })
 
     expect(hooked).toMatchObject({ code: 1, stdout: '' })
-    expect(hooked.stderr).toContain(`no aang-hook binary is installed for ${hostPlatform}`)
+    expect(hooked.stderr).toContain(`no catacomb-hook binary is installed for ${hostPlatform}`)
     expect(await readSpool(profile.spool)).toEqual([])
 
-    const connected = await bare.run('aang', ['install'], { env: profile.env })
+    const connected = await bare.run('catacomb', ['install'], { env: profile.env })
 
     expect(connected).toMatchObject({ code: 1, stdout: '' })
-    expect(connected.stderr).toMatch(new RegExp(`^aang install: no aang-hook binary is installed for ${hostPlatform};`))
-    expect(await exists(join(profile.aangHome, 'bin'))).toBe(false)
-    const status = await bare.run('aang', ['status'], { env: profile.env })
+    expect(connected.stderr).toMatch(new RegExp(`^catacomb install: no catacomb-hook binary is installed for ${hostPlatform};`))
+    expect(await exists(join(profile.catacombHome, 'bin'))).toBe(false)
+    const status = await bare.run('catacomb', ['status'], { env: profile.env })
     expect(status.code).toBe(0)
     expect(status.stdout).toContain('daemon: not running\nspool: 0 files')
   })
 
   test.for(hookPlatforms)(
-    'the aang-hook-$os-$cpu package declares its platform and carries a binary built for it',
+    'the catacomb-hook-$os-$cpu package declares its platform and carries a binary built for it',
     async (platform: HookPlatform, { expect }) => {
       const packed = packages.find(({ name }) => name === hookPackageName(platform))
       expect(packed?.manifest).toMatchObject({ os: [platform.os], cpu: [platform.cpu] })

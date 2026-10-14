@@ -1,4 +1,4 @@
-import type { EpochNs } from '@aang/contract'
+import type { EpochNs } from '@catacomb/contract'
 
 const nanosecondsPerMillisecond = 1_000_000n
 

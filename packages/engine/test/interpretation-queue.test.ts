@@ -1,14 +1,14 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { CheckContract, ObserverCallId, type RunId } from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+import { CheckContract, ObserverCallId, type RunId } from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
 import {
   boundObserverQueue,
   createEngine,
   exhaustObserverCall,
   failObserverCall,
   startObserverBatch,
-} from '@aang/engine'
+} from '@catacomb/engine'
 import { expect, onTestFinished, test } from 'vitest'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
 import { adapters, factsOf, sessionKey, startEngine, streamOf } from './harness.js'

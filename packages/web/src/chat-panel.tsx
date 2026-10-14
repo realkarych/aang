@@ -11,7 +11,7 @@ import type {
   RunId,
   RunSnapshot,
   Stage,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -518,7 +518,7 @@ const HistoryNote = ({
     case 'failed':
       return (
         <p className="chat-trouble" role="status">
-          {`Chat history not loaded: ${history.reason}. aang keeps retrying.`}
+          {`Chat history not loaded: ${history.reason}. catacomb keeps retrying.`}
         </p>
       )
     case 'loading':

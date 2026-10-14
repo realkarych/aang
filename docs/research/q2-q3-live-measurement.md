@@ -141,7 +141,7 @@ Owner decision of 2026-10-08: recommendations 1a, 2, 3a, 4a and 4b, 5 and 6 acce
    - Each call reads from the cache only the unchanging part, exactly 9,029 tokens.
    - The rest of the input (p50 13.8k tokens) it writes to a cache that the next call does not read.
    - I propose to separately investigate a call that does not write the changing part to the cache.
-     - The number of tokens will not decrease: with the same input this part moves from cache writes to uncached input, and aang's cost accounting and budget count all kinds of input together.
+     - The number of tokens will not decrease: with the same input this part moves from cache writes to uncached input, and catacomb's cost accounting and budget count all kinds of input together.
      - The hypothesis is a lower call cost: cache writes are billed higher than regular input. It needs to be measured with the same input using the cost from the CLI, separately cross-checking the total number of tokens. The amount cannot be estimated in advance without our own price table (ADR-0009).
 6. **Load recordings** (about 40 MB, 7 recordings): keep them outside the repository with the owner (as now) or add them in a separate code-free PR, like the reference sessions (ADR-0010). I recommend outside the repository: the report identifies them by digests.
 
@@ -161,7 +161,7 @@ The live measurement ran into four defects without fixing which Q.2 and Q.3 coul
      - `claude` — 3 of 316: a fact outside the batch twice, a plan criterion without a plan fact once;
      - `claude-low` — 5 of 175: the card does not match the quote four times, a fact outside the batch once;
      - `codex` — 1 of 213: a card.
-3. **The chat journal was empty** (this PR). The daemon created the chat without a journal, so chat calls did not get into `observer_calls`, and the "chat" journal in `aang usage` and on the cost panel was always empty. Now every CLI call of a question, including the follow-up request, is written to the journal.
+3. **The chat journal was empty** (this PR). The daemon created the chat without a journal, so chat calls did not get into `observer_calls`, and the "chat" journal in `catacomb usage` and on the cost panel was always empty. Now every CLI call of a question, including the follow-up request, is written to the journal.
 4. **The recorder did not record long sessions** (this PR).
    - Every 25 ms the scan reread all source files in full, and in an hour-long session the scan queue grew without bound.
    - Now the scan skips unchanged files, reads the tail of a growing JSONL and is not queued behind a running scan.
@@ -364,7 +364,7 @@ For future measurements:
 
 ## 5. Limit exhaustion and degradation (fake CLI)
 
-The owner's limits were not spent: failures were reproduced with the fake `claude` from `@aang/testkit` (`fake-observer.mjs`).
+The owner's limits were not spent: failures were reproduced with the fake `claude` from `@catacomb/testkit` (`fake-observer.mjs`).
 
 - Profile: the `ledger` and `logstats` recordings with a 60 s start offset, time scale 0.25 (four times faster than the recording), window 120 s, the same chat questions.
 - The fake observer answers instantly with the `map` script and names stages its own way. Therefore the annotation predicates do not hold on it, and the latencies of these runs are not representative.
@@ -454,10 +454,10 @@ Build — `pnpm build`.
 ```sh
 F=fixtures/workloads
 for task in ledger logstats kvstore mdlinks; do
-  AANG_Q2_TASK=$task AANG_Q2_FIXTURES=$F node tools/record/dist/main.js record $PWD/docs/research/samples/q2-live/claude-workload.mjs
+  CATACOMB_Q2_TASK=$task CATACOMB_Q2_FIXTURES=$F node tools/record/dist/main.js record $PWD/docs/research/samples/q2-live/claude-workload.mjs
 done
 for task in ledger logstats kvstore mdlinks; do
-  AANG_Q2_TASK=$task AANG_Q2_FIXTURES=$F node tools/record/dist/main.js record $PWD/docs/research/samples/q2-live/codex-workload.mjs
+  CATACOMB_Q2_TASK=$task CATACOMB_Q2_FIXTURES=$F node tools/record/dist/main.js record $PWD/docs/research/samples/q2-live/codex-workload.mjs
 done
 node docs/research/samples/q2-live/markup.mjs $F
 ```
@@ -542,7 +542,7 @@ node $D/analyze.mjs $D/results/claude
 - in the observer CLI path in `profile.json` the home directory is replaced with `/Users/USER`, and `profile_digest` in `measurement.json` is recomputed for the anonymized profile (for `codex` the path is not personal, the digest was not changed);
 - the root of the Claude Code temporary directory in one solver command is replaced with `<other-tmp-1>`;
 - names, addresses, hosts and tokens do not occur in the files (checked by search);
-- the daemon stores (`aang.db`, 20–50 MB per measurement) are not part of the repository.
+- the daemon stores (`catacomb.db`, 20–50 MB per measurement) are not part of the repository.
 
 ## 9. Re-measurement after the owner's decisions
 

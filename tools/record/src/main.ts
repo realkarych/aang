@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
-import { Surface } from '@aang/contract'
+import { Surface } from '@catacomb/contract'
 import { z } from 'zod'
 import type { CreatedEntries } from './capture.js'
 import { driverOf, scenarios } from './catalog.js'
@@ -20,7 +20,7 @@ const usage = [
   '  node tools/record/dist/main.js record <scenario.mjs>',
   '  node tools/record/dist/main.js verify <recording-directory>',
   '  node tools/record/dist/main.js scenarios',
-  '  node tools/record/dist/main.js scenario <surface> [name ...] [--model stub|live] [--claude-home isolated|regular] [--fixtures <directory>] [--hook <aang-hook>]',
+  '  node tools/record/dist/main.js scenario <surface> [name ...] [--model stub|live] [--claude-home isolated|regular] [--fixtures <directory>] [--hook <catacomb-hook>]',
   '    [--claude <executable>] [--codex <executable>] [--claude-sdk <package-directory>] [--codex-sdk <package-directory>]',
   '    [--claude-desktop <executable>] [--codex-desktop <executable>]',
 ].join('\n')
@@ -78,7 +78,7 @@ const runScenarios = async (args: readonly string[]): Promise<void> => {
     ? available.filter((scenario) => scenarioModel(scenario, model) !== undefined && supportsOs(scenario, driverOf(scenario), os))
     : available.filter((scenario) => names.includes(scenario.name))
   if (selected.length === 0) throw new Error(`No ${surface} scenarios for this model and OS`)
-  const hookBinary = values.hook ?? resolve(repository, 'packages/hook/bin', os === 'windows' ? 'aang-hook.exe' : 'aang-hook')
+  const hookBinary = values.hook ?? resolve(repository, 'packages/hook/bin', os === 'windows' ? 'catacomb-hook.exe' : 'catacomb-hook')
   const fixturesRoot = resolve(values.fixtures ?? resolve(repository, 'fixtures/sessions'))
   for (const scenario of selected) {
     process.stdout.write(`${await recordScenario(scenario, driverOf(scenario), {

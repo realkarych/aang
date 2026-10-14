@@ -2,12 +2,12 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { createPlayer, loadManifest, ManifestError, PlaybackError } from '@aang/testkit'
+import { createPlayer, loadManifest, ManifestError, PlaybackError } from '@catacomb/testkit'
 import { describe, test } from 'vitest'
 import { createFixture, isAlive, linesOf, sampleBytes } from './manifests.js'
 
 const transcriptSample = 'claude-code-transcripts/session-86f93ed5-main-full.jsonl'
-const transcriptTarget = { root: 'claude', path: 'projects/-tmp-aang-spike-cc-transcripts-run/86f93ed5.jsonl' }
+const transcriptTarget = { root: 'claude', path: 'projects/-tmp-catacomb-spike-cc-transcripts-run/86f93ed5.jsonl' }
 
 const filesUnder = async (root: string): Promise<Record<string, string>> => {
   const entries = await readdir(root, { recursive: true, withFileTypes: true })
@@ -348,7 +348,7 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
     await player.play()
 
     expect(await filesUnder(profile.home)).toEqual({
-      '.aang/config.json': await readFile(join(profile.aangHome, 'config.json'), 'utf8'),
+      '.catacomb/config.json': await readFile(join(profile.catacombHome, 'config.json'), 'utf8'),
       '.claude/projects/-tmp-p/s1/subagents/agent-a.meta.json': metaAfter,
       '.claude/projects/-tmp-q/s1.jsonl': transcript.toString('utf8'),
       '.codex/archived_sessions/rollout-2026-10-01T15-07-28-thread.jsonl': rollout.toString('utf8'),
@@ -438,7 +438,7 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
       ],
       ['escaping', [{ ...append, at: 0, target: { root: 'home', path: '../outside.jsonl' } }], 'stays inside its root'],
       ['absolute', [{ ...append, at: 0, target: { root: 'claude', path: '/etc/passwd' } }], 'stays inside its root'],
-      ['unknown root', [{ ...append, at: 0, target: { root: 'aang', path: 'spool/x' } }], 'root'],
+      ['unknown root', [{ ...append, at: 0, target: { root: 'catacomb', path: 'spool/x' } }], 'root'],
       [
         'archive outside sessions',
         [{ at: 0, kind: 'archive', target: { root: 'codex', path: 'x.jsonl' } }],

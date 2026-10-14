@@ -14,9 +14,9 @@ import {
   type RunId,
   type Session,
   type SessionKey,
-} from '@aang/contract'
-import { canonicalJson, contentHash, objectId, runId } from '@aang/contract/ids'
-import type { Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { canonicalJson, contentHash, objectId, runId } from '@catacomb/contract/ids'
+import type { Transaction } from '@catacomb/store'
 import { applyChangeSet, type ModelChangeDraft, type RunDraft } from '../model/journal.js'
 import { stageLinkKey } from '../model/stage-links.js'
 import type { Replacement } from './agents.js'

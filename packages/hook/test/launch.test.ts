@@ -1,13 +1,13 @@
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { RegistrationTag, Runtime } from '@aang/contract'
+import type { RegistrationTag, Runtime } from '@catacomb/contract'
 import { test } from 'vitest'
 import { cleanExit, createSpool, runHook, typicalEnv, typicalPayload, withoutNames } from './hook.js'
 import { createLaunchSandbox, isAlive, type LaunchSandbox, waitUntil } from './launcher.js'
 
 const onWindows = test.runIf(process.platform === 'win32')
 
-const launchUsage = 'usage: aang-hook launch <status-file> <input-bytes|stream> <program> [argument ...]\n'
+const launchUsage = 'usage: catacomb-hook launch <status-file> <input-bytes|stream> <program> [argument ...]\n'
 
 onWindows(
   'passes the first n bytes of its stdin to the CLI unchanged, streams the CLI output and records the root exit code',
@@ -16,7 +16,7 @@ onWindows(
     const input = Buffer.concat([typicalPayload, Buffer.from('\r\n\u0000ÿ', 'latin1'), Buffer.from(' Όνομα Επώνυμο')])
     const args = ['with space', 'quote"inside', 'trailing\\', '', 'Όνομα Επώνυμο']
     const launcher = sandbox.launch([sandbox.statusPath, String(input.length), ...sandbox.command('echo', '7', ...args)], {
-      AANG_LAUNCH_PROBE: 'probe value',
+      CATACOMB_LAUNCH_PROBE: 'probe value',
     })
 
     launcher.stdin.write(Buffer.concat([input, Buffer.from('beyond the input')]))

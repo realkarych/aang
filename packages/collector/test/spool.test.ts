@@ -1,7 +1,7 @@
 import { existsSync, renameSync, writeFileSync } from 'node:fs'
 import { mkdir, readdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
-import { createCollector } from '@aang/collector'
-import { CollectedRecord, Config } from '@aang/contract'
+import { createCollector } from '@catacomb/collector'
+import { CollectedRecord, Config } from '@catacomb/contract'
 import { expect, test, vi } from 'vitest'
 import {
   createSandbox,
@@ -37,7 +37,7 @@ test('a hook event written to spool/new reaches a batch within a second and is d
     CLAUDE_CODE_ENTRYPOINT: 'cli',
     CLAUDE_CODE_SESSION_ID: 'b0f4c1e2-1111-4a4a-9c9c-000000000001',
     CLAUDE_PROJECT_DIR: 'C:\\Users\\Όνομα Επώνυμο\\proj=1',
-    CLAUDE_PLUGIN_ROOT: '/home/user/.aang/claude-plugin',
+    CLAUDE_PLUGIN_ROOT: '/home/user/.catacomb/claude-plugin',
   }
   const writtenAt = performance.now()
   const path = await putSpoolFile(sandbox, 'event-1', spoolBytes({ env, payload: permissionRequest }))
@@ -245,9 +245,9 @@ test('leftovers in spool/tmp from killed hooks are removed at start while files 
   const stale = temporarySpoolPath(sandbox, 'stale')
   const live = temporarySpoolPath(sandbox, 'live')
   await mkdir(temporarySpoolPath(sandbox, ''), { recursive: true })
-  await writeFile(stale, 'aang-spool/1 claude plugin\n')
+  await writeFile(stale, 'catacomb-spool/1 claude plugin\n')
   await utimes(stale, daysAgo(1), daysAgo(1))
-  await writeFile(live, 'aang-spool/1 claude plugin\n')
+  await writeFile(live, 'catacomb-spool/1 claude plugin\n')
   await putSpoolFile(sandbox, 'warmup', spoolBytes({ payload: '{}' }))
 
   const running = runCollector(sandbox)
@@ -264,14 +264,14 @@ test('a spool file with a broken header becomes an unknown_records gap and stays
 }) => {
   const sandbox = await createSandbox(onTestFinished)
   const broken = {
-    'no-header-line': Buffer.from('aang-spool/1 claude plugin'),
-    'wrong-magic': Buffer.from('aang-spool/2 claude plugin\n\0{}'),
-    'extra-field': Buffer.from('aang-spool/1 claude plugin extra\n\0{}'),
-    'unknown-runtime': Buffer.from('aang-spool/1 gemini plugin\n\0{}'),
-    'unknown-tag': Buffer.from('aang-spool/1 codex project\n\0{}'),
-    unterminated: Buffer.from('aang-spool/1 claude plugin\nCLAUDE_PID=1\0'),
-    'entry-without-value': Buffer.from('aang-spool/1 claude plugin\nCLAUDE_PID\0\0{}'),
-    'empty-key': Buffer.from('aang-spool/1 claude plugin\n=1\0\0{}'),
+    'no-header-line': Buffer.from('catacomb-spool/1 claude plugin'),
+    'wrong-magic': Buffer.from('catacomb-spool/2 claude plugin\n\0{}'),
+    'extra-field': Buffer.from('catacomb-spool/1 claude plugin extra\n\0{}'),
+    'unknown-runtime': Buffer.from('catacomb-spool/1 gemini plugin\n\0{}'),
+    'unknown-tag': Buffer.from('catacomb-spool/1 codex project\n\0{}'),
+    unterminated: Buffer.from('catacomb-spool/1 claude plugin\nCLAUDE_PID=1\0'),
+    'entry-without-value': Buffer.from('catacomb-spool/1 claude plugin\nCLAUDE_PID\0\0{}'),
+    'empty-key': Buffer.from('catacomb-spool/1 claude plugin\n=1\0\0{}'),
   }
   const base = Date.now() - 1_000
   const brokenPaths: string[] = []
@@ -397,7 +397,7 @@ test('spool statistics are empty before the spool exists and fail when spool/new
   await expect(collector.spoolStats()).rejects.toThrow(/ENOTDIR/)
 })
 
-test.runIf(process.env.AANG_BENCH === '1')(
+test.runIf(process.env.CATACOMB_BENCH === '1')(
   'benchmark: a hook event reaches a batch within 100 ms at p95',
   async ({ onTestFinished }) => {
     const sandbox = await createSandbox(onTestFinished)

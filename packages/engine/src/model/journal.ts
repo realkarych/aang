@@ -17,8 +17,8 @@ import {
   type RunId,
   type SessionMembership,
   type Stage,
-} from '@aang/contract'
-import type { JournalEntry, JournalVersion, Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import type { JournalEntry, JournalVersion, Transaction } from '@catacomb/store'
 
 export type RunDraft = Omit<Run, 'version'>
 export type StageDraft = Omit<Stage, 'created_version' | 'updated_version'>

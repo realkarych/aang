@@ -166,28 +166,28 @@ importers:
 
   .:
     devDependencies:
-      '@aang/adapter-claude':
+      '@catacomb/adapter-claude':
         specifier: workspace:*
         version: link:packages/adapter-claude
-      '@aang/adapter-codex':
+      '@catacomb/adapter-codex':
         specifier: workspace:*
         version: link:packages/adapter-codex
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:packages/contract
-      '@aang/engine':
+      '@catacomb/engine':
         specifier: workspace:*
         version: link:packages/engine
-      '@aang/eslint-plugin':
+      '@catacomb/eslint-plugin':
         specifier: workspace:*
         version: link:tools/eslint-plugin
-      '@aang/hook':
+      '@catacomb/hook':
         specifier: workspace:*
         version: link:packages/hook
-      '@aang/store':
+      '@catacomb/store':
         specifier: workspace:*
         version: link:packages/store
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:packages/testkit
       '@eslint/js':
@@ -218,28 +218,28 @@ importers:
         specifier: ~5.0.3
         version: 5.0.3(@types/node@26.6.3)(vite@8.3.2(@types/node@26.6.3)(esbuild@0.28.2)(yaml@2.9.1))
 
-  packages/aang:
+  packages/catacomb:
     dependencies:
-      '@aang/cli':
+      '@catacomb/cli':
         specifier: workspace:*
         version: link:../cli
-      '@aang/daemon':
+      '@catacomb/daemon':
         specifier: workspace:*
         version: link:../daemon
-      '@aang/hook':
+      '@catacomb/hook':
         specifier: workspace:*
         version: link:../hook
-      '@aang/web':
+      '@catacomb/web':
         specifier: workspace:*
         version: link:../web
     devDependencies:
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../testkit
 
   packages/adapter-claude:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
       zod:
@@ -248,7 +248,7 @@ importers:
 
   packages/adapter-codex:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
       zod:
@@ -257,10 +257,10 @@ importers:
 
   packages/cli:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
-      '@aang/hook':
+      '@catacomb/hook':
         specifier: workspace:*
         version: link:../hook
       zod:
@@ -269,14 +269,14 @@ importers:
 
   packages/collector:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
     devDependencies:
-      '@aang/adapter-claude':
+      '@catacomb/adapter-claude':
         specifier: workspace:*
         version: link:../adapter-claude
-      '@aang/adapter-codex':
+      '@catacomb/adapter-codex':
         specifier: workspace:*
         version: link:../adapter-codex
 
@@ -288,44 +288,44 @@ importers:
 
   packages/daemon:
     dependencies:
-      '@aang/adapter-claude':
+      '@catacomb/adapter-claude':
         specifier: workspace:*
         version: link:../adapter-claude
-      '@aang/adapter-codex':
+      '@catacomb/adapter-codex':
         specifier: workspace:*
         version: link:../adapter-codex
-      '@aang/collector':
+      '@catacomb/collector':
         specifier: workspace:*
         version: link:../collector
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
-      '@aang/engine':
+      '@catacomb/engine':
         specifier: workspace:*
         version: link:../engine
-      '@aang/hook':
+      '@catacomb/hook':
         specifier: workspace:*
         version: link:../hook
-      '@aang/observer':
+      '@catacomb/observer':
         specifier: workspace:*
         version: link:../observer
-      '@aang/store':
+      '@catacomb/store':
         specifier: workspace:*
         version: link:../store
       zod:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../testkit
 
   packages/engine:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
-      '@aang/store':
+      '@catacomb/store':
         specifier: workspace:*
         version: link:../store
       smol-toml:
@@ -335,66 +335,66 @@ importers:
         specifier: ^2.9.1
         version: 2.9.1
     devDependencies:
-      '@aang/adapter-claude':
+      '@catacomb/adapter-claude':
         specifier: workspace:*
         version: link:../adapter-claude
-      '@aang/adapter-codex':
+      '@catacomb/adapter-codex':
         specifier: workspace:*
         version: link:../adapter-codex
-      '@aang/collector':
+      '@catacomb/collector':
         specifier: workspace:*
         version: link:../collector
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../testkit
 
   packages/hook:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
       zod:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../testkit
 
   packages/observer:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
-      '@aang/engine':
+      '@catacomb/engine':
         specifier: workspace:*
         version: link:../engine
-      '@aang/store':
+      '@catacomb/store':
         specifier: workspace:*
         version: link:../store
       zod:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
-      '@aang/adapter-claude':
+      '@catacomb/adapter-claude':
         specifier: workspace:*
         version: link:../adapter-claude
-      '@aang/adapter-codex':
+      '@catacomb/adapter-codex':
         specifier: workspace:*
         version: link:../adapter-codex
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../testkit
 
   packages/store:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
 
   packages/testkit:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
       zod:
@@ -403,7 +403,7 @@ importers:
 
   packages/web:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../contract
       '@fontsource-variable/golos-text':
@@ -462,10 +462,10 @@ importers:
 
   tools/docker-image:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../../packages/contract
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
 
@@ -483,19 +483,19 @@ importers:
 
   tools/freshness:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../../packages/contract
-      '@aang/hook':
+      '@catacomb/hook':
         specifier: workspace:*
         version: link:../../packages/hook
-      '@aang/record':
+      '@catacomb/record':
         specifier: workspace:*
         version: link:../record
-      '@aang/store':
+      '@catacomb/store':
         specifier: workspace:*
         version: link:../../packages/store
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       zod:
@@ -504,67 +504,67 @@ importers:
 
   tools/npm-package:
     dependencies:
-      '@aang/web':
+      '@catacomb/web':
         specifier: workspace:*
         version: link:../../packages/web
       esbuild:
         specifier: ^0.28.2
         version: 0.28.2
     devDependencies:
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
 
   tools/owner-checklist:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../../packages/contract
-      '@aang/hook':
+      '@catacomb/hook':
         specifier: workspace:*
         version: link:../../packages/hook
       zod:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
 
   tools/record:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../../packages/contract
-      '@aang/hook':
+      '@catacomb/hook':
         specifier: workspace:*
         version: link:../../packages/hook
-      '@aang/observer':
+      '@catacomb/observer':
         specifier: workspace:*
         version: link:../../packages/observer
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       zod:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
-      '@aang/adapter-codex':
+      '@catacomb/adapter-codex':
         specifier: workspace:*
         version: link:../../packages/adapter-codex
 
   tools/resilience:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../../packages/contract
-      '@aang/hook':
+      '@catacomb/hook':
         specifier: workspace:*
         version: link:../../packages/hook
-      '@aang/record':
+      '@catacomb/record':
         specifier: workspace:*
         version: link:../record
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       zod:
@@ -573,19 +573,19 @@ importers:
 
   tools/runtime-check:
     dependencies:
-      '@aang/adapter-claude':
+      '@catacomb/adapter-claude':
         specifier: workspace:*
         version: link:../../packages/adapter-claude
-      '@aang/adapter-codex':
+      '@catacomb/adapter-codex':
         specifier: workspace:*
         version: link:../../packages/adapter-codex
-      '@aang/collector':
+      '@catacomb/collector':
         specifier: workspace:*
         version: link:../../packages/collector
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../../packages/contract
-      '@aang/hook':
+      '@catacomb/hook':
         specifier: workspace:*
         version: link:../../packages/hook
       zod:
@@ -594,31 +594,31 @@ importers:
 
   tools/support:
     dependencies:
-      '@aang/adapter-claude':
+      '@catacomb/adapter-claude':
         specifier: workspace:*
         version: link:../../packages/adapter-claude
-      '@aang/adapter-codex':
+      '@catacomb/adapter-codex':
         specifier: workspace:*
         version: link:../../packages/adapter-codex
-      '@aang/collector':
+      '@catacomb/collector':
         specifier: workspace:*
         version: link:../../packages/collector
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../../packages/contract
-      '@aang/engine':
+      '@catacomb/engine':
         specifier: workspace:*
         version: link:../../packages/engine
-      '@aang/observer':
+      '@catacomb/observer':
         specifier: workspace:*
         version: link:../../packages/observer
-      '@aang/record':
+      '@catacomb/record':
         specifier: workspace:*
         version: link:../record
-      '@aang/store':
+      '@catacomb/store':
         specifier: workspace:*
         version: link:../../packages/store
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       zod:
@@ -627,25 +627,25 @@ importers:
 
   tools/surface-check:
     dependencies:
-      '@aang/contract':
+      '@catacomb/contract':
         specifier: workspace:*
         version: link:../../packages/contract
-      '@aang/hook':
+      '@catacomb/hook':
         specifier: workspace:*
         version: link:../../packages/hook
-      '@aang/observer':
+      '@catacomb/observer':
         specifier: workspace:*
         version: link:../../packages/observer
-      '@aang/record':
+      '@catacomb/record':
         specifier: workspace:*
         version: link:../record
-      '@aang/store':
+      '@catacomb/store':
         specifier: workspace:*
         version: link:../../packages/store
-      '@aang/support':
+      '@catacomb/support':
         specifier: workspace:*
         version: link:../support
-      '@aang/testkit':
+      '@catacomb/testkit':
         specifier: workspace:*
         version: link:../../packages/testkit
       zod:

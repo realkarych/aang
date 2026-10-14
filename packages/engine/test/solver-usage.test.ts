@@ -11,8 +11,8 @@ import {
   StageId,
   type TokenUsage,
   type UsageRecord,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
 import {
   applyChangeSet,
   createReadQueries,
@@ -20,8 +20,8 @@ import {
   solverUsage,
   type StageDraft,
   stageUsage,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { arrivedAt, hookBatch, type JsonlFile, jsonlFile } from './batches.js'
 import { factsOf, sessionKey, startEngine } from './harness.js'

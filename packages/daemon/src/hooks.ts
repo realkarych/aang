@@ -1,6 +1,6 @@
 import { type Stats, unwatchFile, watchFile } from 'node:fs'
 import { join } from 'node:path'
-import { type Config, type HookInstallation, type Runtime, runtimes } from '@aang/contract'
+import { type Config, type HookInstallation, type Runtime, runtimes } from '@catacomb/contract'
 import {
   checkCodexHooks,
   claudePluginListArgs,
@@ -9,11 +9,11 @@ import {
   type CodexHooksCheck,
   type CodexHooksStatus,
   hookInstallPaths,
-} from '@aang/hook'
-import { createProcessRunner, type ProcessRunner, resolveCli } from '@aang/observer'
+} from '@catacomb/hook'
+import { createProcessRunner, type ProcessRunner, resolveCli } from '@catacomb/observer'
 
 export interface HookChecksOptions {
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly config: Config
   readonly runtimeRoots: Readonly<Record<Runtime, string>>
 }
@@ -66,7 +66,7 @@ const inheritedEnvironment = (): Record<string, string> =>
   Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined))
 
 const claudePlugin = async (
-  { aangHome, config }: HookChecksOptions,
+  { catacombHome, config }: HookChecksOptions,
   runner: ProcessRunner,
   signal: AbortSignal,
 ): Promise<ClaudePluginState> => {
@@ -76,7 +76,7 @@ const claudePlugin = async (
   const { failure, exitCode, stdout, stderr } = await runner.run({
     command: cli.command,
     args: [...(cli.args ?? []), ...claudePluginListArgs],
-    cwd: aangHome,
+    cwd: catacombHome,
     env: configDir === null ? environment : { ...environment, CLAUDE_CONFIG_DIR: configDir },
     input: '',
     timeoutMs: hookProbeTimeoutMs,
@@ -88,19 +88,19 @@ const claudePlugin = async (
   return claudePluginStateOf({ status: exitCode ?? -1, stdout, stderr })
 }
 
-const codexProbe = ({ aangHome, config, runtimeRoots }: HookChecksOptions): Probe => {
+const codexProbe = ({ catacombHome, config, runtimeRoots }: HookChecksOptions): Probe => {
   let known: CodexHooksCheck | null = null
   let failed = false
   return {
     files: [
       join(runtimeRoots.codex, 'hooks.json'),
       join(runtimeRoots.codex, 'config.toml'),
-      hookInstallPaths(aangHome).codexHooksRecord,
+      hookInstallPaths(catacombHome).codexHooksRecord,
     ],
     read: async (signal, fresh) => {
       try {
         const checked = await checkCodexHooks({
-          aangHome,
+          catacombHome,
           codexHome: runtimeRoots.codex,
           codex: () => resolveCli('codex', config.cli.codex ?? 'codex', inheritedEnvironment()),
           timeoutMs: hookProbeTimeoutMs,
@@ -201,7 +201,7 @@ export const startHookChecks = (options: HookChecksOptions): HookChecks => {
   const installations: Record<Runtime, HookInstallation> = { claude: 'unknown', codex: 'unknown' }
   const closing = new AbortController()
   const watched: (readonly [string, (current: Stats, previous: Stats) => void])[] = []
-  const runner = createProcessRunner({ windowsLauncher: hookInstallPaths(options.aangHome).binary })
+  const runner = createProcessRunner({ windowsLauncher: hookInstallPaths(options.catacombHome).binary })
   const probed = probes(options, runner)
   const checkerOf = (runtime: Runtime): Checker => {
     const { files, read } = probed[runtime]

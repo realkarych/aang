@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createProfile, DaemonLaunchError, invokeHook, leaseSpool, type Profile, readSpool } from '@aang/testkit'
+import { createProfile, DaemonLaunchError, invokeHook, leaseSpool, type Profile, readSpool } from '@catacomb/testkit'
 import { type TestContext, test, vi } from 'vitest'
 import { daemonEntry, hookBinary } from './artifacts.js'
 
@@ -40,7 +40,7 @@ test.for([
   expect,
   onTestFinished,
 }) => {
-  const temporary = await mkdtemp(join(tmpdir(), 'aang-profile-failure-'))
+  const temporary = await mkdtemp(join(tmpdir(), 'catacomb-profile-failure-'))
   onTestFinished(() => rm(temporary, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }))
   const probe = spawnSync(
     process.execPath,
@@ -104,14 +104,14 @@ test('daemons started from parallel profiles keep their tokens, ports, spools an
   }
 })
 
-test('the profile environment moves the user profile, the runtime roots and AANG_HOME into the temporary profile', async ({
+test('the profile environment moves the user profile, the runtime roots and CATACOMB_HOME into the temporary profile', async ({
   expect,
   onTestFinished,
 }) => {
   vi.stubEnv('CLAUDE_CODE_ENTRYPOINT', 'cli')
   vi.stubEnv('CLAUDE_CONFIG_DIR', '/enclosing/.claude')
   vi.stubEnv('CODEX_HOME', '/enclosing/.codex')
-  vi.stubEnv('AANG_OBSERVER', '1')
+  vi.stubEnv('CATACOMB_OBSERVER', '1')
   vi.stubEnv('AI_AGENT', 'enclosing-agent')
   onTestFinished(() => {
     vi.unstubAllEnvs()
@@ -122,7 +122,7 @@ test('the profile environment moves the user profile, the runtime roots and AANG
     process.execPath,
     [
       '-e',
-      `const names = ['CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'AANG_HOME', 'CLAUDE_CODE_ENTRYPOINT', 'AANG_OBSERVER', 'AI_AGENT']
+      `const names = ['CLAUDE_CONFIG_DIR', 'CODEX_HOME', 'CATACOMB_HOME', 'CLAUDE_CODE_ENTRYPOINT', 'CATACOMB_OBSERVER', 'AI_AGENT']
 process.stdout.write(JSON.stringify({ homedir: process.getBuiltinModule('node:os').homedir(), env: Object.fromEntries(names.map((name) => [name, process.env[name] ?? null])) }))`,
     ],
     { env: profile.env, encoding: 'utf8' },
@@ -133,19 +133,19 @@ process.stdout.write(JSON.stringify({ homedir: process.getBuiltinModule('node:os
     env: {
       CLAUDE_CONFIG_DIR: join(profile.home, '.claude'),
       CODEX_HOME: join(profile.home, '.codex'),
-      AANG_HOME: join(profile.home, '.aang'),
+      CATACOMB_HOME: join(profile.home, '.catacomb'),
       CLAUDE_CODE_ENTRYPOINT: null,
-      AANG_OBSERVER: null,
+      CATACOMB_OBSERVER: null,
       AI_AGENT: null,
     },
   })
-  expect([profile.claude, profile.codex, profile.aangHome]).toEqual([
+  expect([profile.claude, profile.codex, profile.catacombHome]).toEqual([
     join(profile.home, '.claude'),
     join(profile.home, '.codex'),
-    join(profile.home, '.aang'),
+    join(profile.home, '.catacomb'),
   ])
   expect(
-    (await Promise.all([profile.claude, profile.codex, profile.aangHome].map((path) => stat(path)))).every((s) =>
+    (await Promise.all([profile.claude, profile.codex, profile.catacombHome].map((path) => stat(path)))).every((s) =>
       s.isDirectory(),
     ),
   ).toBe(true)
@@ -162,7 +162,7 @@ test('the config builder writes the config the daemon runs with and rejects an i
 }) => {
   const profile = await profileFor(onTestFinished, { config: { spool: { leaseTtlMs: 600_000 } } })
 
-  expect(JSON.parse(await readFile(join(profile.aangHome, 'config.json'), 'utf8'))).toEqual({
+  expect(JSON.parse(await readFile(join(profile.catacombHome, 'config.json'), 'utf8'))).toEqual({
     api: { port: 0 },
     otel: { port: 0 },
     cli: { claude: join(profile.root, 'absent', 'claude'), codex: join(profile.root, 'absent', 'codex') },
@@ -181,7 +181,7 @@ test('the config builder writes the config the daemon runs with and rejects an i
   await daemon.stop()
 
   await expect(profile.configure({ spool: { thresholdBytes: -1 } })).rejects.toThrow('thresholdBytes')
-  await profile.write('aang', 'config.json', '{"spool":{"thresholdBytes":"big"}}')
+  await profile.write('catacomb', 'config.json', '{"spool":{"thresholdBytes":"big"}}')
   const failed = profile.startDaemon({ entry: daemonEntry })
   await expect(failed).rejects.toThrow(DaemonLaunchError)
   await expect(failed).rejects.toThrow('config.json')
@@ -212,5 +212,5 @@ test('a second daemon of one profile is refused, a killed daemon keeps its lease
   expect(await leaseExpiries(profile)).toEqual([])
   await hookInto(profile, '{"session_id":"after-shutdown"}')
   expect(await payloadsIn(profile)).toEqual(['{"session_id":"while-killed"}'])
-  expect(second.output()).toContain('aang stopped: shutdown')
+  expect(second.output()).toContain('catacomb stopped: shutdown')
 })

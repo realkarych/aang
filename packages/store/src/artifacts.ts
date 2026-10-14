@@ -10,8 +10,8 @@ import {
   type GitSnapshotId,
   type RunId,
   type VersionRetention,
-} from '@aang/contract'
-import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { canonicalJson, contentHash, objectId } from '@catacomb/contract/ids'
 import { decodeJson, encodeJson } from './codec.js'
 import { insertInto, prepareStatement, type WriteContext } from './context.js'
 

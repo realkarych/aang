@@ -1,4 +1,4 @@
-import { EpochNs } from '@aang/contract'
+import { EpochNs } from '@catacomb/contract'
 import { z } from 'zod'
 import { readJson } from './json.js'
 

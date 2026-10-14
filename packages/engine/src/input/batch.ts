@@ -28,9 +28,9 @@ import {
   type SnapshotStage,
   type Stage,
   type StageId,
-} from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
-import type { PendingFact, StoredObserverCall, Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
+import type { PendingFact, StoredObserverCall, Transaction } from '@catacomb/store'
 import { interpretable } from '../ingest/queue.js'
 import { beginObserverCall } from '../model/observer.js'
 import { batchFacts } from '../model/observer-context.js'

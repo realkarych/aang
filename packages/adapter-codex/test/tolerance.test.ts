@@ -1,5 +1,5 @@
-import { codexAdapter } from '@aang/adapter-codex'
-import { EpochNs, SpoolFileName, StreamKey } from '@aang/contract'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { EpochNs, SpoolFileName, StreamKey } from '@catacomb/contract'
 import { expect, test } from 'vitest'
 import {
   expectUnknown,
@@ -230,7 +230,7 @@ test('session_meta variants classify roots, observers and service threads', () =
     return parseFacts(line, streamFrom(line))
   }
 
-  expect(meta({ originator: 'aang_observer', git: { branch: 'main' }, timestamp: 'later' })).toMatchObject([
+  expect(meta({ originator: 'catacomb_observer', git: { branch: 'main' }, timestamp: 'later' })).toMatchObject([
     {
       kind: 'session_start',
       at: EpochNs.parse(1_790_855_758_087_000_000n),

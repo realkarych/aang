@@ -1,5 +1,5 @@
-import { claudeAdapter } from '@aang/adapter-claude'
-import { type FactDraft, type ParseResult, type TokenUsage } from '@aang/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { type FactDraft, type ParseResult, type TokenUsage } from '@catacomb/contract'
 import { describe, test } from 'vitest'
 import { factsOf, type JsonObject, lineRecord, observedAt, readJsonSample, transcriptRecords } from './samples.js'
 

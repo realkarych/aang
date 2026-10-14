@@ -8,8 +8,8 @@ import type {
   RunDelta,
   RunSnapshot,
   SessionId,
-} from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
 
 export type FeedEvent =
   | { readonly event: 'run'; readonly id: ChangeSeq; readonly data: RunDelta }

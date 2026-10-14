@@ -1,6 +1,6 @@
-import { endpoints, type EpochNs, type HookInstallation, type StatusResponse, type VersionKey } from '@aang/contract'
-import { loadConfig, processEnvironment, resolveAangHome } from '@aang/contract/config-file'
-import { aangHomePaths, type DaemonState, readDaemonState, readSpoolState, type SpoolState } from '@aang/contract/home'
+import { endpoints, type EpochNs, type HookInstallation, type StatusResponse, type VersionKey } from '@catacomb/contract'
+import { loadConfig, processEnvironment, resolveCatacombHome } from '@catacomb/contract/config-file'
+import { catacombHomePaths, type DaemonState, readDaemonState, readSpoolState, type SpoolState } from '@catacomb/contract/home'
 import { callDaemon, readDaemon } from './admin.js'
 import { daemonUrl, isAlive } from './daemon-process.js'
 import { describeError, type Output } from './output.js'
@@ -30,7 +30,7 @@ const thresholdLines = async (output: Output, state: DaemonState | null, spool: 
   const threshold = await loadConfig(environment).then(
     ({ config }) => `threshold: ${String(config.spool.thresholdBytes)} bytes`,
     (error: unknown) => {
-      output.error(`aang status: ${describeError(error)}`)
+      output.error(`catacomb status: ${describeError(error)}`)
       return 'threshold: unknown, the config is invalid'
     },
   )
@@ -90,13 +90,13 @@ const connection = async (output: Output): Promise<Connection> => {
   try {
     return { lines: connectionLines(await callDaemon(endpoints.hooksCheck, {}, hooksCheckTimeoutMs)), code: 0 }
   } catch (error) {
-    output.error(`aang status: the hooks check failed: ${describeError(error)}`)
+    output.error(`catacomb status: the hooks check failed: ${describeError(error)}`)
   }
   try {
     const stored = await readDaemon(endpoints.status, storedStatusTimeoutMs)
     return { lines: ['hooks: not checked now, the last stored state follows', ...connectionLines(stored)], code: 0 }
   } catch (error) {
-    output.error(`aang status: the connection state is unavailable: ${describeError(error)}`)
+    output.error(`catacomb status: the connection state is unavailable: ${describeError(error)}`)
     return { lines: [], code: 1 }
   }
 }
@@ -104,14 +104,14 @@ const connection = async (output: Output): Promise<Connection> => {
 const disconnected: Connection = { lines: [], code: 0 }
 
 export const status = async (output: Output): Promise<number> => {
-  const paths = aangHomePaths(resolveAangHome(processEnvironment()))
+  const paths = catacombHomePaths(resolveCatacombHome(processEnvironment()))
   const state = await readDaemonState(paths.daemonState)
   const alive = state !== null && isAlive(state.pid)
   const spool = await readSpoolState(paths.spool)
   const threshold = await thresholdLines(output, alive ? state : null, spool)
   const connected = alive ? await connection(output) : disconnected
   const lines = [
-    `aang home: ${paths.home}`,
+    `catacomb home: ${paths.home}`,
     daemonLine(state, alive),
     `spool: ${String(spool.files)} files, ${String(spool.bytes)} bytes`,
     leaseLine(spool),

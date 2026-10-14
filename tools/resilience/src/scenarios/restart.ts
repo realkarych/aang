@@ -110,7 +110,7 @@ const claudeStopBetweenTurns: Scenario = {
   name: 'claude-stop-between-turns',
   area: 'restart',
   summary:
-    'aang stop between two turns of one Claude session: hooks write nothing while aang is stopped, the turn taken while stopped comes from the transcript after aang start, and hooks resume for the next turn',
+    'catacomb stop between two turns of one Claude session: hooks write nothing while catacomb is stopped, the turn taken while stopped comes from the transcript after catacomb start, and hooks resume for the next turn',
   runtimes: ['claude'],
   scripts: () => ({
     claude: {
@@ -125,10 +125,10 @@ const claudeStopBetweenTurns: Scenario = {
     await lab.startDaemon()
     const session = await claudeRun(lab, 'stop-first')
     await lab.settle()
-    const stop = await lab.aang('stop')
-    journal.check('aang stop succeeds', stop.code === 0, stop.code)
+    const stop = await lab.catacomb('stop')
+    journal.check('catacomb stop succeeds', stop.code === 0, stop.code)
     await claudeRun(lab, 'stop-second', ['--resume', session])
-    journal.equal('hooks wrote nothing while aang was stopped', await lab.spoolFiles(), [])
+    journal.equal('hooks wrote nothing while catacomb was stopped', await lab.spoolFiles(), [])
     await lab.startDaemon()
     await lab.settle()
     const stopped = await viewOf(lab, session)
@@ -160,7 +160,7 @@ const codexSigkillMidTurn: Scenario = {
   name: 'codex-sigkill-mid-turn',
   area: 'restart',
   summary:
-    'The daemon is killed with SIGKILL while a codex exec turn with trusted aang hooks waits inside a command; the turn ends while the daemon is down; the restarted daemon takes in the spool and the rest of the rollout once',
+    'The daemon is killed with SIGKILL while a codex exec turn with trusted catacomb hooks waits inside a command; the turn ends while the daemon is down; the restarted daemon takes in the spool and the rest of the rollout once',
   runtimes: ['codex'],
   scripts: ({ gate }) => ({
     codex: {

@@ -3,9 +3,9 @@ import { request } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { createCollector } from '@aang/collector'
-import { Config, type CollectedGap } from '@aang/contract'
-import { openStore } from '@aang/store'
+import { createCollector } from '@catacomb/collector'
+import { Config, type CollectedGap } from '@catacomb/contract'
+import { openStore } from '@catacomb/store'
 import { expect, test, vi } from 'vitest'
 
 const epochNow = (): bigint => BigInt(Date.now()) * 1_000_000n
@@ -31,7 +31,7 @@ const rejectOversized = (url: string): Promise<number | undefined> => new Promis
 })
 
 test('deferred OTLP parse failures and immediate rejections form a complete gap that commits to the store', async ({ onTestFinished }) => {
-  const root = await mkdtemp(join(tmpdir(), 'aang-otel-gaps-'))
+  const root = await mkdtemp(join(tmpdir(), 'catacomb-otel-gaps-'))
   onTestFinished(() => rm(root, { recursive: true, force: true, maxRetries: 5 }))
   const store = openStore({ home: join(root, 'store') })
   onTestFinished(() => { store.close() })

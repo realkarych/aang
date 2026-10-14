@@ -40,7 +40,7 @@ const tools = stubScenario({
   ],
   script: { 'sdk-tools': toolSteps },
   run: async ({ session, stub }) => {
-    const { stdout } = await runSdk(session, [{ prompt: '[aang:sdk-tools] Run `echo hi`, add result.json with a patch, run `echo code` from a code cell, then reply done.', resume: false }])
+    const { stdout } = await runSdk(session, [{ prompt: '[catacomb:sdk-tools] Run `echo hi`, add result.json with a patch, run `echo code` from a code cell, then reply done.', resume: false }])
     const rollout = await rolloutOf(session.codex, threadOf(stdout))
     checkSdkOrigin(sessionMeta(rollout))
     check(commandOutputs(stdout).includes('hi') && commandOutputs(stdout).includes('code') && items(stdout, 'file_change').length === 1, 'the SDK stream shows both commands and the patch')
@@ -62,7 +62,7 @@ const subagent = stubScenario({
   expectedFacts: subagentFacts,
   script: (session) => subagentScript(session, 'sdk-subagent'),
   run: async ({ session, stub }) => {
-    const root = threadOf((await runSdk(session, [{ prompt: '[aang:sdk-subagent] Spawn subagents scout and builder, wait for them, then reply done.', resume: false }])).stdout)
+    const root = threadOf((await runSdk(session, [{ prompt: '[catacomb:sdk-subagent] Spawn subagents scout and builder, wait for them, then reply done.', resume: false }])).stdout)
     const children = await checkSubagents(session, stub.replies, root)
     checkSdkOrigin(sessionMeta(await rolloutOf(session.codex, root)))
     check(children.every((child) => sessionMeta(child)['originator'] === 'codex_sdk_ts'), 'the children inherit originator codex_sdk_ts')
@@ -83,7 +83,7 @@ const questionScenario = stubScenario({
   script: { 'sdk-question': [[question]] },
   run: async ({ session }) => {
     const { stdout } = await runSdk(session, [
-      { prompt: '[aang:sdk-question] Ask me which greeting notes.txt should use, then stop.', resume: false },
+      { prompt: '[catacomb:sdk-question] Ask me which greeting notes.txt should use, then stop.', resume: false },
       { prompt: 'hello', resume: true },
     ])
     const [thread, resumed] = threadIds(stdout)
@@ -107,8 +107,8 @@ const resume = stubScenario({
   script: { 'sdk-first': [[shell('echo first')]], 'sdk-second': [[shell('echo second')]] },
   run: async ({ session }) => {
     const { stdout } = await runSdk(session, [
-      { prompt: '[aang:sdk-first] Run `echo first`, then reply done.', resume: false },
-      { prompt: '[aang:sdk-second] Run `echo second`, then reply done.', resume: true },
+      { prompt: '[catacomb:sdk-first] Run `echo first`, then reply done.', resume: false },
+      { prompt: '[catacomb:sdk-second] Run `echo second`, then reply done.', resume: true },
     ])
     const [thread, resumed] = threadIds(stdout)
     check(thread !== undefined && resumed === thread, 'resumeThread kept the thread id')

@@ -11,8 +11,8 @@ import {
   type ObserverRejection,
   type RunId,
   type SessionId,
-} from '@aang/contract'
-import type { ObserverCallError, ObserverCallStart, StoredObserverCall, Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import type { ObserverCallError, ObserverCallStart, StoredObserverCall, Transaction } from '@catacomb/store'
 import {
   clipAttempt,
   clipInputFact,

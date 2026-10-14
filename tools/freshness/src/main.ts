@@ -9,7 +9,7 @@ import { type Report, writeReport } from './report.js'
 const usage = [
   'Usage:',
   '  node tools/freshness/dist/main.js fix <profile.json> <directory> [--fixtures <directory>]',
-  '  node tools/freshness/dist/main.js run <directory> [--fixtures <directory>] [--daemon <aang main.js>] [--hook <aang-hook>]',
+  '  node tools/freshness/dist/main.js run <directory> [--fixtures <directory>] [--daemon <catacomb main.js>] [--hook <catacomb-hook>]',
   '  node tools/freshness/dist/main.js report <directory>',
 ].join('\n')
 
@@ -57,9 +57,9 @@ const main = async (args: readonly string[]): Promise<number> => {
     await measure({
       directory: resolve(directory),
       fixtures,
-      daemonEntry: resolve(values.daemon ?? resolve(repository, 'packages/aang/dist/main.js')),
+      daemonEntry: resolve(values.daemon ?? resolve(repository, 'packages/catacomb/dist/main.js')),
       hookBinary: resolve(
-        values.hook ?? resolve(repository, 'packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook'),
+        values.hook ?? resolve(repository, 'packages/hook/bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook'),
       ),
     })
     return summarize(resolve(directory), await writeReport(resolve(directory)))

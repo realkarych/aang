@@ -1,4 +1,4 @@
-import type { DefinitionListingPayload, FactDraft, FactEntityKey } from '@aang/contract'
+import type { DefinitionListingPayload, FactDraft, FactEntityKey } from '@catacomb/contract'
 import { z } from 'zod'
 import { fact, type FactOrigin } from './facts.js'
 import { name } from './fields.js'

@@ -1,5 +1,5 @@
-import type { ActionId, Fact, FactId, FactOf, RunId, SessionId, SessionKey } from '@aang/contract'
-import type { Transaction } from '@aang/store'
+import type { ActionId, Fact, FactId, FactOf, RunId, SessionId, SessionKey } from '@catacomb/contract'
+import type { Transaction } from '@catacomb/store'
 import type { Contract } from '../checks/catalog.js'
 import { checkDirectory, type CheckEntry, type RunChecks } from '../checks/history.js'
 import type { CheckResult } from '../checks/results.js'

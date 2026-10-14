@@ -7,8 +7,8 @@ import {
   type Runtime,
   type SpoolEnv,
   type StreamKey,
-} from '@aang/contract'
-import { contentHash } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { contentHash } from '@catacomb/contract/ids'
 
 export const arrivedAt = 1_790_856_592_228_739_000n
 

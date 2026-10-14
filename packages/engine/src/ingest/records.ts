@@ -10,7 +10,7 @@ import type {
   RecordOwner,
   Runtime,
   SessionKey,
-} from '@aang/contract'
+} from '@catacomb/contract'
 
 export type Adapters = Readonly<Record<Runtime, Adapter>>
 

@@ -1,4 +1,4 @@
-import type { RecordOwner, SessionKey } from '@aang/contract'
+import type { RecordOwner, SessionKey } from '@catacomb/contract'
 
 export interface Evidence {
   readonly session: SessionKey

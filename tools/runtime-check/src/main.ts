@@ -12,7 +12,7 @@ import { inspectExecutables, locateClis } from './clis.js'
 import { codexBehaviour, codexForms } from './codex.js'
 import { type CheckContext, probeScript } from './context.js'
 import {
-  aangInstallForm,
+  catacombInstallForm,
   claudeMarketplace,
   claudeRemoval,
   claudeSkillsDirectory,
@@ -54,10 +54,10 @@ const suite: Suite = values.suite
 
 const repositoryRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const hookBinary = resolve(
-  values.hook ?? join(repositoryRoot, 'packages', 'hook', 'bin', isWindows ? 'aang-hook.exe' : 'aang-hook'),
+  values.hook ?? join(repositoryRoot, 'packages', 'hook', 'bin', isWindows ? 'catacomb-hook.exe' : 'catacomb-hook'),
 )
 const out = resolve(values.out ?? 'runtime-check-report')
-const work = resolve(values.work ?? join(process.env.RUNNER_TEMP ?? tmpdir(), `aang check ${String(Date.now())}`))
+const work = resolve(values.work ?? join(process.env.RUNNER_TEMP ?? tmpdir(), `catacomb check ${String(Date.now())}`))
 const reportPath = join(out, 'report.json')
 await mkdir(work, { recursive: true })
 const workReal = await realpath(work)
@@ -130,7 +130,7 @@ const section = async <T>(
 
 const summary = (): string =>
   [
-    `# aang runtime check (${suite}) on ${platform()} ${release()} ${arch()}`,
+    `# catacomb runtime check (${suite}) on ${platform()} ${release()} ${arch()}`,
     '',
     ...Object.entries(timings).map(([name, time]) => `- ${symbol(name)} ${name} — ${time}`),
     '',
@@ -201,7 +201,7 @@ const windowsSuite = async (): Promise<void> => {
     'codex series with and without hooks',
     async () =>
       installForm === null
-        ? { skipped: 'Codex executed no aang-hook command form' }
+        ? { skipped: 'Codex executed no catacomb-hook command form' }
         : codexSeries(context, installForm),
     null,
   )
@@ -229,12 +229,12 @@ const deliverySuite = async (): Promise<void> => {
     ({ report: launchers }) => trimProbes(launchers, 'claude'),
   )
   const codex = await section(
-    'codex hooks installed by aang',
+    'codex hooks installed by catacomb',
     () => codexInstallation(context, hookBinary),
     null,
     (value) => value?.report,
   )
-  await section('codex hook exit and timeout', () => codexBehaviour(context, aangInstallForm), null)
+  await section('codex hook exit and timeout', () => codexBehaviour(context, catacombInstallForm), null)
   await section(
     'installed hook latency',
     () => installedLatency(context, { claudeProbes: claudeProbes.probes, codexLauncher: codex?.launcher ?? null }),
@@ -243,7 +243,7 @@ const deliverySuite = async (): Promise<void> => {
   await section('claude series with and without hooks', () => claudeSeries(context, deliverySeriesPairs), null)
   await section(
     'codex series with and without hooks',
-    () => codexSeries(context, aangInstallForm, deliverySeriesPairs),
+    () => codexSeries(context, catacombInstallForm, deliverySeriesPairs),
     null,
   )
   await section('claude plugin removal', () => claudeRemoval(context), null)

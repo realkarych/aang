@@ -7,9 +7,9 @@ import { importPlacementChecks, placementImportSummary } from './verification.js
 
 const usage = [
   'Usage:',
-  '  node tools/support/dist/main.js check [--fixtures <directory>] [--support <directory>] [--hook <aang-hook>]',
-  '  node tools/support/dist/main.js update [--fixtures <directory>] [--support <directory>] [--hook <aang-hook>]',
-  '  node tools/support/dist/main.js isolation codex [--support <directory>] [--hook <aang-hook>] [--cli <codex>]',
+  '  node tools/support/dist/main.js check [--fixtures <directory>] [--support <directory>] [--hook <catacomb-hook>]',
+  '  node tools/support/dist/main.js update [--fixtures <directory>] [--support <directory>] [--hook <catacomb-hook>]',
+  '  node tools/support/dist/main.js isolation codex [--support <directory>] [--hook <catacomb-hook>] [--cli <codex>]',
   '  node tools/support/dist/main.js isolation import <matrix.json>... [--support <directory>]',
   '  node tools/support/dist/main.js placement import <report.json>... [--support <directory>]',
 ].join('\n')
@@ -64,7 +64,7 @@ const main = async (args: readonly string[]): Promise<number> => {
   })
   const [command, ...rest] = positionals
   const support = resolve(values.support ?? resolve(repository, 'support'))
-  const hookBinary = resolve(values.hook ?? resolve(repository, 'packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook'))
+  const hookBinary = resolve(values.hook ?? resolve(repository, 'packages/hook/bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook'))
   if (command === 'isolation') {
     return isolation(rest, { support, hookBinary, cli: values.cli })
   }

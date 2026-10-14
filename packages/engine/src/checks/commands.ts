@@ -1,4 +1,4 @@
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 
 export const fieldOf = (input: JsonValue, name: string): JsonValue | undefined =>
   input !== null && typeof input === 'object' && !Array.isArray(input) ? input[name] : undefined

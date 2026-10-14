@@ -52,7 +52,7 @@ const replyBlocks = (scenario: AnthropicScenario, step: number): Block[] => {
   const tool = scenario.steps[step]
   return tool === undefined
     ? [{ type: 'text', text: scenario.text }]
-    : [{ type: 'tool_use', id: `toolu_aang_${String(step + 1)}`, ...tool }]
+    : [{ type: 'tool_use', id: `toolu_catacomb_${String(step + 1)}`, ...tool }]
 }
 
 const blockEvents = (block: Block, index: number): StreamEvent[] =>
@@ -83,7 +83,7 @@ const streamOf = (id: string, blocks: readonly Block[], stopReason: string): Str
       id,
       type: 'message',
       role: 'assistant',
-      model: 'aang-stub',
+      model: 'catacomb-stub',
       content: [],
       stop_reason: null,
       stop_sequence: null,
@@ -123,7 +123,7 @@ export const startAnthropicStub = async (): Promise<AnthropicStub> => {
     })
     scenario.beforeReply?.()
     replies += 1
-    const id = `msg_aang_${String(replies)}`
+    const id = `msg_catacomb_${String(replies)}`
     const blocks = replyBlocks(scenario, step)
     const stopReason = blocks.some((block) => block.type === 'tool_use') ? 'tool_use' : 'end_turn'
     if (request.stream === true) {
@@ -134,7 +134,7 @@ export const startAnthropicStub = async (): Promise<AnthropicStub> => {
       id,
       type: 'message',
       role: 'assistant',
-      model: 'aang-stub',
+      model: 'catacomb-stub',
       content: blocks,
       stop_reason: stopReason,
       stop_sequence: null,

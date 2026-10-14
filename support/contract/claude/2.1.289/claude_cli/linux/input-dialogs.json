@@ -366,7 +366,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "3dc37b8e061d49802a59e85e6919777e95cf6159b9e018c9bef97fd56bb65d56",
+      "redelivery_key": "45945e4821560c864421b50651b726f2fe712db985443bc83de4620cd8322776",
       "payload": {}
     },
     {
@@ -425,7 +425,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_0_0"
+        "call": "toolu_catacomb_dialogs_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -439,7 +439,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_dialogs_0_0",
+        "call_id": "toolu_catacomb_dialogs_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -450,9 +450,9 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "130635284198ce9895a2d0fa3efb87cd16e7a2c62c75e319060e35d945bac764",
+      "redelivery_key": "79a29bceddbba0f06f47b5539e73f56460e3b620372b2bc990a6e8034f50590e",
       "payload": {
-        "tool": "mcp__aang-elicitation__choose_greeting",
+        "tool": "mcp__catacomb-elicitation__choose_greeting",
         "action_kind": "mcp",
         "input": {},
         "description": null,
@@ -491,13 +491,13 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "433fa4afd36f3decaaf5d0527740b25d23e654eb0d3a98ed9c3b44efca8c6e73",
+      "redelivery_key": "1d2aafbd7a97e9a89d2fa62c0a1046e1e60e22cfa1cbf5ae6b2b543a3a912e3b",
       "payload": {
         "source": "elicitation",
         "blocking": true,
         "questions": [
           {
-            "header": "aang-elicitation",
+            "header": "catacomb-elicitation",
             "text": "Which greeting should the project use?",
             "options": []
           }
@@ -587,7 +587,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:dialogs] Call the choose_greeting tool of the aang-elicitation MCP server, then its confirm_link tool, then spawn the teammate helper with the Agent tool.",
+        "text": "[catacomb:dialogs] Call the choose_greeting tool of the catacomb-elicitation MCP server, then its confirm_link tool, then spawn the teammate helper with the Agent tool.",
         "origin": "human",
         "origin_raw": "human"
       }
@@ -751,7 +751,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_0_0"
+        "call": "toolu_catacomb_dialogs_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -764,8 +764,8 @@
         "prompt_id": null,
         "record_uuid": "c95054fb-ea1c-4611-8044-bb1d992ef319",
         "parent_uuid": "a4ab2983-8408-4e75-916a-e191501b7dd1",
-        "message_id": "msg_aang_2",
-        "call_id": "toolu_aang_dialogs_0_0",
+        "message_id": "msg_catacomb_2",
+        "call_id": "toolu_catacomb_dialogs_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -778,7 +778,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "tool": "mcp__aang-elicitation__choose_greeting",
+        "tool": "mcp__catacomb-elicitation__choose_greeting",
         "action_kind": "mcp",
         "input": {},
         "description": null,
@@ -792,7 +792,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -805,7 +805,7 @@
         "prompt_id": null,
         "record_uuid": "c95054fb-ea1c-4611-8044-bb1d992ef319",
         "parent_uuid": "a4ab2983-8408-4e75-916a-e191501b7dd1",
-        "message_id": "msg_aang_2",
+        "message_id": "msg_catacomb_2",
         "call_id": null,
         "ordinal": null
       },
@@ -907,7 +907,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "1ba17aac9bca7f69b4fca664bb4d30eb6dc3be243e2620cc906b2abcaa0bfd62",
+      "redelivery_key": "6d7e19e68f357cc8b1c1fe79c9274aff935a2464f64576cac0b9c6ae73604d40",
       "payload": {
         "outcome": "answered",
         "answers": [
@@ -998,10 +998,10 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "423c71f740e2340bf4a87ac26211db34cd67bc292f9968a4932b75b2f07dd9b0",
+      "redelivery_key": "2a86591bb1398b5cdb1e9aad62740981b89e208b6d55e740bfbb56f80b708d38",
       "payload": {
         "notification_type": "elicitation_response",
-        "message": "Elicitation response for server \"aang-elicitation\": accept"
+        "message": "Elicitation response for server \"catacomb-elicitation\": accept"
       }
     },
     {
@@ -1011,7 +1011,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_0_0"
+        "call": "toolu_catacomb_dialogs_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1025,7 +1025,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_dialogs_0_0",
+        "call_id": "toolu_catacomb_dialogs_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1036,7 +1036,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "26f45ce4b773b1ff1c2d877d3ee6a569163c6da34be31e21a2817d8b971c3e9d",
+      "redelivery_key": "227b24af86eeca35be2175cf0a6ca816d52e665d4bd8683b2cfde5eefae14d6a",
       "payload": {
         "outcome": "ok",
         "output": "The user chose Hello",
@@ -1082,12 +1082,12 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "7738e0ab22adecd1328d9c78d78988a30aa6ecaa9f68f5a06de98772200e54f3",
+      "redelivery_key": "98d88bc6dc2d7bd8d701bee89ae19973a61f0f7e5073222ca4e9253ae129351a",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_dialogs_0_0",
-            "tool": "mcp__aang-elicitation__choose_greeting",
+            "call_id": "toolu_catacomb_dialogs_0_0",
+            "tool": "mcp__catacomb-elicitation__choose_greeting",
             "response": "The user chose Hello"
           }
         ]
@@ -1100,7 +1100,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_1_0"
+        "call": "toolu_catacomb_dialogs_1_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1114,7 +1114,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_dialogs_1_0",
+        "call_id": "toolu_catacomb_dialogs_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1125,9 +1125,9 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "9488e04f81dd4ba773486da3223129b55889a1f67da66d35f48c8715e19b5695",
+      "redelivery_key": "722d2c8d028d23e37ecc15ae599f620f50a6cfe56be7fa7ac25eb570e1d92fad",
       "payload": {
-        "tool": "mcp__aang-elicitation__confirm_link",
+        "tool": "mcp__catacomb-elicitation__confirm_link",
         "action_kind": "mcp",
         "input": {},
         "description": null,
@@ -1155,7 +1155,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "aang-link-1",
+        "call_id": "catacomb-link-1",
         "ordinal": null
       },
       "runtime_env": {
@@ -1166,13 +1166,13 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "5a7095e047680ff33dc53c2d6760cfca28e9d4ff61a050e676378aa7dfcc7eea",
+      "redelivery_key": "0a7aee7d17c13a8ec658b3d6236407d13c991b408b5498ac3bf2464626b163d6",
       "payload": {
         "source": "elicitation",
         "blocking": true,
         "questions": [
           {
-            "header": "aang-elicitation",
+            "header": "catacomb-elicitation",
             "text": "Open the link to confirm the project",
             "options": []
           }
@@ -1235,7 +1235,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_0_0"
+        "call": "toolu_catacomb_dialogs_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1249,7 +1249,7 @@
         "record_uuid": "23e76b3c-5fb8-4db3-9eae-5c6a9ea5a9a4",
         "parent_uuid": "c95054fb-ea1c-4611-8044-bb1d992ef319",
         "message_id": null,
-        "call_id": "toolu_aang_dialogs_0_0",
+        "call_id": "toolu_catacomb_dialogs_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1282,7 +1282,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_1_0"
+        "call": "toolu_catacomb_dialogs_1_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1295,8 +1295,8 @@
         "prompt_id": null,
         "record_uuid": "c9b24856-8908-4a5f-8a33-54d6acb6f774",
         "parent_uuid": "33969f22-b5c3-4a32-a7c4-5c0526021f28",
-        "message_id": "msg_aang_3",
-        "call_id": "toolu_aang_dialogs_1_0",
+        "message_id": "msg_catacomb_3",
+        "call_id": "toolu_catacomb_dialogs_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1309,7 +1309,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "tool": "mcp__aang-elicitation__confirm_link",
+        "tool": "mcp__catacomb-elicitation__confirm_link",
         "action_kind": "mcp",
         "input": {},
         "description": null,
@@ -1323,7 +1323,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "usage": "msg_aang_3"
+        "usage": "msg_catacomb_3"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1336,7 +1336,7 @@
         "prompt_id": null,
         "record_uuid": "c9b24856-8908-4a5f-8a33-54d6acb6f774",
         "parent_uuid": "33969f22-b5c3-4a32-a7c4-5c0526021f28",
-        "message_id": "msg_aang_3",
+        "message_id": "msg_catacomb_3",
         "call_id": null,
         "ordinal": null
       },
@@ -1427,7 +1427,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "aang-link-1",
+        "call_id": "catacomb-link-1",
         "ordinal": null
       },
       "runtime_env": {
@@ -1438,7 +1438,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "37871a72d5a98d85cf30c3ae5082e7fa9f6fa621ed0c69cbb61b133be3f076d8",
+      "redelivery_key": "d9882a217ca1d4b728cbdc8bf5b29dd3ea970fdb7d5d210d8dab7b372c4e36cb",
       "payload": {
         "outcome": "answered",
         "answers": []
@@ -1475,10 +1475,10 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "423c71f740e2340bf4a87ac26211db34cd67bc292f9968a4932b75b2f07dd9b0",
+      "redelivery_key": "2a86591bb1398b5cdb1e9aad62740981b89e208b6d55e740bfbb56f80b708d38",
       "payload": {
         "notification_type": "elicitation_response",
-        "message": "Elicitation response for server \"aang-elicitation\": accept"
+        "message": "Elicitation response for server \"catacomb-elicitation\": accept"
       }
     },
     {
@@ -1512,10 +1512,10 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "e7df446bb7b3b748a18bc965b4753af12757b75f5165ab1ae948ea7557f93b6f",
+      "redelivery_key": "9fd69f29190149f1f4dec8ca30b8aff6e1330b9b4075a8318e7870a45cd69a2c",
       "payload": {
         "notification_type": "elicitation_complete",
-        "message": "MCP server \"aang-elicitation\" confirmed elicitation aang-link-1 complete"
+        "message": "MCP server \"catacomb-elicitation\" confirmed elicitation catacomb-link-1 complete"
       }
     },
     {
@@ -1525,7 +1525,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_1_0"
+        "call": "toolu_catacomb_dialogs_1_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1539,7 +1539,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_dialogs_1_0",
+        "call_id": "toolu_catacomb_dialogs_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1550,7 +1550,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "d3ec278dad717baeca1a79558c934d0eecd428ced4cda60b44eb649d54117d91",
+      "redelivery_key": "3bdeda1983d0cccf1277c85691e5e2e5a9870b8a988fc2d02edbcb4766d2a3d0",
       "payload": {
         "outcome": "ok",
         "output": "The user confirmed the project through the link",
@@ -1645,12 +1645,12 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "239d0070fee3b3c0a228db99cfd56c7ead81932776156b027b91d63acc36a612",
+      "redelivery_key": "16547bb89813ec84b107e932cbea4aae7ef158a54b213322a872ebca5a45df07",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_dialogs_1_0",
-            "tool": "mcp__aang-elicitation__confirm_link",
+            "call_id": "toolu_catacomb_dialogs_1_0",
+            "tool": "mcp__catacomb-elicitation__confirm_link",
             "response": "The user confirmed the project through the link"
           }
         ]
@@ -1663,7 +1663,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_2_0"
+        "call": "toolu_catacomb_dialogs_2_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1677,7 +1677,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_dialogs_2_0",
+        "call_id": "toolu_catacomb_dialogs_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1688,13 +1688,13 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "736e8fe4f4d403ad3f7ba15e66293033ada3baaffa8bf5abf8b80411035cfc2f",
+      "redelivery_key": "87fb50d3503758e4e71d0e4fc31b7fddbeceeb693cb60d62201dabf4a8d9cf22",
       "payload": {
         "tool": "Agent",
         "action_kind": "agent",
         "input": {
           "description": "Echo mate",
-          "prompt": "[aang:teammate] Run `echo mate` with the Bash tool, then complete your tasks.",
+          "prompt": "[catacomb:teammate] Run `echo mate` with the Bash tool, then complete your tasks.",
           "subagent_type": "general-purpose",
           "name": "helper"
         },
@@ -1811,7 +1811,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_1_0"
+        "call": "toolu_catacomb_dialogs_1_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1825,7 +1825,7 @@
         "record_uuid": "a458ffa4-d75c-4acc-a7ba-75961884ec48",
         "parent_uuid": "c9b24856-8908-4a5f-8a33-54d6acb6f774",
         "message_id": null,
-        "call_id": "toolu_aang_dialogs_1_0",
+        "call_id": "toolu_catacomb_dialogs_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1858,7 +1858,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_2_0"
+        "call": "toolu_catacomb_dialogs_2_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1871,8 +1871,8 @@
         "prompt_id": null,
         "record_uuid": "a922a0cd-9389-457c-891e-98aaa632cdc5",
         "parent_uuid": "d850d2a2-45ed-44e2-83fe-8003faf1b21d",
-        "message_id": "msg_aang_4",
-        "call_id": "toolu_aang_dialogs_2_0",
+        "message_id": "msg_catacomb_4",
+        "call_id": "toolu_catacomb_dialogs_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1890,7 +1890,7 @@
         "input": {
           "description": "Echo mate",
           "name": "helper",
-          "prompt": "[aang:teammate] Run `echo mate` with the Bash tool, then complete your tasks.",
+          "prompt": "[catacomb:teammate] Run `echo mate` with the Bash tool, then complete your tasks.",
           "subagent_type": "general-purpose"
         },
         "description": "Echo mate",
@@ -1904,7 +1904,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "usage": "msg_aang_4"
+        "usage": "msg_catacomb_4"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1917,7 +1917,7 @@
         "prompt_id": null,
         "record_uuid": "a922a0cd-9389-457c-891e-98aaa632cdc5",
         "parent_uuid": "d850d2a2-45ed-44e2-83fe-8003faf1b21d",
-        "message_id": "msg_aang_4",
+        "message_id": "msg_catacomb_4",
         "call_id": null,
         "ordinal": null
       },
@@ -1995,7 +1995,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_2_0"
+        "call": "toolu_catacomb_dialogs_2_0"
       },
       "speaker": "tool",
       "urgent": true,
@@ -2009,7 +2009,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_dialogs_2_0",
+        "call_id": "toolu_catacomb_dialogs_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2020,7 +2020,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "dc797be4b81c6941db0d4bd7683cc07938ec06422c849416b4c541e08c462bb4",
+      "redelivery_key": "3b58f4172269db053a041bca413d48ca1764dcfb384b08aa04756258b246c22f",
       "payload": {
         "outcome": "error",
         "output": "Teammate spawn cancelled - iTerm2 setup required",
@@ -2110,11 +2110,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "bd4c50f8105bc583e921a9d1456feea0e5cb3c896721f3c51d53ad0c931d10ca",
+      "redelivery_key": "a19b58024574fbf43a54add5f1179c6d0429a6a9565ee1f42002775269cd4f82",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_dialogs_2_0",
+            "call_id": "toolu_catacomb_dialogs_2_0",
             "tool": "Agent",
             "response": "Teammate spawn cancelled - iTerm2 setup required"
           }
@@ -2216,7 +2216,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_2_0"
+        "call": "toolu_catacomb_dialogs_2_0"
       },
       "speaker": "tool",
       "urgent": true,
@@ -2230,7 +2230,7 @@
         "record_uuid": "ee6452c2-ef2b-4245-9ce5-cb7fc16472b7",
         "parent_uuid": "a922a0cd-9389-457c-891e-98aaa632cdc5",
         "message_id": null,
-        "call_id": "toolu_aang_dialogs_2_0",
+        "call_id": "toolu_catacomb_dialogs_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2271,7 +2271,7 @@
         "prompt_id": null,
         "record_uuid": "6cf8374b-1c81-42eb-857c-38257c041431",
         "parent_uuid": "a3ac7e8c-4497-4f56-b76d-f318b2bc05c5",
-        "message_id": "msg_aang_5",
+        "message_id": "msg_catacomb_5",
         "call_id": null,
         "ordinal": null
       },
@@ -2298,7 +2298,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "usage": "msg_aang_5"
+        "usage": "msg_catacomb_5"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -2311,7 +2311,7 @@
         "prompt_id": null,
         "record_uuid": "6cf8374b-1c81-42eb-857c-38257c041431",
         "parent_uuid": "a3ac7e8c-4497-4f56-b76d-f318b2bc05c5",
-        "message_id": "msg_aang_5",
+        "message_id": "msg_catacomb_5",
         "call_id": null,
         "ordinal": null
       },
@@ -2596,12 +2596,12 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_0_0"
+        "call": "toolu_catacomb_dialogs_0_0"
       },
       "session": "#52",
       "agent": "#54",
       "run": "#53",
-      "tool": "mcp__aang-elicitation__choose_greeting",
+      "tool": "mcp__catacomb-elicitation__choose_greeting",
       "action_kind": "mcp",
       "container": null,
       "is_container": false,
@@ -2629,12 +2629,12 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_1_0"
+        "call": "toolu_catacomb_dialogs_1_0"
       },
       "session": "#52",
       "agent": "#54",
       "run": "#53",
-      "tool": "mcp__aang-elicitation__confirm_link",
+      "tool": "mcp__catacomb-elicitation__confirm_link",
       "action_kind": "mcp",
       "container": null,
       "is_container": false,
@@ -2662,7 +2662,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "call": "toolu_aang_dialogs_2_0"
+        "call": "toolu_catacomb_dialogs_2_0"
       },
       "session": "#52",
       "agent": "#54",
@@ -2839,7 +2839,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "session": "#52",
       "agent": "#54",
@@ -2863,7 +2863,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "usage": "msg_aang_3"
+        "usage": "msg_catacomb_3"
       },
       "session": "#52",
       "agent": "#54",
@@ -2887,7 +2887,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "usage": "msg_aang_4"
+        "usage": "msg_catacomb_4"
       },
       "session": "#52",
       "agent": "#54",
@@ -2911,7 +2911,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "7f1eb019-bd12-4239-b158-61537be17430",
-        "usage": "msg_aang_5"
+        "usage": "msg_catacomb_5"
       },
       "session": "#52",
       "agent": "#54",
@@ -2940,7 +2940,7 @@
         "runtime": "claude",
         "root_session": "#52",
         "goal": {
-          "text": "[aang:dialogs] Call the choose_greeting tool of the aang-elicitation MCP server, then its confirm_link tool, then spawn the teammate helper with the Agent tool.",
+          "text": "[catacomb:dialogs] Call the choose_greeting tool of the catacomb-elicitation MCP server, then its confirm_link tool, then spawn the teammate helper with the Agent tool.",
           "fact": "#10"
         },
         "brief": null,
@@ -3081,7 +3081,7 @@
             "runtime": "claude",
             "root_session": "#52",
             "goal": {
-              "text": "[aang:dialogs] Call the choose_greeting tool of the aang-elicitation MCP server, then its confirm_link tool, then spawn the teammate helper with the Agent tool.",
+              "text": "[catacomb:dialogs] Call the choose_greeting tool of the catacomb-elicitation MCP server, then its confirm_link tool, then spawn the teammate helper with the Agent tool.",
               "fact": "#10"
             },
             "brief": null,

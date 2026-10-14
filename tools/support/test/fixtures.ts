@@ -3,9 +3,9 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { OperatingSystem, Runtime, Surface, SupportKey } from '@aang/contract'
-import { type ControlTarget, RecordingManifest, recordSession } from '@aang/record'
-import type { SampleScenario } from '@aang/testkit'
+import type { OperatingSystem, Runtime, Surface, SupportKey } from '@catacomb/contract'
+import { type ControlTarget, RecordingManifest, recordSession } from '@catacomb/record'
+import type { SampleScenario } from '@catacomb/testkit'
 import {
   type OwnerChecklist,
   type OwnerChecklistName,
@@ -15,7 +15,7 @@ import {
   verificationPath,
 } from '../dist/index.js'
 
-export const hookBinary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
+export const hookBinary = resolve('packages/hook/bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook')
 
 const main = fileURLToPath(new URL('../dist/main.js', import.meta.url))
 const spikeRuntime = fileURLToPath(new URL('./spike-runtime.ts', import.meta.url))
@@ -64,7 +64,7 @@ export const claudeReconnect: SpikeRecording = {
   checkpoints: [
     {
       label: 'daemon-restart',
-      target: { root: 'claude', path: 'projects/-tmp-aang-spike-cc-transcripts-run/86f93ed5-1acd-4c6e-8c60-f1c98335c2ef.jsonl', occurrence: 'first' },
+      target: { root: 'claude', path: 'projects/-tmp-catacomb-spike-cc-transcripts-run/86f93ed5-1acd-4c6e-8c60-f1c98335c2ef.jsonl', occurrence: 'first' },
       expectedMapChange: 'The transcript holds the Bash turn; the daemon restarts here and continues the transcript from its saved cursor',
     },
   ],

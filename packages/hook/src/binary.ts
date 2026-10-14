@@ -65,12 +65,12 @@ const replaceBinary = async (directory: string, target: string, hookBinarySource
 }
 
 export interface HookBinaryDeployment {
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly hookBinarySource: string
 }
 
-export const deployHookBinary = async ({ aangHome, hookBinarySource }: HookBinaryDeployment): Promise<string> => {
-  const target = hookInstallPaths(aangHome).binary
+export const deployHookBinary = async ({ catacombHome, hookBinarySource }: HookBinaryDeployment): Promise<string> => {
+  const target = hookInstallPaths(catacombHome).binary
   const directory = dirname(target)
   await mkdir(directory, { recursive: true, mode: 0o700 })
   const unlock = await acquireLock(join(directory, lockName), `another deployment of ${hookBinaryName}`)

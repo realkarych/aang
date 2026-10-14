@@ -11,13 +11,13 @@ RFC §7–8 require:
 - not filling unrecoverable gaps with guesses;
 - on recovery, replaying the saved model changes, not the LLM requests.
 
-ADR-0001 chose SQLite via `node:sqlite`. ADR-0002 requires storing data locally and indefinitely until manual deletion. Claude transcripts are deleted after 30 days (spike, section 7), so to return to old runs aang needs its own copy of the raw records.
+ADR-0001 chose SQLite via `node:sqlite`. ADR-0002 requires storing data locally and indefinitely until manual deletion. Claude transcripts are deleted after 30 days (spike, section 7), so to return to old runs catacomb needs its own copy of the raw records.
 
 ## Decision
 
 ### Placement
 
-- A single file `~/.aang/aang.db` (the directory is overridden by `AANG_HOME`), WAL mode. The directory has permissions 0700 on macOS and Linux; on Windows the user profile ACL applies (ADR-0013).
+- A single file `~/.catacomb/catacomb.db` (the directory is overridden by `CATACOMB_HOME`), WAL mode. The directory has permissions 0700 on macOS and Linux; on Windows the user profile ACL applies (ADR-0013).
 - The only writer is the daemon process. The CLI works through the daemon API.
 - SQL does not leave the `store` package; the other modules work with typed repositories. This keeps replacing SQLite reversible (ADR-0001).
 
@@ -50,7 +50,7 @@ Each layer is derived only from the previous one and its own inputs.
 - Applying an observer result is also one transaction: verification, changes, the new version, interpretation statuses and the `observer_calls` record.
 - Nothing that cannot be restored is kept only in memory. After a restart, facts with status `in_call` return to `pending`.
 - Damaged model projections are rebuilt by replaying the journal, without the LLM.
-- `aang reparse` reruns the adapters over the raw records after `normalizer_version` changes (ADR-0010).
+- `catacomb reparse` reruns the adapters over the raw records after `normalizer_version` changes (ADR-0010).
   - Facts with the same keys keep their ids, so model references stay correct.
   - New facts get the `pending` status.
   - A reference to a vanished fact is shown as "Ground unavailable".
@@ -58,13 +58,13 @@ Each layer is derived only from the previous one and its own inputs.
 ### Migrations and deletion
 
 - Migrations are numbered SQL files in `store`, forward only. The number is stored in `PRAGMA user_version`; a copy of the DB file is made before a migration.
-- Retention is indefinite (ADR-0002). `aang prune --run <id>` and `aang prune --before <date>` delete all layers of a run, then `VACUUM` runs.
+- Retention is indefinite (ADR-0002). `catacomb prune --run <id>` and `catacomb prune --before <date>` delete all layers of a run, then `VACUUM` runs.
   - For each stream of the run, `pruned_streams` stores the deletion boundary and the deletion time. The table does not depend on the deleted data.
     - Codex: the last accepted `ordinal` — it is present in every line and does not depend on the position in the file.
     - Claude: the offset and the hash of the file prefix up to that offset.
   - Any re-read — backfill, `rescan`, recovery after a move, archive or inode change — skips the stream records up to the boundary.
     - For Claude, the boundary applies only if the prefix hash matched, that is, it is the same sequence of records.
-    - If a file with the same `sessionId` shrank or was replaced and the prefix does not match, the boundary is not applied blindly. Intake of the stream stops, a gap "stream changed after pruning" is written, and `aang status` offers the user to re-accept the whole stream or leave it stopped.
+    - If a file with the same `sessionId` shrank or was replaced and the prefix does not match, the boundary is not applied blindly. Intake of the stream stops, a gap "stream changed after pruning" is written, and `catacomb status` offers the user to re-accept the whole stream or leave it stopped.
   - Spool files of deleted sessions with an intake time earlier than the deletion are discarded.
   - Cursors are kept.
   - Records past the boundary form the run anew with the mark "start pruned".
@@ -73,7 +73,7 @@ Each layer is derived only from the previous one and its own inputs.
 
 - Returning to a run does not depend on `cleanupPeriodDays`, `codex archive` or transcript deletion.
 - The DB size is comparable to the size of the source files of the tracked projects. Payload compression is deferred until measurements.
-- A single writer simplifies deduplication and transactions. A lock file forbids running two daemons on one `AANG_HOME`.
+- A single writer simplifies deduplication and transactions. A lock file forbids running two daemons on one `CATACOMB_HOME`.
 
 ## Owner decisions
 

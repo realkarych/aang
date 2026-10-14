@@ -13,24 +13,24 @@ Q.4 checks five areas:
 - divergence between hooks and files;
 - ambiguous lineage.
 
-The check runs on the real CLIs and a built aang daemon. The scenarios are reproducible: they are run by the [`tools/resilience`](../../tools/resilience/README.md) tool. The `Resilience` workflow runs them on Linux, macOS and native Windows.
+The check runs on the real CLIs and a built catacomb daemon. The scenarios are reproducible: they are run by the [`tools/resilience`](../../tools/resilience/README.md) tool. The `Resilience` workflow runs them on Linux, macOS and native Windows.
 
 **Versions and environment:**
 
 - macOS 27.0.1 (26A434), Apple M4 Pro, arm64; Node 26.10.0;
 - Claude Code 2.1.292 from the native installer. The installer had already updated to 2.1.293, so the run is pinned to 2.1.292 via `--claude ~/.local/share/claude/versions/2.1.292`;
 - `codex-cli 0.160.0` from Homebrew;
-- the daemon and `aang-hook` are built from this branch;
+- the daemon and `catacomb-hook` are built from this branch;
 - CI, the `Resilience` workflow on this branch: `ubuntu-latest` (kernel 6.17, x64), `macos-latest` (Darwin 25.6, arm64) and `windows-latest` (Windows Server 2025, 10.0.26100, x64). Claude Code 2.1.292 and `@openai/codex@0.160.0` from npm; on Windows Claude Code comes from the native installer.
 
 The machine was not dedicated: other development sessions were running in parallel.
 
-**Method.** Each scenario runs in its own temporary `@aang/testkit` profile:
+**Method.** Each scenario runs in its own temporary `@catacomb/testkit` profile:
 
-- `HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `AANG_HOME` are temporary; the project is the directory `έργο q4` in the profile `Όνομα Επώνυμο`; the run used a Cyrillic profile name, the tools now use this Greek one;
+- `HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `CATACOMB_HOME` are temporary; the project is the directory `έργο q4` in the profile `Όνομα Επώνυμο`; the run used a Cyrillic profile name, the tools now use this Greek one;
 - the runtime roots `~/.claude/projects` and `~/.codex/sessions` exist before the daemon starts, as on a machine where the runtime has already been used; the case without them is a separate scenario;
-- hooks are installed by the product command `aang install`. Trust for Codex hooks is confirmed by writing `hooks.state` with hashes from `hooks/list`, as `/hooks` does;
-- the model is the `tools/record` stubs: Anthropic Messages for Claude and Responses for Codex. The response is chosen by the `[aang:<key>]` tag in the prompt. The real model was not called; the cost is zero;
+- hooks are installed by the product command `catacomb install`. Trust for Codex hooks is confirmed by writing `hooks.state` with hashes from `hooks/list`, as `/hooks` does;
+- the model is the `tools/record` stubs: Anthropic Messages for Claude and Responses for Codex. The response is chosen by the `[catacomb:<key>]` tag in the prompt. The real model was not called; the cost is zero;
 - instead of `cli.claude` and `cli.codex`, the daemon is given gateways. They pass only `plugin`, `app-server` and `--version` through to the real CLI. Therefore the hook state check works on the real CLIs, while the observer and the chat cannot start a model session: observer admission is rejected, and collection does not depend on it;
 - daemon intervals are the defaults: root scan every 60 s, spool scan every 5 s. Exceptions are stated in the scenarios;
 - the "mid-turn" step is done via a gate command: the stub asks the CLI to run `node gate.mjs <name>`, and the command waits until the scenario releases it. The paths in the command are written with `/` in quotes, so it works the same in bash and zsh, in Git Bash, where Claude on Windows runs Bash, and in PowerShell, where Codex on Windows runs commands;
@@ -61,21 +61,21 @@ Result: 23 scenarios, not a single unexpected failure on any OS: on the owner's 
 
 1. **Daemon restart without losses or duplicates.**
    - SIGKILL mid-turn for Claude and Codex: while the daemon is down, hooks keep writing to the spool because the lease is valid. After startup the daemon takes in the spool and the rest of the files once. A repeated restart adds nothing.
-   - `aang stop` between turns: hooks stop writing immediately, and the turn made while stopped is recovered from the transcript.
+   - `catacomb stop` between turns: hooks stop writing immediately, and the turn made while stopped is recovered from the transcript.
 2. **Loss and move of sources work per ADR-0004.**
    - A deleted Claude transcript and a rollout deleted via `codex delete` are marked "source lost". What was observed stays, and after a restart the mark is kept.
    - Moving a transcript to another project directory with the daemon running and with it stopped does not lose the session and does not add a single raw record. `codex archive` and `unarchive` do not lose the thread, and its calls are not duplicated.
    - Claude rewrites a transcript deleted mid-turn at the same path. The daemon briefly marks the loss, then closes it and takes in the new lines once.
 3. **A hook failure is visible.**
-   - Without the `aang-hook` binary, with the plugin disabled or with untrusted Codex hooks, the solver is not blocked. The session is shown in the "files only" mode, and `aang status` lists it among sessions without hooks.
-   - Codex hook trust, its preservation on reinstallation and its loss when the positional key shifts are visible in `aang status` without a daemon restart.
+   - Without the `catacomb-hook` binary, with the plugin disabled or with untrusted Codex hooks, the solver is not blocked. The session is shown in the "files only" mode, and `catacomb status` lists it among sessions without hooks.
+   - Codex hook trust, its preservation on reinstallation and its loss when the positional key shifts are visible in `catacomb status` without a daemon restart.
 4. **The "hooks only" mode works.** `claude -p --no-session-persistence` and `codex exec --ephemeral` write no files. Their sessions are shown in the "hooks only" mode, and actions are taken from hooks.
 5. **Lineage without guesses.**
    - Two branches of one Claude session and a branch of a branch are separate runs with an "Common origin" link; no parent is assigned.
    - The copied history is inherited and not repeated as new actions.
    - A `fork_parent` binding assigns the parent; its retraction removes it.
    - A Codex branch is linked to its source.
-6. **Native Windows behaves the same.** Claude runs Bash in Git Bash, Codex runs commands in PowerShell, Codex hooks are installed by `aang install --codex` per the owner's decisions of 2026-10-06 (PR #150). All 23 scenarios give the same results on Windows as on Linux.
+6. **Native Windows behaves the same.** Claude runs Bash in Git Bash, Codex runs commands in PowerShell, Codex hooks are installed by `catacomb install --codex` per the owner's decisions of 2026-10-06 (PR #150). All 23 scenarios give the same results on Windows as on Linux.
 7. **The main finding is Q4-1.** On macOS, appending to an open file produces no `fs.watch` events, and that is exactly how Codex writes the rollout. Therefore on macOS the daemon reads Codex rollout content not immediately but on the next event or on the scan every 60 s. During a long command the delay is 30 s or more. On Linux (inotify) and on Windows the rollout was read during the command in 27–28 ms. Put to the owner (section 2).
 8. **Defect Q4-2 is fixed** (PR #159, merged): deleting the registry file `sessions/<pid>.json` at the end of every Claude session added a gap in `/api/status`. The check became an ordinary one and passes on all OSes.
 
@@ -104,8 +104,8 @@ Q4-1, Q4-4 and Q4-5 need an owner decision: they change ADR-0004 rules — detec
 
 **Q4-4. Loss of hooks mid-session is not marked.** Question to the owner.
 
-- What is seen: if hooks disappeared mid-session (no lease, `aang stop`, an unavailable spool), the full-mode flag remains — it is "sticky", and a turn without hooks looks like an ordinary one. ADR-0004 defines "hooks inactive" only for the session as a whole.
-- Where: `hooks/claude-lease-lost-mid-session`. `aang status` meanwhile shows that there is no lease.
+- What is seen: if hooks disappeared mid-session (no lease, `catacomb stop`, an unavailable spool), the full-mode flag remains — it is "sticky", and a turn without hooks looks like an ordinary one. ADR-0004 defines "hooks inactive" only for the session as a whole.
+- Where: `hooks/claude-lease-lost-mid-session`. `catacomb status` meanwhile shows that there is no lease.
 - Proposal: open a session gap `hooks_inactive` if a turn is visible in the files but there have been no hook events of this turn for longer than N seconds, and close it on the next hook.
 
 **Q4-5. A session with a killed process stays running.** Question to the owner.
@@ -116,7 +116,7 @@ Q4-1, Q4-4 and Q4-5 need an owner decision: they change ADR-0004 rules — detec
 
 **Q4-6. A runtime root created after the daemon started.** Documented, low priority.
 
-- What is seen: if `~/.claude/projects` does not exist yet when the daemon starts (the first Claude session after installing aang), no watch is set on the root. Only the scan every 60 s finds the transcript — after 59.8 s; until then the session is visible only through hooks.
+- What is seen: if `~/.claude/projects` does not exist yet when the daemon starts (the first Claude session after installing catacomb), no watch is set on the root. Only the scan every 60 s finds the transcript — after 59.8 s; until then the session is visible only through hooks.
 - Where: `sources/claude-projects-root-created-after-start`.
 - Proposal: while the root does not exist, check for its appearance every few seconds.
 
@@ -133,7 +133,7 @@ Q4-1, Q4-4 and Q4-5 need an owner decision: they change ADR-0004 rules — detec
 
 **Q4-9. The `stop_hook_summary` line is not parsed.** Known; parsing is planned in F.7d (PR #153).
 
-- What is seen: Claude writes the `system/stop_hook_summary` line after a Stop hook, including the aang hook. Therefore every session with aang hooks gets an `unknown_records` gap.
+- What is seen: Claude writes the `system/stop_hook_summary` line after a Stop hook, including the catacomb hook. Therefore every session with catacomb hooks gets an `unknown_records` gap.
 - Where: all Claude scenarios.
 
 ## 3. Daemon restart
@@ -141,14 +141,14 @@ Q4-1, Q4-4 and Q4-5 need an owner decision: they change ADR-0004 rules — detec
 | Scenario | What is done | Result |
 | --- | --- | --- |
 | `restart/claude-sigkill-mid-turn` | A Claude turn `echo before` → gate → `echo after`. When the daemon shows the gate action running, the daemon gets SIGKILL. The gate is released, the turn and the session finish without the daemon. Then the daemon is started, then SIGKILL again and another start. | ✔ While the daemon was down, hooks wrote 7 files to the spool. After startup every transcript `tool_use` is exactly one action, all with outcome `ok`. A usage record for every message with usage, the session is `ended`, full mode, freshness `ok`, the spool is empty. The second restart changes no object counter. |
-| `restart/claude-stop-between-turns` | Turn 1, then `aang stop`, turn 2 via `--resume` with aang stopped, then `aang start` and turn 3. | ✔ While stopped, hooks wrote no file: the marker and the removed lease. The action of turn 2 is recovered from the transcript, turn 3 came with hooks again, no duplicates. There is no gap from deleted registry files (Q4-2 fixed). |
-| `restart/codex-sigkill-mid-turn` | The same for `codex exec` with trusted aang hooks. | ✔ 5 spool files during the downtime, each rollout call is one action with outcome `ok`, a repeated restart adds nothing. ⚑ Q4-3 and, in some runs, Q4-7. |
+| `restart/claude-stop-between-turns` | Turn 1, then `catacomb stop`, turn 2 via `--resume` with catacomb stopped, then `catacomb start` and turn 3. | ✔ While stopped, hooks wrote no file: the marker and the removed lease. The action of turn 2 is recovered from the transcript, turn 3 came with hooks again, no duplicates. There is no gap from deleted registry files (Q4-2 fixed). |
+| `restart/codex-sigkill-mid-turn` | The same for `codex exec` with trusted catacomb hooks. | ✔ 5 spool files during the downtime, each rollout call is one action with outcome `ok`, a repeated restart adds nothing. ⚑ Q4-3 and, in some runs, Q4-7. |
 
 On Windows SIGKILL is `TerminateProcess`. The results are the same: 7 and 5 spool files during the downtime, not a single duplicate.
 
 Limitations visible to the user do not violate the ADR:
 
-- **a turn made during `aang stop` loses everything that only hooks provide:**
+- **a turn made during `catacomb stop` loses everything that only hooks provide:**
   - the `resume` start in the list of starts (after turn 3 it is shown once, although there were two `--resume`);
   - `SessionEnd` — until the next turn the session is shown as "turn done, waiting" (`turn_done`), although the process has already exited;
   - approval waits.
@@ -177,13 +177,13 @@ Confirmed along the way:
 
 | Scenario | What is done | Result |
 | --- | --- | --- |
-| `hooks/claude-hook-binary-missing` | `aang-hook` is removed from `<AANG_HOME>/bin`, a Claude session runs. Then the binary is put back, and another session runs. | ✔ Claude exits with code 0: a missing handler does not block. The first session is "files only", freshness `hooks_inactive`, a `hooks_inactive` gap is open, and in `aang status` it is among `hooks_inactive_sessions`. The second session is in full mode and not in that list. The static Claude state is `active` meanwhile: the plugin is enabled, the binary is missing. The missing binary is visible only through sessions. |
-| `hooks/claude-lease-lost-mid-session` | Between the turns of one session the spool lease is deleted; the daemon's lease check is postponed (`spool.checkIntervalMs` = 10 min). Turn 2, then a daemon restart and turn 3. | ✔ Without a lease hooks write nothing, `aang status` shows `lease_expires_at: null`, turn 2 is recovered from the transcript. The restarted daemon issues a lease, turn 3 is again with hooks. ⚑ Q4-4: the session stays in full mode without a mark. |
-| `hooks/codex-hooks-trust` | `aang install --codex`, a session without confirmed trust. Then trust via `hooks.state`, a session, a repeated `aang install --codex`, a session. At the end, another party's `PreToolUse` hook is inserted into `hooks.json` before the aang entry. | ✔ After installation — `untrusted`. Codex skips untrusted hooks, the spool is empty, the session is "files only". After trust, `aang status` shows `active` without a restart, the next session is in full mode. The repeated installation does not change a single byte of `hooks.json` and keeps the trust. The other entry before the aang entry shifts the positional key: the aang entry loses trust, the status is `untrusted`. |
-| `hooks/claude-plugin-disabled` | `claude plugin disable aang@aang`, a session, then `claude plugin enable aang@aang`, a session. | ✔ `aang status` follows the state: `disabled` → `active`. The session with the plugin disabled is "files only", with it enabled — full mode. |
-| `hooks/claude-duplicate-plugin` | The aang plugin is installed from the marketplace. Its copy lies in the fallback directory `<claude>/skills/aang`, another one is passed via `--plugin-dir`. | ✔ Claude 2.1.292 loads one plugin per name: with the copy in `skills` — `aang@aang` from the marketplace, with `--plugin-dir` — `aang@inline`. Each event is delivered once; there is no double registration. |
+| `hooks/claude-hook-binary-missing` | `catacomb-hook` is removed from `<CATACOMB_HOME>/bin`, a Claude session runs. Then the binary is put back, and another session runs. | ✔ Claude exits with code 0: a missing handler does not block. The first session is "files only", freshness `hooks_inactive`, a `hooks_inactive` gap is open, and in `catacomb status` it is among `hooks_inactive_sessions`. The second session is in full mode and not in that list. The static Claude state is `active` meanwhile: the plugin is enabled, the binary is missing. The missing binary is visible only through sessions. |
+| `hooks/claude-lease-lost-mid-session` | Between the turns of one session the spool lease is deleted; the daemon's lease check is postponed (`spool.checkIntervalMs` = 10 min). Turn 2, then a daemon restart and turn 3. | ✔ Without a lease hooks write nothing, `catacomb status` shows `lease_expires_at: null`, turn 2 is recovered from the transcript. The restarted daemon issues a lease, turn 3 is again with hooks. ⚑ Q4-4: the session stays in full mode without a mark. |
+| `hooks/codex-hooks-trust` | `catacomb install --codex`, a session without confirmed trust. Then trust via `hooks.state`, a session, a repeated `catacomb install --codex`, a session. At the end, another party's `PreToolUse` hook is inserted into `hooks.json` before the catacomb entry. | ✔ After installation — `untrusted`. Codex skips untrusted hooks, the spool is empty, the session is "files only". After trust, `catacomb status` shows `active` without a restart, the next session is in full mode. The repeated installation does not change a single byte of `hooks.json` and keeps the trust. The other entry before the catacomb entry shifts the positional key: the catacomb entry loses trust, the status is `untrusted`. |
+| `hooks/claude-plugin-disabled` | `claude plugin disable catacomb@catacomb`, a session, then `claude plugin enable catacomb@catacomb`, a session. | ✔ `catacomb status` follows the state: `disabled` → `active`. The session with the plugin disabled is "files only", with it enabled — full mode. |
+| `hooks/claude-duplicate-plugin` | The catacomb plugin is installed from the marketplace. Its copy lies in the fallback directory `<claude>/skills/catacomb`, another one is passed via `--plugin-dir`. | ✔ Claude 2.1.292 loads one plugin per name: with the copy in `skills` — `catacomb@catacomb` from the marketplace, with `--plugin-dir` — `catacomb@inline`. Each event is delivered once; there is no double registration. |
 
-Conclusion on double registration (ADR-0004). The spike scenario — two identical payloads from two registrations — is not reproduced for the aang plugin in Claude 2.1.292: the engine does not load two plugins with the same name. The engine rule for double registration remains a safeguard in case the runtime behaves differently. The `hooks/claude-duplicate-plugin` scenario will catch such a change in a new version.
+Conclusion on double registration (ADR-0004). The spike scenario — two identical payloads from two registrations — is not reproduced for the catacomb plugin in Claude 2.1.292: the engine does not load two plugins with the same name. The engine rule for double registration remains a safeguard in case the runtime behaves differently. The `hooks/claude-duplicate-plugin` scenario will catch such a change in a new version.
 
 ## 6. Divergence between hooks and files
 
@@ -230,12 +230,12 @@ Merging hook and file records about one object gave exactly one action per `tool
 
 - recursive `fs.watch` (`ReadDirectoryChangesW`) also does not report the last write through an open handle, but the Codex rollout is read immediately during a command (section 2, Q4-1);
 - Claude runs Bash in Git Bash and writes Windows paths to the transcript, including after `cd`;
-- Codex runs commands and hooks in PowerShell. aang's hooks for Codex are the commands `& '<aang-hook.exe>' codex user '<spool>'`; their trust and the positional key shift behave as on macOS and Linux.
+- Codex runs commands and hooks in PowerShell. catacomb's hooks for Codex are the commands `& '<catacomb-hook.exe>' codex user '<spool>'`; their trust and the positional key shift behave as on macOS and Linux.
 
 ## 9. What is not covered
 
 - **Windows, the interactive part** — TUI in PowerShell, item B6 of the owner's checklist. The automatic part runs in CI.
-- **Cleanup hang on Windows.** In the first run on Windows (CI, revision `b13b3c80`) the cleanup of the `lineage/claude-fork-parent-unseen` scenario hung after all its checks, and the workflow stopped on the 75-minute limit. The next two runs at revisions `f533b816` and `5b6bf4f7` passed in 6 minutes. The cause was not found. Now the daemon exit and each cleanup stage of a scenario are bounded by 60 s; if a stage did not finish, the scenario gets ✘. Cleanup stages run independently of errors in the previous ones. After a hung stage and at the end of every cleanup, the tool kills, until they are gone, and lists in the report: the scenario's running daemons, CLIs and `aang` commands with their descendants; on Linux and macOS, all processes of the process groups of the scenario's CLIs and `aang` commands, including after the command itself exited; processes whose command line or environment contains the profile path. If such a process is still running after 30 s, the scenario gets ✘. The only process not found is one outside these groups whose parent has exited and whose command line and environment do not contain the profile path. `ps` on macOS does not show the environment of system programs like `/bin/sleep`. On Windows there are no process groups and the tool does not read the environment, so there such a process is found only by its command line.
+- **Cleanup hang on Windows.** In the first run on Windows (CI, revision `b13b3c80`) the cleanup of the `lineage/claude-fork-parent-unseen` scenario hung after all its checks, and the workflow stopped on the 75-minute limit. The next two runs at revisions `f533b816` and `5b6bf4f7` passed in 6 minutes. The cause was not found. Now the daemon exit and each cleanup stage of a scenario are bounded by 60 s; if a stage did not finish, the scenario gets ✘. Cleanup stages run independently of errors in the previous ones. After a hung stage and at the end of every cleanup, the tool kills, until they are gone, and lists in the report: the scenario's running daemons, CLIs and `catacomb` commands with their descendants; on Linux and macOS, all processes of the process groups of the scenario's CLIs and `catacomb` commands, including after the command itself exited; processes whose command line or environment contains the profile path. If such a process is still running after 30 s, the scenario gets ✘. The only process not found is one outside these groups whose parent has exited and whose command line and environment do not contain the profile path. `ps` on macOS does not show the environment of system programs like `/bin/sleep`. On Windows there are no process groups and the tool does not read the environment, so there such a process is found only by its command line.
 - **Desktop, interactive TUIs, the `/hooks` dialog, `/clear`** — the owner's checklist, sections A and B.
 - **The real model** — optional, item C1 of the checklist. The behavior checked here (files, hooks, processes) does not depend on the model.
 - **Without a live check:**

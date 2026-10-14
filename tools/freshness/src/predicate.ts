@@ -9,7 +9,7 @@ import {
   type Link,
   type Run,
   type Stage,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import type {
   AttentionPredicate,
   CardPredicate,
@@ -17,7 +17,7 @@ import type {
   LinkPredicate,
   MapPredicate,
   StagePredicate,
-} from '@aang/record'
+} from '@catacomb/record'
 
 export interface ModelState {
   readonly run: Run | null

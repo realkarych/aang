@@ -1,7 +1,7 @@
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import type { Runtime } from '@aang/contract'
+import type { Runtime } from '@catacomb/contract'
 import type { z } from 'zod'
 import { ClaudeScenario, CodexScenario, type FakeCall } from './scenario.js'
 import { readCalls, writeScenario } from './state.js'

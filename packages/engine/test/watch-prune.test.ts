@@ -7,10 +7,10 @@ import {
   type RunSnapshot,
   type Runtime,
   type SessionKey,
-} from '@aang/contract'
-import { contentHash, objectId, runId } from '@aang/contract/ids'
-import { createEngine, createReadQueries, type Engine, InvalidPositionError } from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { contentHash, objectId, runId } from '@catacomb/contract/ids'
+import { createEngine, createReadQueries, type Engine, InvalidPositionError } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { describe, expect, test } from 'vitest'
 import { batchOf, type HookDelivery, hookBatch, joinBatches, jsonlFile } from './batches.js'
 import { adapters, factsOf, gapsOf, recordsOf, sessionKey, streamOf } from './harness.js'

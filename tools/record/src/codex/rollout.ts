@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import type { Target } from '@aang/testkit'
+import type { Target } from '@catacomb/testkit'
 import { z } from 'zod'
 import type { ControlTarget } from '../capture.js'
 import { filesIn } from '../files.js'

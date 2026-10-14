@@ -60,7 +60,7 @@ const tools = stubScenario({
   ],
   script: { 'desktop-tools': toolSteps },
   run: async ({ session }) => {
-    const { stdout } = await runDesktop(session, { thread: fullAccess, prompts: ['[aang:desktop-tools] Run `echo hi`, add result.json with a patch, run `echo code` from a code cell, then reply done.'] })
+    const { stdout } = await runDesktop(session, { thread: fullAccess, prompts: ['[catacomb:desktop-tools] Run `echo hi`, add result.json with a patch, run `echo code` from a code cell, then reply done.'] })
     const rollout = await rolloutOf(session.codex, rootThread(stdout))
     checkDesktopOrigin(sessionMeta(rollout))
     check(completedItems(rollout, 'CommandExecution').length === 2 && completedItems(rollout, 'FileChange').length === 1, 'both commands and the patch completed')
@@ -87,7 +87,7 @@ const approval = stubScenario({
   run: async ({ session, telemetry }) => {
     const { stdout } = await runDesktop(session, {
       thread: { approvalPolicy: 'untrusted', sandbox: 'read-only' },
-      prompts: ['[aang:desktop-approval] Create approved.txt with `touch approved.txt` and ask for approval.'],
+      prompts: ['[catacomb:desktop-approval] Create approved.txt with `touch approved.txt` and ask for approval.'],
     })
     const rollout = await rolloutOf(session.codex, rootThread(stdout))
     check(messages(stdout, 'item/commandExecution/requestApproval').length === 1, 'the client received one command approval request')
@@ -111,7 +111,7 @@ const subagent = stubScenario({
   expectedFacts: subagentFacts,
   script: (session) => subagentScript(session, 'desktop-subagent'),
   run: async ({ session, stub }) => {
-    const { stdout } = await runDesktop(session, { thread: fullAccess, prompts: ['[aang:desktop-subagent] Spawn subagents scout and builder, wait for them, then reply done.'] })
+    const { stdout } = await runDesktop(session, { thread: fullAccess, prompts: ['[catacomb:desktop-subagent] Spawn subagents scout and builder, wait for them, then reply done.'] })
     const root = rootThread(stdout)
     const children = await checkSubagents(session, stub.replies, root)
     checkDesktopOrigin(sessionMeta(await rolloutOf(session.codex, root)))
@@ -135,7 +135,7 @@ const questionScenario = stubScenario({
   run: async ({ session }) => {
     const { stdout } = await runDesktop(session, {
       thread: fullAccess,
-      prompts: ['[aang:desktop-question] Ask me which greeting notes.txt should use, then stop.', 'hello'],
+      prompts: ['[catacomb:desktop-question] Ask me which greeting notes.txt should use, then stop.', 'hello'],
     })
     const rollout = await rolloutOf(session.codex, rootThread(stdout))
     checkDesktopOrigin(sessionMeta(rollout))

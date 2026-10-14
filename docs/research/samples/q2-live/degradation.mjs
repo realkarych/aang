@@ -5,7 +5,7 @@ import { DatabaseSync } from 'node:sqlite'
 const [directory] = process.argv.slice(2)
 if (directory === undefined) throw new Error('Usage: degradation.mjs <measurement directory>')
 const measurement = JSON.parse(await readFile(join(directory, 'measurement.json'), 'utf8'))
-const database = new DatabaseSync(join(directory, 'aang', 'aang.db'), { readOnly: true, readBigInts: true })
+const database = new DatabaseSync(join(directory, 'catacomb', 'catacomb.db'), { readOnly: true, readBigInts: true })
 const nanoseconds = 1_000_000n
 const ms = (value) => Number(BigInt(value) / nanoseconds)
 const label = ({ state }) => (state.reason === undefined ? state.state : `${state.state}:${state.reason}`)

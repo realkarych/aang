@@ -24,8 +24,8 @@ import {
   type SnapshotCriterion,
   type SnapshotStage,
   type StageId,
-} from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
 import {
   applyChangeSet,
   applyObserverResponse,
@@ -35,8 +35,8 @@ import {
   type InputScopeOptions,
   resolveObserverNeeds,
   skipObserverFollowUp,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { expect, test, type TestContext } from 'vitest'
 import { hookBatch, jsonlFile } from './batches.js'
 import { factsOf, recordsOf } from './harness.js'

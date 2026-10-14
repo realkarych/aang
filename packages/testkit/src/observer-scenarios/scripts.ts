@@ -1,4 +1,4 @@
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 import { z } from 'zod'
 import { attentionScript, nestedAttentionScript } from './attention.js'
 import { chatAnswerScript, chatCollapseReviewersScript, chatOldGroundScript, readChatInput } from './chat.js'

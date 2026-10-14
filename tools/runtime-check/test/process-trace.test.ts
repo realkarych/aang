@@ -16,9 +16,9 @@ test('the report counts separate CLI processes when Windows reuses a PID', () =>
     event(10, 1, 'codex.exe', '134354340829078202'),
     event(20, 10, 'git.exe', '134354340829078203'),
     event(30, 10, 'pwsh.exe', '134354340829078204'),
-    event(20, 30, 'aang-hook.exe', '134354340829078205'),
+    event(20, 30, 'catacomb-hook.exe', '134354340829078205'),
   ]))
-  expect(report.treeFromTrace).toEqual({ processes: 4, names: { 'git.exe': 1, 'pwsh.exe': 1, 'aang-hook.exe': 1 } })
+  expect(report.treeFromTrace).toEqual({ processes: 4, names: { 'git.exe': 1, 'pwsh.exe': 1, 'catacomb-hook.exe': 1 } })
   expect(report.startedOutsideTree).toEqual([])
 })
 

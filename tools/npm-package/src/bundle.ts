@@ -2,11 +2,11 @@ import { join } from 'node:path'
 import { build, formatMessages, type Message } from 'esbuild'
 import { repository } from './repository.js'
 
-export const commandFiles = { aang: 'dist/aang.js', 'aang-hook': 'dist/aang-hook.js' } as const
+export const commandFiles = { catacomb: 'dist/catacomb.js', 'catacomb-hook': 'dist/catacomb-hook.js' } as const
 
 const entryPoints = [
-  { in: join(repository.aang, 'dist', 'main.js'), out: 'aang' },
-  { in: join(repository.aang, 'dist', 'hook.js'), out: 'aang-hook' },
+  { in: join(repository.catacomb, 'dist', 'main.js'), out: 'catacomb' },
+  { in: join(repository.catacomb, 'dist', 'hook.js'), out: 'catacomb-hook' },
   { in: join(repository.observer, 'dist', 'registry-watch.js'), out: 'registry-watch' },
 ]
 

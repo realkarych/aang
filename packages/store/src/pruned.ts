@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { PruneBoundary, type SessionKey, type StreamKey } from '@aang/contract'
+import { PruneBoundary, type SessionKey, type StreamKey } from '@catacomb/contract'
 import { prepareStatement, upsertInto, type WriteContext } from './context.js'
 
 export interface PrunedStreamReader {

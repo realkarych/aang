@@ -1,7 +1,7 @@
 import { readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { HookInstallation, Runtime } from '@aang/contract'
-import { claudePluginId, hookInstallPaths, writeClaudePlugin } from '@aang/hook'
+import type { HookInstallation, Runtime } from '@catacomb/contract'
+import { claudePluginId, hookInstallPaths, writeClaudePlugin } from '@catacomb/hook'
 import { findings } from '../findings.js'
 import type { Scenario } from '../scenario.js'
 import {
@@ -60,7 +60,7 @@ const claudeHookBinaryMissing: Scenario = {
   name: 'claude-hook-binary-missing',
   area: 'hooks',
   summary:
-    'The aang-hook binary is missing while a Claude session runs: Claude is not blocked, the session is shown in files-only mode with hooks inactive; after the binary is back a new session has full support',
+    'The catacomb-hook binary is missing while a Claude session runs: Claude is not blocked, the session is shown in files-only mode with hooks inactive; after the binary is back a new session has full support',
   runtimes: ['claude'],
   scripts: () => ({
     claude: {
@@ -72,9 +72,9 @@ const claudeHookBinaryMissing: Scenario = {
     const { journal } = lab
     await installHooks(lab, ['claude'])
     await lab.startDaemon()
-    const { binary } = hookInstallPaths(lab.profile.aangHome)
+    const { binary } = hookInstallPaths(lab.profile.catacombHome)
     await rename(binary, `${binary}.away`)
-    journal.step('aang-hook moved away')
+    journal.step('catacomb-hook moved away')
     const unhooked = await claudeRun(lab, 'no-hook')
     journal.step('claude finished without the hook binary')
     await lab.settle()
@@ -85,16 +85,16 @@ const claudeHookBinaryMissing: Scenario = {
       actionCalls(view),
       claudeToolUses(await claudeTranscript(lab.profile.claude, unhooked)).sort(),
     )
-    journal.check('aang status lists the session as hooks inactive', (await inactiveSessions(lab, 'claude')).includes(view.session.id), await inactiveSessions(lab, 'claude'))
+    journal.check('catacomb status lists the session as hooks inactive', (await inactiveSessions(lab, 'claude')).includes(view.session.id), await inactiveSessions(lab, 'claude'))
     journal.observe('claude hooks in the status while the binary is missing', await installation(lab, 'claude'))
     await rename(`${binary}.away`, binary)
-    journal.step('aang-hook restored')
+    journal.step('catacomb-hook restored')
     const hooked = await claudeRun(lab, 'hook-back')
     await lab.settle()
     const back = await viewOf(lab, hooked)
     journal.equal('a new session after the binary is back has full support', modeOf(back), full)
     journal.check(
-      'aang status keeps only the unhooked session as hooks inactive',
+      'catacomb status keeps only the unhooked session as hooks inactive',
       (await inactiveSessions(lab, 'claude')).includes(view.session.id) &&
         !(await inactiveSessions(lab, 'claude')).includes(back.session.id),
       await inactiveSessions(lab, 'claude'),
@@ -128,7 +128,7 @@ const claudeLeaseLost: Scenario = {
     journal.equal('hooks wrote nothing without a lease', await lab.spoolFiles(), [])
     await lab.settle()
     const status = await lab.status()
-    journal.equal('aang status shows that there is no lease', status.spool.lease_expires_at, null)
+    journal.equal('catacomb status shows that there is no lease', status.spool.lease_expires_at, null)
     const lost = await viewOf(lab, session)
     journal.equal(
       'the turn without hooks is read from the transcript',
@@ -172,7 +172,7 @@ const codexTrust: Scenario = {
   name: 'codex-hooks-trust',
   area: 'hooks',
   summary:
-    'Codex hooks of aang before and after trust: untrusted hooks do not run and the session is files-only; after trust the status is active and sessions have full support; a repeated aang install keeps the trust; a foreign hook inserted before the aang entry shifts the positional trust key',
+    'Codex hooks of catacomb before and after trust: untrusted hooks do not run and the session is files-only; after trust the status is active and sessions have full support; a repeated catacomb install keeps the trust; a foreign hook inserted before the catacomb entry shifts the positional trust key',
   runtimes: ['codex'],
   scripts: () => ({
     codex: {
@@ -191,7 +191,7 @@ const codexTrust: Scenario = {
     await lab.settle()
     const view = await viewOf(lab, untrusted)
     journal.equal('the session with untrusted hooks is files-only with hooks inactive', modeOf(view), filesOnly)
-    journal.check('aang status lists it as hooks inactive', (await inactiveSessions(lab, 'codex')).includes(view.session.id), await inactiveSessions(lab, 'codex'))
+    journal.check('catacomb status lists it as hooks inactive', (await inactiveSessions(lab, 'codex')).includes(view.session.id), await inactiveSessions(lab, 'codex'))
     await trustCodexHooks(lab)
     journal.equal('trusted hooks are active', await awaitInstallation(lab, 'codex', 'active'), 'active')
     const trusted = await codexRun(lab, [...codexFlags, codexPrompt('trusted')])
@@ -206,9 +206,9 @@ const codexTrust: Scenario = {
     await lab.settle()
     journal.equal('a session after the repeated install has full support', modeOf(await viewOf(lab, reinstalled)), full)
     await prependForeignHook(lab.profile.codex)
-    journal.step('a foreign PreToolUse hook is inserted before the aang entry')
+    journal.step('a foreign PreToolUse hook is inserted before the catacomb entry')
     journal.equal(
-      'the shifted aang entry loses its trust and the status shows it',
+      'the shifted catacomb entry loses its trust and the status shows it',
       await awaitInstallation(lab, 'codex', 'untrusted'),
       'untrusted',
     )
@@ -219,7 +219,7 @@ const claudePluginDisabled: Scenario = {
   name: 'claude-plugin-disabled',
   area: 'hooks',
   summary:
-    'The aang plugin is disabled with claude plugin disable: aang status shows hooks disabled and a new session is files-only; after enabling, sessions have full support again',
+    'The catacomb plugin is disabled with claude plugin disable: catacomb status shows hooks disabled and a new session is files-only; after enabling, sessions have full support again',
   runtimes: ['claude'],
   scripts: () => ({
     claude: {
@@ -256,14 +256,14 @@ const pluginsOf = (stdout: string): string[] =>
         return []
       }
     })
-    .filter(({ name }) => name === 'aang')
+    .filter(({ name }) => name === 'catacomb')
     .map(({ source }) => String(source))
 
 const claudeDuplicatePlugin: Scenario = {
   name: 'claude-duplicate-plugin',
   area: 'hooks',
   summary:
-    'The aang plugin is installed from the marketplace, a copy sits in the fallback skills directory and another is passed with --plugin-dir: Claude loads one plugin per name, so every hook is delivered once and no double registration arises; the engine check of ADR-0004 stays a safety net',
+    'The catacomb plugin is installed from the marketplace, a copy sits in the fallback skills directory and another is passed with --plugin-dir: Claude loads one plugin per name, so every hook is delivered once and no double registration arises; the engine check of ADR-0004 stays a safety net',
   runtimes: ['claude'],
   scripts: () => ({
     claude: {
@@ -274,17 +274,17 @@ const claudeDuplicatePlugin: Scenario = {
   run: async (lab) => {
     const { journal } = lab
     await installHooks(lab, ['claude'])
-    const { binary, spool } = hookInstallPaths(lab.profile.aangHome)
-    await writeClaudePlugin({ directory: join(lab.profile.claude, 'skills', 'aang'), hookBinary: binary, spool })
-    const inline = join(lab.work, 'aang-plugin-copy')
+    const { binary, spool } = hookInstallPaths(lab.profile.catacombHome)
+    await writeClaudePlugin({ directory: join(lab.profile.claude, 'skills', 'catacomb'), hookBinary: binary, spool })
+    const inline = join(lab.work, 'catacomb-plugin-copy')
     await writeClaudePlugin({ directory: inline, hookBinary: binary, spool })
     journal.step('copies of the plugin are written to the skills directory and to a plugin directory')
     await lab.startDaemon()
     const skills = await finished(lab, 'claude skills-copy', claudeTurn(lab, 'skills-copy'))
     const inlined = await finished(lab, 'claude inline-copy', claudeTurn(lab, 'inline-copy', ['--plugin-dir', inline]))
-    journal.equal('one aang plugin is loaded in each session', [pluginsOf(skills.stdout), pluginsOf(inlined.stdout)], [
-      ['aang@aang'],
-      ['aang@inline'],
+    journal.equal('one catacomb plugin is loaded in each session', [pluginsOf(skills.stdout), pluginsOf(inlined.stdout)], [
+      ['catacomb@catacomb'],
+      ['catacomb@inline'],
     ])
     await lab.settle()
     for (const [name, result] of [['skills-copy', skills], ['inline-copy', inlined]] as const) {

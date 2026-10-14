@@ -1,4 +1,4 @@
-import type { Fact, FactOf, JsonValue } from '@aang/contract'
+import type { Fact, FactOf, JsonValue } from '@catacomb/contract'
 import { fieldOf, type ShellDialect, shellScripts } from '../checks/commands.js'
 import { actionDirectory, isWindowsPath, resolvedPath } from '../observations/directories.js'
 import type { Hunk, Patch, Replacement } from './patches.js'

@@ -1,4 +1,4 @@
-import type { Action, ActionId, ActionKind, CollapsedFacts, Fact, InputFact } from '@aang/contract'
+import type { Action, ActionId, ActionKind, CollapsedFacts, Fact, InputFact } from '@catacomb/contract'
 import { compareText } from '../observations/evidence.js'
 
 export interface BatchEntry {

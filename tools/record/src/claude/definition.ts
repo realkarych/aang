@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import type { OperatingSystem } from '@aang/contract'
+import type { OperatingSystem } from '@catacomb/contract'
 import { z } from 'zod'
 import type { ScenarioSession } from '../scenario.js'
 import type { ModelMode } from '../schema.js'

@@ -1,6 +1,6 @@
 import { delimiter, dirname, join } from 'node:path'
-import { codexHooksState, deployHookBinary, hookBinaryName } from '@aang/hook'
-import { installFakeCodex } from '@aang/testkit'
+import { codexHooksState, deployHookBinary, hookBinaryName } from '@catacomb/hook'
+import { installFakeCodex } from '@catacomb/testkit'
 import { inject, test, vi } from 'vitest'
 import { type AppServerCall, fakeAppServer } from './app-server.js'
 import { createInstallHome, type InstallHome } from './install.js'
@@ -9,9 +9,9 @@ import { isAlive, resumeWindowsProcess, suspendWindowsProcess, waitUntil } from 
 const onWindows = test.runIf(process.platform === 'win32')
 
 const hangingCheck = async (home: InstallHome, signal?: AbortSignal) => {
-  await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: inject('hookBinaries').plain })
+  await deployHookBinary({ catacombHome: home.catacombHome, hookBinarySource: inject('hookBinaries').plain })
   const cli = await fakeAppServer(home, { failure: 'timeout' })
-  const options = { aangHome: home.aangHome, codexHome: home.codexHome, codex: cli }
+  const options = { catacombHome: home.catacombHome, codexHome: home.codexHome, codex: cli }
   const checking = codexHooksState({ ...options, timeoutMs: 120_000, ...(signal === undefined ? {} : { signal }) })
   checking.catch(() => undefined)
   const server = await vi.waitFor(async (): Promise<AppServerCall> => {
@@ -29,7 +29,7 @@ onWindows(
   async ({ expect, onTestFinished }) => {
     const home = await createInstallHome(onTestFinished)
 
-    await expect(codexHooksState({ aangHome: home.aangHome, codexHome: home.codexHome, codex: home.codex })).rejects.toMatchObject({
+    await expect(codexHooksState({ catacombHome: home.catacombHome, codexHome: home.codexHome, codex: home.codex })).rejects.toMatchObject({
       reason: 'codex_app_server',
       message: expect.stringContaining(hookBinaryName) as unknown,
     })
@@ -42,14 +42,14 @@ onWindows(
   'on Windows a Codex command given by name runs the codex.exe found in PATH through the launcher',
   async ({ expect, onTestFinished }) => {
     const home = await createInstallHome(onTestFinished)
-    await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: inject('hookBinaries').plain })
+    await deployHookBinary({ catacombHome: home.catacombHome, hookBinarySource: inject('hookBinaries').plain })
     const codex = installFakeCodex(join(home.root, 'fakes'))
     vi.stubEnv('PATH', `${dirname(codex.executable)}${delimiter}${process.env.PATH ?? ''}`)
     onTestFinished(() => {
       vi.unstubAllEnvs()
     })
 
-    const state = await codexHooksState({ aangHome: home.aangHome, codexHome: home.codexHome, codex: { command: 'codex' } })
+    const state = await codexHooksState({ catacombHome: home.catacombHome, codexHome: home.codexHome, codex: { command: 'codex' } })
 
     expect(state.status).toBe('not_installed')
     expect(codex.calls().filter((call) => call.command === 'app_server')).toHaveLength(1)

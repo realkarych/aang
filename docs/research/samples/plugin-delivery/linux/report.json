@@ -21,9 +21,9 @@
     "home": "<work>/Users/Όνομα Επώνυμο",
     "claudeConfigDir": "<work>/Users/Όνομα Επώνυμο/.claude",
     "codexHome": "<work>/Users/Όνομα Επώνυμο/.codex",
-    "aangHome": "<work>/Users/Όνομα Επώνυμο/.aang",
-    "hook": "<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook",
-    "spool": "<work>/Users/Όνομα Επώνυμο/.aang/spool",
+    "catacombHome": "<work>/Users/Όνομα Επώνυμο/.catacomb",
+    "hook": "<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook",
+    "spool": "<work>/Users/Όνομα Επώνυμο/.catacomb/spool",
     "project": "<work>/Users/Όνομα Επώνυμο/έργο με κενά"
   },
   "executables": {
@@ -92,7 +92,7 @@
       "status": "passed",
       "reasons": []
     },
-    "codex hooks installed by aang": {
+    "codex hooks installed by catacomb": {
       "status": "passed",
       "reasons": []
     },
@@ -127,8 +127,8 @@
   },
   "claude plugin from the marketplace": {
     "installation": {
-      "binary": "<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook",
-      "plugin": "<work>/Users/Όνομα Επώνυμο/.aang/claude-plugin"
+      "binary": "<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook",
+      "plugin": "<work>/Users/Όνομα Επώνυμο/.catacomb/claude-plugin"
     },
     "repeatedInstall": {
       "error": null
@@ -138,22 +138,22 @@
       "events": 29,
       "PreToolUse": {
         "type": "command",
-        "command": "<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook",
+        "command": "<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook",
         "args": [
           "claude",
           "plugin",
-          "<work>/Users/Όνομα Επώνυμο/.aang/spool"
+          "<work>/Users/Όνομα Επώνυμο/.catacomb/spool"
         ],
         "timeout": 2
       }
     },
     "pluginList": [
       {
-        "id": "aang@aang",
+        "id": "catacomb@catacomb",
         "version": "1.0.0",
         "scope": "user",
         "enabled": true,
-        "installPath": "<work>/Users/Όνομα Επώνυμο/.claude/plugins/cache/aang/aang/1.0.0",
+        "installPath": "<work>/Users/Όνομα Επώνυμο/.claude/plugins/cache/catacomb/catacomb/1.0.0",
         "installedAt": "2026-10-02T22:40:32.761Z",
         "lastUpdated": "2026-10-02T22:40:32.761Z",
         "projectEnabled": true
@@ -175,9 +175,9 @@
       },
       "initPlugins": [
         {
-          "name": "aang",
-          "path": "<work>/Users/Όνομα Επώνυμο/.aang/claude-plugin",
-          "source": "aang@aang",
+          "name": "catacomb",
+          "path": "<work>/Users/Όνομα Επώνυμο/.catacomb/claude-plugin",
+          "source": "catacomb@catacomb",
           "version": "1.0.0"
         },
         {
@@ -205,7 +205,7 @@
         "plugin"
       ],
       "pluginRoots": [
-        "<work>/Users/Όνομα Επώνυμο/.aang/claude-plugin"
+        "<work>/Users/Όνομα Επώνυμο/.catacomb/claude-plugin"
       ],
       "entrypoints": [
         "sdk-cli"
@@ -222,9 +222,9 @@
         "engineVersion": "2.1.288",
         "plugins": [
           {
-            "name": "aang",
-            "path": "<work>/Users/Όνομα Επώνυμο/.aang/claude-plugin",
-            "source": "aang@aang",
+            "name": "catacomb",
+            "path": "<work>/Users/Όνομα Επώνυμο/.catacomb/claude-plugin",
+            "source": "catacomb@catacomb",
             "version": "1.0.0"
           },
           {
@@ -258,7 +258,7 @@
         "plugin"
       ],
       "pluginRoots": [
-        "<work>/Users/Όνομα Επώνυμο/.aang/claude-plugin"
+        "<work>/Users/Όνομα Επώνυμο/.catacomb/claude-plugin"
       ],
       "entrypoints": [
         "sdk-ts"
@@ -270,27 +270,27 @@
   },
   "claude plugin from the skills directory": {
     "configDir": "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback",
-    "plugin": "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/aang",
+    "plugin": "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/catacomb",
     "hookEntry": {
       "events": 29,
       "PreToolUse": {
         "type": "command",
-        "command": "<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook",
+        "command": "<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook",
         "args": [
           "claude",
           "plugin",
-          "<work>/Users/Όνομα Επώνυμο/.aang/spool"
+          "<work>/Users/Όνομα Επώνυμο/.catacomb/spool"
         ],
         "timeout": 2
       }
     },
     "pluginList": [
       {
-        "id": "aang@skills-dir",
+        "id": "catacomb@skills-dir",
         "version": "1.0.0",
         "scope": "user",
         "enabled": true,
-        "installPath": "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/aang"
+        "installPath": "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/catacomb"
       }
     ],
     "cli": {
@@ -309,9 +309,9 @@
       },
       "initPlugins": [
         {
-          "name": "aang",
-          "path": "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/aang",
-          "source": "aang@skills-dir",
+          "name": "catacomb",
+          "path": "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/catacomb",
+          "source": "catacomb@skills-dir",
           "version": "1.0.0"
         },
         {
@@ -339,7 +339,7 @@
         "plugin"
       ],
       "pluginRoots": [
-        "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/aang"
+        "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/catacomb"
       ],
       "entrypoints": [
         "sdk-cli"
@@ -356,9 +356,9 @@
         "engineVersion": "2.1.288",
         "plugins": [
           {
-            "name": "aang",
-            "path": "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/aang",
-            "source": "aang@skills-dir",
+            "name": "catacomb",
+            "path": "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/catacomb",
+            "source": "catacomb@skills-dir",
             "version": "1.0.0"
           },
           {
@@ -392,7 +392,7 @@
         "plugin"
       ],
       "pluginRoots": [
-        "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/aang"
+        "<work>/Users/Όνομα Επώνυμο/.claude-skills-fallback/skills/catacomb"
       ],
       "entrypoints": [
         "sdk-ts"
@@ -423,7 +423,7 @@
       },
       {
         "type": "command",
-        "command": "\"<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook\" \"claude\" \"plugin\" \"<work>/Users/Όνομα Επώνυμο/.aang/spool-claude-shell\"",
+        "command": "\"<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook\" \"claude\" \"plugin\" \"<work>/Users/Όνομα Επώνυμο/.catacomb/spool-claude-shell\"",
         "timeout": 10
       }
     ],
@@ -573,10 +573,10 @@
       "PreToolUse": 1
     }
   },
-  "codex hooks installed by aang": {
+  "codex hooks installed by catacomb": {
     "installation": {
-      "binary": "<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook",
-      "command": "'<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook' codex user '<work>/Users/Όνομα Επώνυμο/.aang/spool'",
+      "binary": "<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook",
+      "command": "'<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook' codex user '<work>/Users/Όνομα Επώνυμο/.catacomb/spool'",
       "hooksFile": "<work>/codex-installed/hooks.json",
       "backup": null
     },
@@ -734,12 +734,12 @@
       "launcher": [
         "/bin/bash",
         "-c",
-        "'<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook' codex user '<spool>'"
+        "'<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook' codex user '<spool>'"
       ]
     }
   },
   "codex hook exit and timeout": {
-    "probeForm": "aang install (POSIX single quotes)",
+    "probeForm": "catacomb install (POSIX single quotes)",
     "results": {
       "PreToolUse exit 1": {
         "hook": {
@@ -796,7 +796,7 @@
           "error": null,
           "timedOut": false,
           "durationMs": 699,
-          "stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"<work>/codex-PreToolUse-exit-2\"))\nReading additional input from stdin...\n2026-10-02T22:40:37.739876Z ERROR codex_core::tools::router: error=Command blocked by PreToolUse hook: aang runtime check probe exit. Command: *** Begin Patch\n*** Add File: PreToolUse-exit-2-e5141339.txt\n+aang\n*** End Patch",
+          "stderr": "WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir \"/tmp\" (codex_home: AbsolutePathBuf(\"<work>/codex-PreToolUse-exit-2\"))\nReading additional input from stdin...\n2026-10-02T22:40:37.739876Z ERROR codex_core::tools::router: error=Command blocked by PreToolUse hook: catacomb runtime check probe exit. Command: *** Begin Patch\n*** Add File: PreToolUse-exit-2-e5141339.txt\n+catacomb\n*** End Patch",
           "turnCompleted": true,
           "turnFailed": false,
           "items": [
@@ -982,14 +982,14 @@
         ]
       }
     ],
-    "claude: aang-hook started directly (exec form)": {
+    "claude: catacomb-hook started directly (exec form)": {
       "launcher": {
         "id": "direct spawn",
-        "command": "<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook",
+        "command": "<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook",
         "args": [
           "claude",
           "plugin",
-          "<work>/Users/Όνομα Επώνυμο/.aang/spool-installed-latency"
+          "<work>/Users/Όνομα Επώνυμο/.catacomb/spool-installed-latency"
         ],
         "verbatim": false
       },
@@ -1000,14 +1000,14 @@
       "failures": 0,
       "delivered": 520
     },
-    "claude: aang-hook without a lease (no spool write)": {
+    "claude: catacomb-hook without a lease (no spool write)": {
       "launcher": {
         "id": "direct spawn",
-        "command": "<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook",
+        "command": "<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook",
         "args": [
           "claude",
           "plugin",
-          "<work>/Users/Όνομα Επώνυμο/.aang/spool-installed-latency-unleased"
+          "<work>/Users/Όνομα Επώνυμο/.catacomb/spool-installed-latency-unleased"
         ],
         "verbatim": false
       },
@@ -1024,7 +1024,7 @@
         "command": "/bin/bash",
         "args": [
           "-c",
-          "'<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook' codex user '<work>/Users/Όνομα Επώνυμο/.aang/spool-installed-latency'"
+          "'<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook' codex user '<work>/Users/Όνομα Επώνυμο/.catacomb/spool-installed-latency'"
         ],
         "verbatim": false
       },
@@ -1035,14 +1035,14 @@
       "failures": 0,
       "delivered": 520
     },
-    "codex: aang-hook alone": {
+    "codex: catacomb-hook alone": {
       "launcher": {
         "id": "direct spawn",
-        "command": "<work>/Users/Όνομα Επώνυμο/.aang/bin/aang-hook",
+        "command": "<work>/Users/Όνομα Επώνυμο/.catacomb/bin/catacomb-hook",
         "args": [
           "codex",
           "user",
-          "<work>/Users/Όνομα Επώνυμο/.aang/spool-installed-latency"
+          "<work>/Users/Όνομα Επώνυμο/.catacomb/spool-installed-latency"
         ],
         "verbatim": false
       },

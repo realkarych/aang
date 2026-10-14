@@ -1,5 +1,5 @@
-import { claudeAdapter } from '@aang/adapter-claude'
-import { FactDraft, type FactKind, type SpoolEnv } from '@aang/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { FactDraft, type FactKind, type SpoolEnv } from '@catacomb/contract'
 import { describe, test } from 'vitest'
 import {
   cliEnv,
@@ -111,7 +111,7 @@ describe.concurrent('Claude hooks: session', () => {
         {
           launch: 'startup',
           surface: { surface: 'claude_cli', basis: 'observed' },
-          cwd: '/tmp/aang-spike/cc-hooks/runs/A',
+          cwd: '/tmp/catacomb-spike/cc-hooks/runs/A',
           forked_from: null,
           observer_marker: false,
         },
@@ -120,7 +120,7 @@ describe.concurrent('Claude hooks: session', () => {
         'session_start',
         'runtime',
         false,
-        expect.objectContaining({ launch: 'resume', cwd: '/tmp/aang-spike/cc-hooks/runs/A-resume' }),
+        expect.objectContaining({ launch: 'resume', cwd: '/tmp/catacomb-spike/cc-hooks/runs/A-resume' }),
       ],
       ['session_start', 'runtime', false, expect.objectContaining({ launch: 'fork', forked_from: null })],
     ])
@@ -195,7 +195,7 @@ describe.concurrent('Claude hooks: session', () => {
   })
 
   test('an observer session keeps its marker and has no user surface', async ({ expect }) => {
-    const [start] = await sessionStart({ CLAUDE_CODE_ENTRYPOINT: 'aang-observer' })
+    const [start] = await sessionStart({ CLAUDE_CODE_ENTRYPOINT: 'catacomb-observer' })
 
     expect(start?.payload).toMatchObject({ observer_marker: true, surface: null })
   })
@@ -317,7 +317,7 @@ describe.concurrent('Claude hooks: turns', () => {
 describe.concurrent('Claude hooks: subagents', () => {
   const subagentSession = '2efd7dbe-c696-49b2-8c6e-3827c5256a01'
   const subagent = 'a0885622b68c3d0f1'
-  const subagentProject = '/Users/USER/.claude/projects/-tmp-aang-spike-cc-hooks-runs-D-subagent'
+  const subagentProject = '/Users/USER/.claude/projects/-tmp-catacomb-spike-cc-hooks-runs-D-subagent'
 
   test('SubagentStart starts the subagent without knowing its parent or call', async ({ expect }) => {
     const [start] = await parseCli('SubagentStart.json')
@@ -424,7 +424,7 @@ describe.concurrent('Claude hooks: compaction and instructions', () => {
       entity_key: { kind: 'session', session: '4c80e3c2-e653-4dc7-81cb-20f6484aa3f3' },
       speaker: 'runtime',
       urgent: false,
-      payload: { path: '/tmp/aang-spike/cc-hooks/runs/A/CLAUDE.md', memory_type: 'Project', load_reason: 'session_start' },
+      payload: { path: '/tmp/catacomb-spike/cc-hooks/runs/A/CLAUDE.md', memory_type: 'Project', load_reason: 'session_start' },
     })
     expect(bare?.payload).toMatchObject({ memory_type: null, load_reason: null })
   })
@@ -531,7 +531,7 @@ describe.concurrent('Claude hooks: elicitation', () => {
     const result = (fields: JsonObject) =>
       factsOf(synthetic({ ...elicitation, hook_event_name: 'ElicitationResult', ...fields }))[0]
 
-    expect(result({ action: 'accept', content: { project: 'aang', count: 2 } })).toMatchObject({
+    expect(result({ action: 'accept', content: { project: 'catacomb', count: 2 } })).toMatchObject({
       kind: 'question_answered',
       entity_key: { kind: 'session', session },
       speaker: 'human',
@@ -541,7 +541,7 @@ describe.concurrent('Claude hooks: elicitation', () => {
       payload: {
         outcome: 'answered',
         answers: [
-          { question: 'project', answer: 'aang' },
+          { question: 'project', answer: 'catacomb' },
           { question: 'count', answer: '2' },
         ],
       },
@@ -554,7 +554,7 @@ describe.concurrent('Claude hooks: elicitation', () => {
       runtime_ids: { call_id: null },
       payload: { outcome: 'answered', answers: [] },
     })
-    expect(result({ action: 'decline', content: { project: 'aang' } })?.payload).toEqual({
+    expect(result({ action: 'decline', content: { project: 'catacomb' } })?.payload).toEqual({
       outcome: 'declined',
       answers: [],
     })

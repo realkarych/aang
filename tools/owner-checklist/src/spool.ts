@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
-import { spoolFormat } from '@aang/contract'
+import { spoolFormat } from '@catacomb/contract'
 
 export interface SpoolRecord {
   readonly file: string

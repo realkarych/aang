@@ -1,5 +1,5 @@
 {
-  "format": "aang-recording/1",
+  "format": "catacomb-recording/1",
   "runtime": "claude",
   "engine_version": "2.1.289",
   "app_version": "0.3.289",
@@ -10,7 +10,7 @@
   "recorded_at": "2026-10-04T01:21:23.242Z",
   "expected_facts": [
     "One session runs two turns separated by a 5 s pause in the same engine process",
-    "The aang daemon is restarted at the daemon-restart label between the turns",
+    "The catacomb daemon is restarted at the daemon-restart label between the turns",
     "The second turn appends to the same session after the restart"
   ],
   "control_events": [

@@ -13,9 +13,9 @@ import {
   type RunSnapshot,
   type SessionKey,
   type SseEvent,
-} from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import { openStore, type Store } from '@aang/store'
+} from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
+import { openStore, type Store } from '@catacomb/store'
 import { describe, test } from 'vitest'
 import { bearer, createHome, type Home, type RunningDaemon, startDaemon } from './daemon.js'
 import { watchedHome } from './sessions.js'

@@ -1,7 +1,7 @@
 import { once } from 'node:events'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { endpoints } from '@aang/contract'
+import { endpoints } from '@catacomb/contract'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 
 test.describe('a browser without the session cookie', () => {
@@ -19,7 +19,7 @@ test.describe('a browser without the session cookie', () => {
 
     const anonymous = await page.goto('/')
     expect(anonymous?.status()).toBe(401)
-    await expect(page.getByText('Not signed in. Run `aang open` to get a sign-in link.')).toBeVisible()
+    await expect(page.getByText('Not signed in. Run `catacomb open` to get a sign-in link.')).toBeVisible()
 
     const link = await signInLink()
     await page.goto(link)
@@ -27,7 +27,7 @@ test.describe('a browser without the session cookie', () => {
     await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
     await expect(page.getByText('No directory is being watched.', { exact: false })).toBeVisible()
     expect(await page.context().cookies()).toEqual([
-      expect.objectContaining({ name: 'aang_token', httpOnly: true, sameSite: 'Strict' }),
+      expect.objectContaining({ name: 'catacomb_token', httpOnly: true, sameSite: 'Strict' }),
     ])
 
     const reused = await page.goto(link)
@@ -36,21 +36,21 @@ test.describe('a browser without the session cookie', () => {
   })
 })
 
-test('an open page asks to sign in again once the token is rotated', async ({ page, aang, daemon }) => {
+test('an open page asks to sign in again once the token is rotated', async ({ page, catacomb, daemon }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
 
-  await aang('token', 'rotate')
+  await catacomb('token', 'rotate')
 
   await expect(page.getByRole('heading', { name: 'Signed out' })).toBeVisible()
-  await expect(page.getByRole('main')).toContainText('Run aang open in a terminal')
-  await expect(page).toHaveTitle('Signed out — aang')
+  await expect(page.getByRole('main')).toContainText('Run catacomb open in a terminal')
+  await expect(page).toHaveTitle('Signed out — catacomb')
 
-  await aang('stop')
+  await catacomb('stop')
   expect(await daemon.exited, daemon.output()).toEqual({ code: 0, signal: null })
 })
 
-test('a page on another port of 127.0.0.1 cannot change anything with the session cookie, the aang page can', async ({
+test('a page on another port of 127.0.0.1 cannot change anything with the session cookie, the catacomb page can', async ({
   page,
   context,
   baseURL,

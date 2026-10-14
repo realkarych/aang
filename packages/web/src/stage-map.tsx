@@ -1,5 +1,5 @@
 import '@xyflow/react/dist/base.css'
-import type { RunSnapshot, StageId } from '@aang/contract'
+import type { RunSnapshot, StageId } from '@catacomb/contract'
 import {
   Background,
   BackgroundVariant,

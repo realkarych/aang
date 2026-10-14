@@ -276,7 +276,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "865a67559c4331873c3c5d595031d4b16d962d0f4cb60cbc4f540ae995707d95",
+      "redelivery_key": "0e3d0a134c33850fd5c9cd5f2c5deff9e98bd82bc555794e1469577da9c5a270",
       "payload": {}
     },
     {
@@ -335,7 +335,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_0_0"
+        "call": "toolu_catacomb_tools_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -349,7 +349,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_tools_0_0",
+        "call_id": "toolu_catacomb_tools_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -360,7 +360,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "cc807ea098d991776bf51e4872c892378111055552077e6cd2e61177838d4a2a",
+      "redelivery_key": "bb1e81d00d5368340ab31a23866b9377e2f7c56519a1ea2494e178d29ad5b382",
       "payload": {
         "tool": "Read",
         "action_kind": "file_read",
@@ -378,7 +378,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_0_0"
+        "call": "toolu_catacomb_tools_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -392,7 +392,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_tools_0_0",
+        "call_id": "toolu_catacomb_tools_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -403,7 +403,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "d5036e1a9b009b0397069b7bd37b05bc7984ce5b9fccc3788d63f1ee754a3020",
+      "redelivery_key": "c00b0fe2d054bcb2db1367d66bba4eecd6f27f2e7a65eba9349b9b86fc288e15",
       "payload": {
         "outcome": "ok",
         "output": null,
@@ -414,7 +414,7 @@
           "type": "text",
           "file": {
             "filePath": "/fixture/project/notes.txt",
-            "content": "Reference notes for the aang recording.\n",
+            "content": "Reference notes for the catacomb recording.\n",
             "numLines": 2,
             "startLine": 1,
             "totalLines": 2
@@ -453,13 +453,13 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "bf6593c3220a4f5dcde3408fffc1a45f678013a794e7d87227e5f4b265d07bb0",
+      "redelivery_key": "39a1e406b87cd23b2a047ed61761d9f6227cecee5e1f5f1e2dfb4377b3a15baa",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_tools_0_0",
+            "call_id": "toolu_catacomb_tools_0_0",
             "tool": "Read",
-            "response": "1\tReference notes for the aang recording.\n2\t"
+            "response": "1\tReference notes for the catacomb recording.\n2\t"
           }
         ]
       }
@@ -498,7 +498,7 @@
       "redelivery_key": null,
       "payload": {
         "operation": "enqueue",
-        "content": "[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence."
+        "content": "[catacomb:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence."
       }
     },
     {
@@ -572,7 +572,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
+        "text": "[catacomb:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
         "origin": "human",
         "origin_raw": "sdk"
       }
@@ -732,7 +732,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_0_0"
+        "call": "toolu_catacomb_tools_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -745,8 +745,8 @@
         "prompt_id": null,
         "record_uuid": "a439d814-6ebb-4dff-a67b-4faf1ff93035",
         "parent_uuid": "50ff2d0d-2b1d-472d-bc0d-172867ce7452",
-        "message_id": "msg_aang_1",
-        "call_id": "toolu_aang_tools_0_0",
+        "message_id": "msg_catacomb_1",
+        "call_id": "toolu_catacomb_tools_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -775,7 +775,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -788,7 +788,7 @@
         "prompt_id": null,
         "record_uuid": "a439d814-6ebb-4dff-a67b-4faf1ff93035",
         "parent_uuid": "50ff2d0d-2b1d-472d-bc0d-172867ce7452",
-        "message_id": "msg_aang_1",
+        "message_id": "msg_catacomb_1",
         "call_id": null,
         "ordinal": null
       },
@@ -821,7 +821,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_0_0"
+        "call": "toolu_catacomb_tools_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -835,7 +835,7 @@
         "record_uuid": "a93dd225-7e22-4d21-a891-29e269437625",
         "parent_uuid": "a439d814-6ebb-4dff-a67b-4faf1ff93035",
         "message_id": null,
-        "call_id": "toolu_aang_tools_0_0",
+        "call_id": "toolu_catacomb_tools_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -849,7 +849,7 @@
       "redelivery_key": null,
       "payload": {
         "outcome": "ok",
-        "output": "1\tReference notes for the aang recording.\n2\t",
+        "output": "1\tReference notes for the catacomb recording.\n2\t",
         "persisted_output_path": null,
         "exit_code": null,
         "duration_ms": null,
@@ -857,7 +857,7 @@
           "type": "text",
           "file": {
             "filePath": "/fixture/project/notes.txt",
-            "content": "Reference notes for the aang recording.\n",
+            "content": "Reference notes for the catacomb recording.\n",
             "numLines": 2,
             "startLine": 1,
             "totalLines": 2
@@ -872,7 +872,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_1_0"
+        "call": "toolu_catacomb_tools_1_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -886,7 +886,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_tools_1_0",
+        "call_id": "toolu_catacomb_tools_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -897,7 +897,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "1a122c112497d54d0442ab41b08f461c34751731601161449108f15badaa7bde",
+      "redelivery_key": "8895be478ba839527e1a7778c2dafddbe18ba149ed52b8d7cd497258a69be01c",
       "payload": {
         "tool": "Bash",
         "action_kind": "command",
@@ -916,7 +916,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_1_0"
+        "call": "toolu_catacomb_tools_1_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -930,7 +930,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_tools_1_0",
+        "call_id": "toolu_catacomb_tools_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -941,7 +941,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "6f9e99f761a4528f0dbcefa09da02364415097c2bdc85f22c65b195658168494",
+      "redelivery_key": "7165506e8c12573fa5a34a4dc1ebf9fb2c588ae42bb291ddd6dbc0faac3d81a3",
       "payload": {
         "outcome": "ok",
         "output": "notes.txt",
@@ -988,11 +988,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "b5d80deea1d8256aa7b76a8beff82984a9062cce55e6a5154a64c5bd2130e352",
+      "redelivery_key": "950fa064050c231498a23cf4a4ec0d75c31daad52ff8f3a9b18e7e2b48837742",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_tools_1_0",
+            "call_id": "toolu_catacomb_tools_1_0",
             "tool": "Bash",
             "response": "notes.txt"
           }
@@ -1006,7 +1006,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_2_0"
+        "call": "toolu_catacomb_tools_2_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1020,7 +1020,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_tools_2_0",
+        "call_id": "toolu_catacomb_tools_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1031,7 +1031,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "ec7ad688f0ef2af84e2b7b828074753f6dbd1687f7612b707ad8e1a75615e64d",
+      "redelivery_key": "3ce1fbac2f44943139c780398b53ce5161a160bf45c30ba5f67b63f042d7e78c",
       "payload": {
         "tool": "Write",
         "action_kind": "file_write",
@@ -1140,7 +1140,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_1_0"
+        "call": "toolu_catacomb_tools_1_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1153,8 +1153,8 @@
         "prompt_id": null,
         "record_uuid": "9b55bb82-93e4-4fd5-8b10-3777a0096bef",
         "parent_uuid": "272ea607-42e1-46ff-a7aa-8fb5086fce0d",
-        "message_id": "msg_aang_2",
-        "call_id": "toolu_aang_tools_1_0",
+        "message_id": "msg_catacomb_2",
+        "call_id": "toolu_catacomb_tools_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1184,7 +1184,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1197,7 +1197,7 @@
         "prompt_id": null,
         "record_uuid": "9b55bb82-93e4-4fd5-8b10-3777a0096bef",
         "parent_uuid": "272ea607-42e1-46ff-a7aa-8fb5086fce0d",
-        "message_id": "msg_aang_2",
+        "message_id": "msg_catacomb_2",
         "call_id": null,
         "ordinal": null
       },
@@ -1230,7 +1230,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_1_0"
+        "call": "toolu_catacomb_tools_1_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1244,7 +1244,7 @@
         "record_uuid": "eb777462-6ab9-4540-9f2d-7ef6b6682a7e",
         "parent_uuid": "9b55bb82-93e4-4fd5-8b10-3777a0096bef",
         "message_id": null,
-        "call_id": "toolu_aang_tools_1_0",
+        "call_id": "toolu_catacomb_tools_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1278,7 +1278,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_2_0"
+        "call": "toolu_catacomb_tools_2_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1291,8 +1291,8 @@
         "prompt_id": null,
         "record_uuid": "e035f246-0300-4f3f-afb8-aa204a601724",
         "parent_uuid": "f8ad1fac-fad6-488a-b78c-f5b5eacf27f7",
-        "message_id": "msg_aang_3",
-        "call_id": "toolu_aang_tools_2_0",
+        "message_id": "msg_catacomb_3",
+        "call_id": "toolu_catacomb_tools_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1322,7 +1322,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "usage": "msg_aang_3"
+        "usage": "msg_catacomb_3"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1335,7 +1335,7 @@
         "prompt_id": null,
         "record_uuid": "e035f246-0300-4f3f-afb8-aa204a601724",
         "parent_uuid": "f8ad1fac-fad6-488a-b78c-f5b5eacf27f7",
-        "message_id": "msg_aang_3",
+        "message_id": "msg_catacomb_3",
         "call_id": null,
         "ordinal": null
       },
@@ -1368,7 +1368,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_2_0"
+        "call": "toolu_catacomb_tools_2_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1382,7 +1382,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_tools_2_0",
+        "call_id": "toolu_catacomb_tools_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1393,7 +1393,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "5b78ab5fd99513a50d56a40e1e1aab8ca3ed9c2dc10587fdb7de11e0f55047ee",
+      "redelivery_key": "dade48f80e41ab17389ff4eee81ef35a9b2c4718189e25ad647040fe4b85ee9e",
       "payload": {
         "outcome": "ok",
         "output": "draft\n",
@@ -1441,11 +1441,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "71232d1424e312b30a3b3e41017956d52edbd42834ec00332bd29feae654b01d",
+      "redelivery_key": "af3450affbdce9ac71c417fc63b72613ee291d82b9799257e615c598f807f3d4",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_tools_2_0",
+            "call_id": "toolu_catacomb_tools_2_0",
             "tool": "Write",
             "response": "File created successfully at: /fixture/project/result.txt (file state is current in your context — no need to Read it back)"
           }
@@ -1508,7 +1508,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_3_0"
+        "call": "toolu_catacomb_tools_3_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1522,7 +1522,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_tools_3_0",
+        "call_id": "toolu_catacomb_tools_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1533,7 +1533,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "dcd2f6e3dba3526f1161bc69f93c8ed0f659bf5d9eb681ae14825ee07d6cd74d",
+      "redelivery_key": "2c718fb3a9770a8da18233b315b71dcda8921112f67546a8fa83327b67693150",
       "payload": {
         "tool": "Edit",
         "action_kind": "file_write",
@@ -1646,7 +1646,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_2_0"
+        "call": "toolu_catacomb_tools_2_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1660,7 +1660,7 @@
         "record_uuid": "324140c5-57e2-4b2c-8049-7c8cd5b67ea9",
         "parent_uuid": "e035f246-0300-4f3f-afb8-aa204a601724",
         "message_id": null,
-        "call_id": "toolu_aang_tools_2_0",
+        "call_id": "toolu_catacomb_tools_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1695,7 +1695,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_3_0"
+        "call": "toolu_catacomb_tools_3_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1708,8 +1708,8 @@
         "prompt_id": null,
         "record_uuid": "cac0c9c6-3b19-4555-9a61-b283a68b551e",
         "parent_uuid": "941e0ed6-3f87-4d90-9710-416dfb529b35",
-        "message_id": "msg_aang_4",
-        "call_id": "toolu_aang_tools_3_0",
+        "message_id": "msg_catacomb_4",
+        "call_id": "toolu_catacomb_tools_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1741,7 +1741,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "usage": "msg_aang_4"
+        "usage": "msg_catacomb_4"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1754,7 +1754,7 @@
         "prompt_id": null,
         "record_uuid": "cac0c9c6-3b19-4555-9a61-b283a68b551e",
         "parent_uuid": "941e0ed6-3f87-4d90-9710-416dfb529b35",
-        "message_id": "msg_aang_4",
+        "message_id": "msg_catacomb_4",
         "call_id": null,
         "ordinal": null
       },
@@ -1787,7 +1787,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_3_0"
+        "call": "toolu_catacomb_tools_3_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1801,7 +1801,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_tools_3_0",
+        "call_id": "toolu_catacomb_tools_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1812,7 +1812,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "d007161b9fd9aeeedc756cea7f6ffe6e19e7eaf6076532966634140ef4c8de4e",
+      "redelivery_key": "eee572b620c5a0e4959aabef26853b2ddc5f84a22d7a9fbfd8c3e58a001d5189",
       "payload": {
         "outcome": "ok",
         "output": null,
@@ -1872,11 +1872,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "c2bbfef2ad0ea8822a5f6106f501dd634eaadace0e73c188db8b48cd8319be8b",
+      "redelivery_key": "6562486d5a07b239bda9884ca7aa4e71baed1906df47732126597afe2b77e1e1",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_tools_3_0",
+            "call_id": "toolu_catacomb_tools_3_0",
             "tool": "Edit",
             "response": "The file /fixture/project/result.txt has been updated successfully. (file state is current in your context — no need to Read it back)"
           }
@@ -1978,7 +1978,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_3_0"
+        "call": "toolu_catacomb_tools_3_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1992,7 +1992,7 @@
         "record_uuid": "5c5c52fb-6e25-412b-91b0-162025d581f3",
         "parent_uuid": "cac0c9c6-3b19-4555-9a61-b283a68b551e",
         "message_id": null,
-        "call_id": "toolu_aang_tools_3_0",
+        "call_id": "toolu_catacomb_tools_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2052,7 +2052,7 @@
         "prompt_id": null,
         "record_uuid": "14f460d3-dd7a-4d21-b43b-d96efb6bd329",
         "parent_uuid": "5bf111a9-92b1-4bd2-8478-ad05e4459888",
-        "message_id": "msg_aang_5",
+        "message_id": "msg_catacomb_5",
         "call_id": null,
         "ordinal": null
       },
@@ -2079,7 +2079,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "usage": "msg_aang_5"
+        "usage": "msg_catacomb_5"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -2092,7 +2092,7 @@
         "prompt_id": null,
         "record_uuid": "14f460d3-dd7a-4d21-b43b-d96efb6bd329",
         "parent_uuid": "5bf111a9-92b1-4bd2-8478-ad05e4459888",
-        "message_id": "msg_aang_5",
+        "message_id": "msg_catacomb_5",
         "call_id": null,
         "ordinal": null
       },
@@ -2294,7 +2294,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_0_0"
+        "call": "toolu_catacomb_tools_0_0"
       },
       "session": "#46",
       "agent": "#48",
@@ -2327,7 +2327,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_1_0"
+        "call": "toolu_catacomb_tools_1_0"
       },
       "session": "#46",
       "agent": "#48",
@@ -2360,7 +2360,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_2_0"
+        "call": "toolu_catacomb_tools_2_0"
       },
       "session": "#46",
       "agent": "#48",
@@ -2393,7 +2393,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "call": "toolu_aang_tools_3_0"
+        "call": "toolu_catacomb_tools_3_0"
       },
       "session": "#46",
       "agent": "#48",
@@ -2516,7 +2516,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "session": "#46",
       "agent": "#48",
@@ -2540,7 +2540,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "session": "#46",
       "agent": "#48",
@@ -2564,7 +2564,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "usage": "msg_aang_3"
+        "usage": "msg_catacomb_3"
       },
       "session": "#46",
       "agent": "#48",
@@ -2588,7 +2588,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "usage": "msg_aang_4"
+        "usage": "msg_catacomb_4"
       },
       "session": "#46",
       "agent": "#48",
@@ -2612,7 +2612,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "3e4638f5-502a-49c6-a09b-ca5d2936e774",
-        "usage": "msg_aang_5"
+        "usage": "msg_catacomb_5"
       },
       "session": "#46",
       "agent": "#48",
@@ -2694,7 +2694,7 @@
         "runtime": "claude",
         "root_session": "#46",
         "goal": {
-          "text": "[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
+          "text": "[catacomb:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
           "fact": "#11"
         },
         "brief": null,
@@ -2760,7 +2760,7 @@
             "runtime": "claude",
             "root_session": "#46",
             "goal": {
-              "text": "[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
+              "text": "[catacomb:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
               "fact": "#11"
             },
             "brief": null,

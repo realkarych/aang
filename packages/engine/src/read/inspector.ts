@@ -21,9 +21,9 @@ import {
   type StageId,
   type StageInspector,
   type StageLifecycle,
-} from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
+import type { Store } from '@catacomb/store'
 import { compareText } from '../observations/evidence.js'
 import { stageUsage } from '../usage/solver.js'
 import { byId, earliest, latest, partsOf, type ReadContext, runOf, stagesOfLink } from './context.js'

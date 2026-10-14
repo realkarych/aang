@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { codexAdapter } from '@aang/adapter-codex'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { codexAdapter } from '@catacomb/adapter-codex'
 import {
   type Adapter,
   type AdapterRegistry,
@@ -15,9 +15,9 @@ import {
   type Runtime,
   type SessionKey,
   type StreamKey,
-} from '@aang/contract'
-import { createEngine, type Engine, type HoldingLimits, type IngestResult } from '@aang/engine'
-import type { Store, StoredObservationRemoval } from '@aang/store'
+} from '@catacomb/contract'
+import { createEngine, type Engine, type HoldingLimits, type IngestResult } from '@catacomb/engine'
+import type { Store, StoredObservationRemoval } from '@catacomb/store'
 
 export const adapters: AdapterRegistry = new Map<Runtime, Adapter>([
   ['claude', claudeAdapter],

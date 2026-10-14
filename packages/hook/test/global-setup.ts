@@ -22,12 +22,12 @@ declare module 'vitest' {
 const execFileAsync = promisify(execFile)
 const moduleDirectory = fileURLToPath(new URL('..', import.meta.url))
 const coverageDirectory = fileURLToPath(new URL('../../../coverage/hook', import.meta.url))
-const executableName = process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook'
+const executableName = process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook'
 
 const build = async (directory: string, flags: readonly string[]): Promise<string> => {
   await mkdir(directory, { recursive: true })
   const binary = join(directory, executableName)
-  await execFileAsync('go', ['build', ...flags, '-o', binary, './cmd/aang-hook'], {
+  await execFileAsync('go', ['build', ...flags, '-o', binary, './cmd/catacomb-hook'], {
     cwd: moduleDirectory,
     env: { ...process.env, CGO_ENABLED: '0' },
   })
@@ -47,7 +47,7 @@ const mergeWorkerCoverage = async (): Promise<void> => {
 }
 
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
-  const output = await mkdtemp(join(tmpdir(), 'aang-hook-build-'))
+  const output = await mkdtemp(join(tmpdir(), 'catacomb-hook-build-'))
   await rm(coverageDirectory, { recursive: true, force: true })
   await mkdir(coverageDirectory, { recursive: true })
   const [plain, stripped, covered] = await Promise.all([

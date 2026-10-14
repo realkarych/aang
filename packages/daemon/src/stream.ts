@@ -8,8 +8,8 @@ import {
   SseEvent,
   StatusResponse,
   StreamQuery,
-} from '@aang/contract'
-import { InvalidPositionError, type ReadQueries, type RunFeed } from '@aang/engine'
+} from '@catacomb/contract'
+import { InvalidPositionError, type ReadQueries, type RunFeed } from '@catacomb/engine'
 
 export type StreamRefusal = ApiError['error']
 

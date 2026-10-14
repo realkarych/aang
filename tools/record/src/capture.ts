@@ -2,7 +2,7 @@ import { createHash, type Hash } from 'node:crypto'
 import type { Dirent } from 'node:fs'
 import { lstat, open, readdir, readFile, stat } from 'node:fs/promises'
 import { extname, join, relative, sep } from 'node:path'
-import { readSpool, type PlayerRoots, type PlayerStep, type Target } from '@aang/testkit'
+import { readSpool, type PlayerRoots, type PlayerStep, type Target } from '@catacomb/testkit'
 import { filesIn, isBusy, isMissing, type Unavailable } from './files.js'
 import { type Artifact, type ControlEvent, Segment } from './schema.js'
 

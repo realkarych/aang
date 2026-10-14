@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { type RegistrationTag, type Runtime, SpoolFileName, spoolEnvKeys, spoolLayout } from '@aang/contract'
+import { type RegistrationTag, type Runtime, SpoolFileName, spoolEnvKeys, spoolLayout } from '@catacomb/contract'
 import { test } from 'vitest'
 import { cleanExit, createSpool, nowSeconds, runHook, typicalEnv, typicalPayload, withoutNames } from './hook.js'
 
@@ -23,7 +23,7 @@ test.for(registrations)(
       ...forwardedEnv,
       CLAUDE_PROJECT_DIR: '/work/Όνομα Επώνυμο/a=b',
       CLAUDE_CODE_MESSAGING_TOKEN: 'secret',
-      AANG_HOME: '/home/user/.aang',
+      CATACOMB_HOME: '/home/user/.catacomb',
     }
 
     const result = await runHook(spool.args(runtime, tag), { env, stdin: payload })
@@ -55,14 +55,14 @@ test('without forwarded variables the header is the registration line and an emp
   const [name] = (await spool.entries()).ready
   expect(name).toBeDefined()
   const bytes = await readFile(join(spool.path, spoolLayout.readyDirectory, name ?? ''))
-  expect(bytes).toEqual(Buffer.concat([Buffer.from('aang-spool/1 codex user\n\u0000'), typicalPayload]))
+  expect(bytes).toEqual(Buffer.concat([Buffer.from('catacomb-spool/1 codex user\n\u0000'), typicalPayload]))
 })
 
 test('spool path with spaces and non-ASCII characters is used exactly as given', async ({
   expect,
   onTestFinished,
 }) => {
-  const spool = await createSpool(onTestFinished, { location: join('Όνομα Επώνυμο', 'aang home', 'spool') })
+  const spool = await createSpool(onTestFinished, { location: join('Όνομα Επώνυμο', 'catacomb home', 'spool') })
 
   const result = await runHook(spool.args(), { env: typicalEnv })
 

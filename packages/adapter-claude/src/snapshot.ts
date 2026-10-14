@@ -7,7 +7,7 @@ import type {
   JsonSnapshotPayload,
   JsonValue,
   ParseResult,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { z } from 'zod'
 import { startedAgent } from './agents.js'
 import { fact, type FactOrigin, fileOrigin, invalid, parsed, schemaViolation, unknown } from './facts.js'

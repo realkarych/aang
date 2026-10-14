@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { request as httpRequest } from 'node:http'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
-import { CollectedRecord, type Listener } from '@aang/contract'
+import { CollectedRecord, type Listener } from '@catacomb/contract'
 import { expect, test, vi } from 'vitest'
 import { createSandbox, filesUnder, prepareCollector, runCollector, type Running, sleep } from './sandbox.js'
 

@@ -7,11 +7,11 @@ import { tasks } from './tasks.mjs'
 
 const repository = fileURLToPath(new URL('../../../../', import.meta.url))
 const { readRollout, rolloutFiles, threadOf } = await import(join(repository, 'tools/record/dist/codex/rollout.js'))
-const task = process.env.AANG_Q2_TASK ?? 'ledger'
-const engine = process.env.AANG_Q2_CODEX ?? '/opt/homebrew/bin/codex'
-const fixturesRoot = resolve(process.env.AANG_Q2_FIXTURES ?? join(repository, 'fixtures/sessions'))
+const task = process.env.CATACOMB_Q2_TASK ?? 'ledger'
+const engine = process.env.CATACOMB_Q2_CODEX ?? '/opt/homebrew/bin/codex'
+const fixturesRoot = resolve(process.env.CATACOMB_Q2_FIXTURES ?? join(repository, 'fixtures/sessions'))
 const pausesMs = [45_000, 30_000, 60_000, 40_000, 35_000, 50_000, 20_000, 45_000, 30_000, 55_000, 40_000, 35_000]
-const budgetMs = Number(process.env.AANG_Q2_BUDGET_MS ?? 120 * 60_000)
+const budgetMs = Number(process.env.CATACOMB_Q2_BUDGET_MS ?? 120 * 60_000)
 const version = /^codex-cli (\S+)$/.exec(execFileSync(engine, ['--version'], { encoding: 'utf8' }).trim())?.[1]
 if (version === undefined) throw new Error('The Codex CLI did not report its version')
 const definition = tasks[task]
@@ -30,7 +30,7 @@ export const options = {
     'Decisions that a Claude session asks the user about are given in the prompt, because codex exec cannot ask',
   ],
   fixturesRoot,
-  hookBinary: join(repository, 'packages/hook/bin/aang-hook'),
+  hookBinary: join(repository, 'packages/hook/bin/catacomb-hook'),
 }
 
 const flags = ['--json', '--skip-git-repo-check', '--ignore-user-config', '--disable', 'hooks', '--disable', 'plugins', '--sandbox', 'workspace-write', '-c', 'tools.update_plan.enabled=true']
@@ -59,8 +59,8 @@ const prepare = async (project) => {
     await writeFile(join(project, path), content)
   }
   git(project, 'init', '--quiet', '--initial-branch=main')
-  git(project, 'config', 'user.name', 'aang')
-  git(project, 'config', 'user.email', 'aang@example.invalid')
+  git(project, 'config', 'user.name', 'catacomb')
+  git(project, 'config', 'user.email', 'catacomb@example.invalid')
   git(project, 'add', '-A')
   git(project, 'commit', '--quiet', '-m', 'Initial specification')
 }

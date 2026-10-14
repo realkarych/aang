@@ -9,8 +9,8 @@ import {
   type ObserverCallId,
   type ObserverCallOutcome,
   type RunId,
-} from '@aang/contract'
-import type { Store, StoredObserverCall } from '@aang/store'
+} from '@catacomb/contract'
+import type { Store, StoredObserverCall } from '@catacomb/store'
 import { batchFacts } from '../model/observer-context.js'
 import { combinedUsage } from '../usage/calls.js'
 import { origin, type ReadContext, runOf } from './context.js'

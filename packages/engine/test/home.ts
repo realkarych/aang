@@ -6,8 +6,8 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
-import type { RunId } from '@aang/contract'
-import { openStore, type Store } from '@aang/store'
+import type { RunId } from '@catacomb/contract'
+import { openStore, type Store } from '@catacomb/store'
 
 type Awaitable<T> = T | Promise<T>
 
@@ -68,7 +68,7 @@ const killChild = async (child: Child): Promise<void> => {
 }
 
 export const createHome = async (register: (cleanup: Cleanup) => void): Promise<Home> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-engine-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-engine-')))
   const path = join(root, 'home')
   const cleanups: Cleanup[] = []
   register(async () => {
@@ -79,7 +79,7 @@ export const createHome = async (register: (cleanup: Cleanup) => void): Promise<
   })
 
   const database = (): DatabaseSync => {
-    const connection = new DatabaseSync(join(path, 'aang.db'))
+    const connection = new DatabaseSync(join(path, 'catacomb.db'))
     cleanups.push(() => {
       if (connection.isOpen) {
         connection.close()

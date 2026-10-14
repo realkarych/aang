@@ -6,7 +6,7 @@ Date: 2026-10-07. The instructions for macOS, the Desktop SSH mode and OAuth on 
 ## 0. What is verified
 
 - The interactive Claude TUI: items (a)–(h) of section 6 of the spike on the release version. This is D.7 again: the `claude_cli` Windows `local` row requires this checklist (ADR-0010).
-- An end-to-end check with aang itself: Claude TUI sessions are visible in the UI in both user scenarios.
+- An end-to-end check with catacomb itself: Claude TUI sessions are visible in the UI in both user scenarios.
 - Claude Desktop and Codex Desktop on Windows are not verified in the MVP (ADR-0013, decision 3). The interactive Codex TUI on Windows is not included either: there are no reference Codex TUI recordings for Windows (plan, R.3), and the `codex_tui` Windows row stays without recordings.
 
 The CLIs and SDKs of both runtimes on Windows were verified without the owner on the `windows-latest` runner (`docs/research/q1-surface-matrix.md`, section 2). This covers only the interactive terminal and your account.
@@ -18,64 +18,64 @@ All commands are PowerShell in a native console (Windows Terminal or a PowerShel
 You need Node 26, pnpm, Go, Git for Windows and Claude Code. Write down `claude --version` and the installation method (native installer or npm). If the version differs from 2.1.289 in `support/matrix.json`, note it: a new version needs reference recordings.
 
 ```powershell
-Set-Location $HOME\src\aang
+Set-Location $HOME\src\catacomb
 git switch master; git pull
 pnpm install --frozen-lockfile
 pnpm build
-function aang { node "$HOME\src\aang\packages\aang\dist\main.js" @args }
+function catacomb { node "$HOME\src\catacomb\packages\catacomb\dist\main.js" @args }
 ```
 
-Declare the `aang` function in every window where you need it.
+Declare the `catacomb` function in every window where you need it.
 
 ## 2. Part 1: D.7 on the release version
 
-Perform `docs/research/d7-owner-checklist-windows.md` in full (sections 2–5) with the working directory `$env:TEMP\aang-q1-d7`:
+Perform `docs/research/d7-owner-checklist-windows.md` in full (sections 2–5) with the working directory `$env:TEMP\catacomb-q1-d7`:
 
 ```powershell
-node tools\owner-checklist\dist\main.js prepare --dir "$env:TEMP\aang-q1-d7"
+node tools\owner-checklist\dist\main.js prepare --dir "$env:TEMP\catacomb-q1-d7"
 ```
 
 The results are moved to `docs\research\samples\owner-checklist\q1-windows\`. Perform the rollback of part 1 before starting part 2.
 
-## 3. Part 2: end-to-end check with aang
+## 3. Part 2: end-to-end check with catacomb
 
 ### 3.1. What changes
 
 | What | How it is rolled back |
 | --- | --- |
-| The `aang` marketplace and the `aang@aang` plugin in Claude's user scope | `aang uninstall` |
-| The `AANG_HOME` directory: `$env:TEMP\aang-q1\aang` | delete the directory |
+| The `catacomb` marketplace and the `catacomb@catacomb` plugin in Claude's user scope | `catacomb uninstall` |
+| The `CATACOMB_HOME` directory: `$env:TEMP\catacomb-q1\catacomb` | delete the directory |
 | Sessions in `%USERPROFILE%\.claude\projects` | deleted by the owner |
 
-`aang install` without flags on Windows installs only the Claude plugin; Codex hooks are installed separately with `--codex` (README, section "Windows"), and they are not needed here. While the plugin is installed, aang receives events from all Claude sessions, but only the probe repository is in scope.
+`catacomb install` without flags on Windows installs only the Claude plugin; Codex hooks are installed separately with `--codex` (README, section "Windows"), and they are not needed here. While the plugin is installed, catacomb receives events from all Claude sessions, but only the probe repository is in scope.
 
 ### 3.2. Installation and startup
 
 ```powershell
-$env:AANG_HOME = "$env:TEMP\aang-q1\aang"
-$repo = "$env:TEMP\aang-q1\probe-repo"
+$env:CATACOMB_HOME = "$env:TEMP\catacomb-q1\catacomb"
+$repo = "$env:TEMP\catacomb-q1\probe-repo"
 New-Item -ItemType Directory -Force -Path $repo | Out-Null
 git -C $repo init -q
 git -C $repo commit -q --allow-empty -m init
-aang install
-aang start
-aang watch $repo
-aang open
+catacomb install
+catacomb start
+catacomb watch $repo
+catacomb open
 ```
 
-Open the link in a browser. `aang status` should show Claude hooks as active. The aang observer calls your authorized `claude` and spends subscription tokens; the UI status bar shows the outcome of its admission. Write it down: storage of OAuth authorization on Windows is verified here for the first time (ADR-0013, decision 4).
+Open the link in a browser. `catacomb status` should show Claude hooks as active. The catacomb observer calls your authorized `claude` and spends subscription tokens; the UI status bar shows the outcome of its admission. Write it down: storage of OAuth authorization on Windows is verified here for the first time (ADR-0013, decision 4).
 
 ### 3.3. Scenarios
 
 In a separate window:
 
 ```powershell
-Set-Location "$env:TEMP\aang-q1\probe-repo"
+Set-Location "$env:TEMP\catacomb-q1\probe-repo"
 claude
 ```
 
 1. **During work (E2E 1).** Prompt: "Create notes.txt containing one line about this repository with your shell tool, then use a subagent to list the files, then ask me one question with AskUserQuestion". When a permission request appears, wait 10 s and look at the UI: the run appeared on its own, the permission request is open in the attention zone and closes after you answer, the subagent and actions are visible, the question is visible until answered.
-2. **Reconnection.** While Claude is waiting for an answer to the question, run `aang stop` in the preparation window, then `aang start`. Answer. There are no duplicate actions or questions, the question is closed.
+2. **Reconnection.** While Claude is waiting for an answer to the question, run `catacomb stop` in the preparation window, then `catacomb start`. Answer. There are no duplicate actions or questions, the question is closed.
 3. **After the iteration (E2E 4).** "Mark as viewed" in the UI. Exit the session (`/exit`) and continue it: `claude --resume`, the same session, prompt "Append a second line to notes.txt". The "Since last review" tab has a new version of `notes.txt` and a new action, and the cards lead to the transcript.
 4. **Compaction.** `/compact`. The session continues in the UI without a gap.
 
@@ -84,9 +84,9 @@ For each item, write down the outcome, the surface label (`Claude Code CLI`), th
 ### 3.4. Rollback
 
 ```powershell
-aang uninstall
-aang stop
-Remove-Item -Recurse -Force "$env:TEMP\aang-q1"
+catacomb uninstall
+catacomb stop
+Remove-Item -Recurse -Force "$env:TEMP\catacomb-q1"
 ```
 
 The probe repository's sessions in `%USERPROFILE%\.claude\projects` and the project entry in `%USERPROFILE%\.claude.json` are deleted by the owner.

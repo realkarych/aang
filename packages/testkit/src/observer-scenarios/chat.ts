@@ -8,7 +8,7 @@ import {
   type RunAgentBrief,
   type StageId,
   type ViewSelector,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { ScenarioError } from '../fake-cli/scenario-error.js'
 
 const citedPerKind = 3

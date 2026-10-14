@@ -11,8 +11,8 @@ import {
   type SessionKey,
   StreamKey,
   type UsageKey,
-} from '@aang/contract'
-import { canonicalJson, contentHash } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { canonicalJson, contentHash } from '@catacomb/contract/ids'
 import { isJsonObject, parseJson, stringField } from './json.js'
 import { workflowJournal } from './paths.js'
 

@@ -52,9 +52,9 @@ const Body = z.looseObject({
 
 const TurnMetadata = z.looseObject({ agent_name: z.string().optional() })
 
-const marker = /\[aang:([a-z0-9_-]+)\]/i
+const marker = /\[catacomb:([a-z0-9_-]+)\]/i
 const outputTypes = new Set(['function_call_output', 'custom_tool_call_output'])
-const stubCall = /^call_aang_(\d+)_\d+$/
+const stubCall = /^call_catacomb_(\d+)_\d+$/
 
 const usage = {
   input_tokens: 120,
@@ -98,10 +98,10 @@ const stepOf = (after: readonly Item[]): number =>
   new Set(after.filter((item) => outputTypes.has(item.type ?? '')).map((item, position) => stubCall.exec(item.call_id ?? '')?.[1] ?? `other-${String(position)}`)).size
 
 const callItem = (call: StubCall, reply: number, index: number): Record<string, unknown> => {
-  const id = `call_aang_${String(reply)}_${String(index)}`
+  const id = `call_catacomb_${String(reply)}_${String(index)}`
   return call.type === 'function_call'
-    ? { type: 'function_call', id: `fc_aang_${String(reply)}_${String(index)}`, call_id: id, name: call.name, ...call.namespace === undefined ? {} : { namespace: call.namespace }, arguments: JSON.stringify(call.arguments) }
-    : { type: 'custom_tool_call', id: `ctc_aang_${String(reply)}_${String(index)}`, call_id: id, status: 'completed', name: call.name, input: call.input }
+    ? { type: 'function_call', id: `fc_catacomb_${String(reply)}_${String(index)}`, call_id: id, name: call.name, ...call.namespace === undefined ? {} : { namespace: call.namespace }, arguments: JSON.stringify(call.arguments) }
+    : { type: 'custom_tool_call', id: `ctc_catacomb_${String(reply)}_${String(index)}`, call_id: id, status: 'completed', name: call.name, input: call.input }
 }
 
 const isGated = (step: StubStep): step is GatedStep => !Array.isArray(step)
@@ -143,10 +143,10 @@ export const startResponsesStub = async (script: StubScript, log: string): Promi
     const answered = after.some((item) => item.type === 'message' && item.role === 'user')
     const calls = tools && !answered && anchor.key !== null ? await released(script[anchor.key]?.[step]) : []
     count += 1
-    const id = `resp_aang_${String(count)}`
+    const id = `resp_catacomb_${String(count)}`
     const items = calls.length > 0
       ? calls.map((call, index) => callItem(call, count, index))
-      : [{ type: 'message', role: 'assistant', id: `msg_aang_${String(count)}`, phase: 'final_answer', content: [{ type: 'output_text', text: 'done' }] }]
+      : [{ type: 'message', role: 'assistant', id: `msg_catacomb_${String(count)}`, phase: 'final_answer', content: [{ type: 'output_text', text: 'done' }] }]
     send(response, [
       { type: 'response.created', response: { id, model: body.model ?? null } },
       ...items.map((item, index) => ({ type: 'response.output_item.done', output_index: index, item })),

@@ -41,8 +41,8 @@ const pathsOf = async (sandbox: Sandbox): Promise<ChecklistPaths> => {
   const probeRepo = join(dir, 'probe-repo')
   return {
     dir,
-    pluginDir: join(dir, 'aang-home', 'claude-plugin'),
-    spoolReady: join(dir, 'aang-home', 'spool', 'new'),
+    pluginDir: join(dir, 'catacomb-home', 'claude-plugin'),
+    spoolReady: join(dir, 'catacomb-home', 'spool', 'new'),
     probeRepo,
     transcript: join(sandbox.claudeConfigDir, 'projects', encodeProjectPath(probeRepo), `${sessionId}.jsonl`),
   }
@@ -62,17 +62,17 @@ const tuiSteps = async (paths: ChecklistPaths): Promise<Step[]> => {
     { question: `${secret} question one?`, header: 'One', options: [{ label: 'a' }, { label: 'b' }], multiSelect: false },
     { question: `${secret} question two?`, header: 'Two', options: [{ label: 'c' }, { label: 'd' }], multiSelect: false },
   ]
-  const plan = `${secret} plan: create aang-plan.txt`
-  const planFile = join(paths.probeRepo, '.claude', 'plans', 'aang.md')
+  const plan = `${secret} plan: create catacomb-plan.txt`
+  const planFile = join(paths.probeRepo, '.claude', 'plans', 'catacomb.md')
   return [
     at(0, await sample('SessionStart.startup.json')),
     at(1, { ...(await sample('UserPromptSubmit.json')), prompt: `${secret} prompt text` }),
-    at(2, tool('PreToolUse', 'Bash', 'toolu_allow', { tool_input: { command: `touch aang-perm-allow.txt # ${secret}` } })),
+    at(2, tool('PreToolUse', 'Bash', 'toolu_allow', { tool_input: { command: `touch catacomb-perm-allow.txt # ${secret}` } })),
     at(2.05, { ...(await sample('PermissionRequest.Bash.json')), tool_input: { command: `touch ${secret}` } }),
     at(8.05, await sample('Notification.permission_prompt.json')),
     at(12, tool('PostToolUse', 'Bash', 'toolu_allow', { tool_response: { stdout: `${secret} output`, stderr: '' }, duration_ms: 12 })),
-    at(13, tool('PreToolUse', 'Bash', 'toolu_deny', { tool_input: { command: 'touch aang-perm-deny.txt' } })),
-    at(13.1, { ...(await sample('PermissionRequest.Bash.json')), tool_input: { command: 'touch aang-perm-deny.txt' } }),
+    at(13, tool('PreToolUse', 'Bash', 'toolu_deny', { tool_input: { command: 'touch catacomb-perm-deny.txt' } })),
+    at(13.1, { ...(await sample('PermissionRequest.Bash.json')), tool_input: { command: 'touch catacomb-perm-deny.txt' } }),
     at(15, {
       hook_event_name: 'PostToolBatch',
       tool_calls: [{ tool_name: 'Bash', tool_use_id: 'toolu_deny', tool_input: {}, tool_response: `${secret} denied` }],
@@ -113,7 +113,7 @@ const pluginEnv = (paths: ChecklistPaths): Record<string, string> => ({
 const jsonText = (value: string): string => JSON.stringify(value).slice(1, -1)
 
 describe('owner checklist for the interactive Claude TUI', () => {
-  test('prepare registers the real aang-hook through --plugin-dir and collect reports items (a)–(h) without prompts or tool output', async ({
+  test('prepare registers the real catacomb-hook through --plugin-dir and collect reports items (a)–(h) without prompts or tool output', async ({
     expect,
     onTestFinished,
   }) => {
@@ -125,7 +125,7 @@ describe('owner checklist for the interactive Claude TUI', () => {
     expect(prepared.stdout).toContain('--plugin-dir')
     expect(prepared.stdout).toContain(paths.pluginDir)
 
-    const spoolNames = await readdir(join(paths.dir, 'aang-home', 'spool'))
+    const spoolNames = await readdir(join(paths.dir, 'catacomb-home', 'spool'))
     const lease = spoolNames.find((name) => name.startsWith('lease-'))
     const expiry = Number(lease?.slice('lease-'.length))
     expect(expiry - Date.now() / 1000).toBeGreaterThan(2 * 3600 - 120)
@@ -167,7 +167,7 @@ describe('owner checklist for the interactive Claude TUI', () => {
       env: {
         CLAUDE_CODE_ENTRYPOINT: 'cli',
         CLAUDE_CODE_SESSION_ID: sessionId,
-        CLAUDE_PLUGIN_ROOT: join('<dir>', 'aang-home', 'claude-plugin'),
+        CLAUDE_PLUGIN_ROOT: join('<dir>', 'catacomb-home', 'claude-plugin'),
         CLAUDE_PROJECT_DIR: join('<dir>', 'probe-repo'),
       },
     })
@@ -175,7 +175,7 @@ describe('owner checklist for the interactive Claude TUI', () => {
     expect(events.find((event) => event.hook_event_name === 'PreToolUse' && event.tool_name === 'AskUserQuestion')).toMatchObject({ questions: 2 })
     expect(events.find((event) => event.hook_event_name === 'PostToolUse' && event.tool_name === 'AskUserQuestion')).toMatchObject({ answers: true })
     expect(events.find((event) => event.hook_event_name === 'PreToolUse' && event.tool_name === 'ExitPlanMode')).toMatchObject({
-      plan_length: `${secret} plan: create aang-plan.txt`.length,
+      plan_length: `${secret} plan: create catacomb-plan.txt`.length,
       plan_file_path: true,
     })
     expect(events.find((event) => event.hook_event_name === 'PostToolBatch')).toMatchObject({
@@ -209,7 +209,7 @@ describe('owner checklist for the interactive Claude TUI', () => {
     expect(notifications).toContain('- `elicitation_dialog`: seen.')
     expect(notifications).toContain('- `agent_needs_input`: not seen.')
     expect(lineWith(sectionOf(summary, '### (h) ExitPlanMode'), 'toolu_plan')).toBe(
-      `| S1 | cli | toolu_plan | ${String(`${secret} plan: create aang-plan.txt`.length)} | yes | yes | none | PostToolUse | 4.00 |`,
+      `| S1 | cli | toolu_plan | ${String(`${secret} plan: create catacomb-plan.txt`.length)} | yes | yes | none | PostToolUse | 4.00 |`,
     )
     expect(lineWith(sectionOf(summary, '## Claude transcripts'), '| S1 |')).toMatch(/\| 2 \| cli ×2 \| 2\.1\.287 \| 1 \| 1 \|$/)
 
@@ -238,10 +238,10 @@ describe('owner checklist for the interactive Claude TUI', () => {
     const failed = await runProcess(failing.command, failing.args, {}, JSON.stringify(await sample('PreToolUse.Bash.json')))
     expect(failed.status).toBe(1)
     expect(failed.stdout).toBe('')
-    expect(failed.stderr).toContain('aang D.7')
+    expect(failed.stderr).toContain('catacomb D.7')
 
     const hanging = await handlerFor(settings, 'UserPromptSubmit')
-    expect(hanging).toMatchObject({ command: process.execPath, timeout: 2, statusMessage: expect.stringContaining('aang D.7') as unknown })
+    expect(hanging).toMatchObject({ command: process.execPath, timeout: 2, statusMessage: expect.stringContaining('catacomb D.7') as unknown })
     const child = spawn(hanging.command, [...hanging.args], { stdio: ['pipe', 'ignore', 'ignore'] })
     onTestFinished(() => {
       child.kill()

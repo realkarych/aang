@@ -12,7 +12,7 @@ const { cleanEnvironment, resolveCli } = await import(join(repository, 'packages
 const { values } = parseArgs({ options: { cli: { type: 'string', default: 'claude' }, model: { type: 'string', default: 'claude-opus-5-5' }, out: { type: 'string' } } })
 const cli = resolveCli('claude', values.cli, process.env)
 const environment = cleanEnvironment('claude', process.env)
-const directory = await realpath(await mkdtemp(join(tmpdir(), 'aang-admission-cost-')))
+const directory = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-admission-cost-')))
 const calls = []
 
 const execute = (args, input, cwd, env) =>

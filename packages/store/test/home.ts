@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import type { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
-import { openStore, type Store } from '@aang/store'
+import { openStore, type Store } from '@catacomb/store'
 import { expect } from 'vitest'
 
 export type HoldMode = 'open' | 'transaction' | 'ingest'
@@ -69,7 +69,7 @@ const killChild = async (child: ChildProcess): Promise<void> => {
 }
 
 export const createHome = async (register: (cleanup: Cleanup) => void): Promise<Home> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-store-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-store-')))
   const path = join(root, 'home')
   const cleanups: Cleanup[] = []
   register(async () => {
@@ -80,7 +80,7 @@ export const createHome = async (register: (cleanup: Cleanup) => void): Promise<
   })
   return {
     path,
-    databaseFile: join(path, 'aang.db'),
+    databaseFile: join(path, 'catacomb.db'),
     open: () => {
       const store = openStore({ home: path })
       cleanups.push(() => {
@@ -88,7 +88,7 @@ export const createHome = async (register: (cleanup: Cleanup) => void): Promise<
       })
       return store
     },
-    database: (file = 'aang.db') => {
+    database: (file = 'catacomb.db') => {
       const database = new DatabaseSync(join(path, file))
       cleanups.push(() => {
         if (database.isOpen) {

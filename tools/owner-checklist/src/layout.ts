@@ -1,11 +1,11 @@
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { aangHomePaths } from '@aang/contract/home'
-import { hookInstallPaths } from '@aang/hook'
+import { catacombHomePaths } from '@catacomb/contract/home'
+import { hookInstallPaths } from '@catacomb/hook'
 
 export interface ChecklistLayout {
   readonly dir: string
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly hookBinary: string
   readonly pluginDir: string
   readonly spool: string
@@ -20,19 +20,19 @@ export interface ChecklistLayout {
   readonly state: string
 }
 
-export const defaultChecklistDir = (): string => join(tmpdir(), 'aang-d7')
+export const defaultChecklistDir = (): string => join(tmpdir(), 'catacomb-d7')
 
-export const outsideProbeDir = (): string => join(homedir(), 'aang-desktop-probe-outside')
+export const outsideProbeDir = (): string => join(homedir(), 'catacomb-desktop-probe-outside')
 
 export const checklistLayout = (dir: string): ChecklistLayout => {
-  const aangHome = join(dir, 'aang-home')
-  const install = hookInstallPaths(aangHome)
-  const home = aangHomePaths(aangHome)
+  const catacombHome = join(dir, 'catacomb-home')
+  const install = hookInstallPaths(catacombHome)
+  const home = catacombHomePaths(catacombHome)
   const probes = join(dir, 'probes')
   const results = join(dir, 'results')
   return {
     dir,
-    aangHome,
+    catacombHome,
     hookBinary: install.binary,
     pluginDir: install.claudePlugin,
     spool: home.spool,

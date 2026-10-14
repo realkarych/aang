@@ -14,9 +14,9 @@ import {
   RunId,
   Session,
   UsageRecord,
-} from '@aang/contract'
-import type { Store } from '@aang/store'
-import { type RecordShift, shifted, unshifted } from '@aang/testkit'
+} from '@catacomb/contract'
+import type { Store } from '@catacomb/store'
+import { type RecordShift, shifted, unshifted } from '@catacomb/testkit'
 import { z } from 'zod'
 import { recordType } from './record-types.js'
 import { mapIds } from './references.js'

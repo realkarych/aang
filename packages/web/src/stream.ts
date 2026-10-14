@@ -1,4 +1,4 @@
-import { type ChangeSeq, type ResetReason, type RunId, SseEvent, streamPath } from '@aang/contract'
+import { type ChangeSeq, type ResetReason, type RunId, SseEvent, streamPath } from '@catacomb/contract'
 import { ensureSignedIn } from './api.js'
 import { pause } from './pause.js'
 

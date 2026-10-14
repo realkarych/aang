@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { OperatingSystem } from '@aang/contract'
+import type { OperatingSystem } from '@catacomb/contract'
 import type { ScenarioSession } from '../scenario.js'
 import { desktopSdkVersion } from './drivers.js'
 import { type HostPlanInput, type HostSummary, readSummary } from './plan.js'
@@ -73,7 +73,7 @@ export interface ClaudeRun {
 }
 
 const quiet = { DISABLE_AUTOUPDATER: '1', DISABLE_TELEMETRY: '1', DISABLE_ERROR_REPORTING: '1' }
-const stubKey = 'sk-ant-api03-aang-record-model-stub'
+const stubKey = 'sk-ant-api03-catacomb-record-model-stub'
 
 const liveCredentials = (): void => {
   if (process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_CODE_OAUTH_TOKEN']) return

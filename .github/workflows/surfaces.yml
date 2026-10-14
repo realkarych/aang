@@ -17,10 +17,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  AANG_CLAUDE_CODE_VERSION: 2.1.289
-  AANG_CLAUDE_AGENT_SDK_VERSION: 0.3.289
-  AANG_CODEX_VERSION: 0.160.0
-  AANG_CODEX_SDK_VERSION: 0.160.0
+  CATACOMB_CLAUDE_CODE_VERSION: 2.1.289
+  CATACOMB_CLAUDE_AGENT_SDK_VERSION: 0.3.289
+  CATACOMB_CODEX_VERSION: 0.160.0
+  CATACOMB_CODEX_SDK_VERSION: 0.160.0
 
 jobs:
   native:
@@ -47,14 +47,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes expect
       - if: runner.os == 'Windows'
         shell: pwsh
-        run: '& ([scriptblock]::Create((Invoke-RestMethod https://claude.ai/install.ps1))) $env:AANG_CLAUDE_CODE_VERSION'
+        run: '& ([scriptblock]::Create((Invoke-RestMethod https://claude.ai/install.ps1))) $env:CATACOMB_CLAUDE_CODE_VERSION'
       - run: >-
           npm install --global --allow-scripts=@anthropic-ai/claude-code
-          "@anthropic-ai/claude-code@${AANG_CLAUDE_CODE_VERSION}" "@openai/codex@${AANG_CODEX_VERSION}"
+          "@anthropic-ai/claude-code@${CATACOMB_CLAUDE_CODE_VERSION}" "@openai/codex@${CATACOMB_CODEX_VERSION}"
         shell: bash
       - run: >-
           npm install --prefix "$RUNNER_TEMP/sdk"
-          "@anthropic-ai/claude-agent-sdk@${AANG_CLAUDE_AGENT_SDK_VERSION}" "@openai/codex-sdk@${AANG_CODEX_SDK_VERSION}"
+          "@anthropic-ai/claude-agent-sdk@${CATACOMB_CLAUDE_AGENT_SDK_VERSION}" "@openai/codex-sdk@${CATACOMB_CODEX_SDK_VERSION}"
         shell: bash
       - run: >-
           node tools/surface-check/dist/main.js run --placement local
@@ -63,8 +63,8 @@ jobs:
           --out "$RUNNER_TEMP/surface-check"
         shell: bash
         env:
-          AANG_RECORD_CLAUDE_SDK: ${{ runner.temp }}/sdk/node_modules/@anthropic-ai/claude-agent-sdk
-          AANG_RECORD_CODEX_SDK: ${{ runner.temp }}/sdk/node_modules/@openai/codex-sdk
+          CATACOMB_RECORD_CLAUDE_SDK: ${{ runner.temp }}/sdk/node_modules/@anthropic-ai/claude-agent-sdk
+          CATACOMB_RECORD_CODEX_SDK: ${{ runner.temp }}/sdk/node_modules/@openai/codex-sdk
       - id: anonymous
         if: always()
         run: node tools/surface-check/dist/main.js anonymous "$RUNNER_TEMP/surface-check"
@@ -94,7 +94,7 @@ jobs:
       - run: pnpm build
       - run: tools/surface-check/ci/docker.sh "$RUNNER_TEMP/surface-check-docker"
         env:
-          AANG_SURFACE_REQUIRE: claude_cli,claude_sdk,codex_exec,codex_sdk,codex_tui
+          CATACOMB_SURFACE_REQUIRE: claude_cli,claude_sdk,codex_exec,codex_sdk,codex_tui
       - id: anonymous
         if: always()
         run: node tools/surface-check/dist/main.js anonymous "$RUNNER_TEMP/surface-check-docker"
@@ -129,7 +129,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - run: tools/surface-check/ci/vm.sh "$RUNNER_TEMP/surface-check-vm"
         env:
-          AANG_SURFACE_REQUIRE: claude_cli,claude_sdk,codex_exec,codex_sdk,codex_tui
+          CATACOMB_SURFACE_REQUIRE: claude_cli,claude_sdk,codex_exec,codex_sdk,codex_tui
       - id: anonymous
         if: always()
         run: node tools/surface-check/dist/main.js anonymous "$RUNNER_TEMP/surface-check-vm"

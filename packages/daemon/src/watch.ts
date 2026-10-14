@@ -1,8 +1,8 @@
 import { realpath, stat } from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
-import { type Config, WatchState } from '@aang/contract'
-import type { WatchedRoots } from '@aang/engine'
-import type { Store, Transaction } from '@aang/store'
+import { type Config, WatchState } from '@catacomb/contract'
+import type { WatchedRoots } from '@catacomb/engine'
+import type { Store, Transaction } from '@catacomb/store'
 import { AdminError } from './admin-error.js'
 import { epochNow } from './spool.js'
 

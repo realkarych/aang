@@ -1,4 +1,4 @@
-import type { AttentionItem, RunId, RunSnapshot, StatusResponse } from '@aang/contract'
+import type { AttentionItem, RunId, RunSnapshot, StatusResponse } from '@catacomb/contract'
 import { type ReactElement, useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { readRuns, readStatus } from './api.js'
 import { nowNs } from './format.js'
@@ -79,7 +79,7 @@ const Masthead = ({
   return (
     <header className="masthead">
       <a className="wordmark" href={listHref} onClick={navigate}>
-        aang
+        catacomb
       </a>
       {title === null ? null : (
         <nav className="masthead-nav" aria-label="Navigation">
@@ -105,7 +105,7 @@ interface ScreenProps {
 
 const ListScreen = ({ status, now, onSignedOut }: ScreenProps): ReactElement => {
   const runs = usePolled(readRuns, onSignedOut)
-  useTitle('Runs — aang')
+  useTitle('Runs — catacomb')
   const lamps = lampsOf({
     status: status.value,
     statusFailing: status.failing,
@@ -143,7 +143,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
   const agents = useMemo(() => agentIds(feed.snapshot?.objects.agents ?? []), [feed.snapshot])
   const title = snapshotTitle(feed.snapshot)
   const waiting = useMemo(() => (feed.snapshot === null ? noWaiting : waitingOffMap(feed.snapshot)), [feed.snapshot])
-  useTitle(`${title ?? 'Run'} — aang`)
+  useTitle(`${title ?? 'Run'} — catacomb`)
   const lamps = lampsOf({
     status: status.value,
     statusFailing: status.failing,
@@ -165,12 +165,12 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
 }
 
 const SignedOutScreen = (): ReactElement => {
-  useTitle('Signed out — aang')
+  useTitle('Signed out — catacomb')
   return (
     <main className="page signed-out">
       <h1>Signed out</h1>
       <p>
-        The sign-in session ended or the aang token was replaced. Run <code>aang open</code> in a terminal and open the
+        The sign-in session ended or the catacomb token was replaced. Run <code>catacomb open</code> in a terminal and open the
         link it prints in this browser.
       </p>
     </main>

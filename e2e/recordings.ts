@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import type { OperatingSystem, Runtime } from '@aang/contract'
-import type { LoadedManifest, PlayerStep } from '@aang/testkit'
+import type { OperatingSystem, Runtime } from '@catacomb/contract'
+import type { LoadedManifest, PlayerStep } from '@catacomb/testkit'
 import type { SurfaceVariant } from './variants.js'
 
 const recordingOs: Readonly<Partial<Record<NodeJS.Platform, OperatingSystem>>> = {

@@ -1,5 +1,5 @@
 import { chmodSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { openStore, StoreLockedError, StoreVersionError, type Transaction } from '@aang/store'
+import { openStore, StoreLockedError, StoreVersionError, type Transaction } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { createHome, type Home, pragma, schemaFiles } from './home.js'
 
@@ -27,7 +27,7 @@ test('opening a new home creates a private directory with a WAL database at the 
   if (process.platform !== 'win32') {
     expect(statSync(home.path).mode & 0o777).toBe(0o700)
   }
-  expect(readdirSync(home.path).sort()).toEqual(['aang.db', 'aang.lock'])
+  expect(readdirSync(home.path).sort()).toEqual(['catacomb.db', 'catacomb.lock'])
   const database = home.database()
   expect(pragma(database, 'journal_mode')).toBe('wal')
   expect(pragma(database, 'user_version')).toBe(schemaFiles().length)
@@ -181,7 +181,7 @@ test('a database written by a newer schema is refused and left untouched', async
 
   expect(() => openStore({ home: home.path })).toThrow(StoreVersionError)
   expect(() => openStore({ home: home.path })).toThrow(
-    `aang store schema version 1000 is newer than the supported version ${String(schemaFiles().length)}`,
+    `catacomb store schema version 1000 is newer than the supported version ${String(schemaFiles().length)}`,
   )
 
   expect(readFileSync(home.databaseFile)).toEqual(bytes)
@@ -200,7 +200,7 @@ test('upgrading an older database first copies it next to the original and keeps
 
   expect(home.open().transaction((transaction) => transaction.nextChangeSeq())).toBe(42)
 
-  const backup = home.database('aang.db.v1.bak')
+  const backup = home.database('catacomb.db.v1.bak')
   expect(pragma(backup, 'user_version')).toBe(1)
   expect(backup.prepare('SELECT value FROM change_counter').get()).toEqual({ value: 41 })
   expect(pragma(home.database(), 'user_version')).toBe(schemaFiles().length)

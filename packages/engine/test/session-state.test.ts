@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { expect, onTestFinished, test } from 'vitest'
-import { objectId } from '@aang/contract/ids'
+import { objectId } from '@catacomb/contract/ids'
 import { joinBatches, jsonlFile } from './batches.js'
 import { createHome } from './home.js'
 import { at, clockedEngine, doubleHook, hook, registry, sessionId, source } from './session-fixtures.js'

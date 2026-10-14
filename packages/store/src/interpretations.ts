@@ -6,7 +6,7 @@ import {
   ObserverCallId,
   RawSeq,
   RunId,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { prepareStatement, type WriteContext } from './context.js'
 
 export interface PendingFact {

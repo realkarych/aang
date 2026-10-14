@@ -8,7 +8,7 @@ import { commandOf, findTranscript, named, subagentTranscripts, toolUses, transc
 const SpawnedTeammate = z.looseObject({ status: z.literal('teammate_spawned'), name: z.string(), team_name: z.string(), agent_id: z.string() })
 const TeammateMeta = z.looseObject({ name: z.string(), teamName: z.string(), taskKind: z.string() })
 
-export const teammatePrompt = '[aang:teammate] Run `echo mate` with the Bash tool, then complete your tasks.'
+export const teammatePrompt = '[catacomb:teammate] Run `echo mate` with the Bash tool, then complete your tasks.'
 
 export const spawnTeammate = { tool: 'Agent', input: { description: 'Echo mate', name: 'helper', prompt: teammatePrompt, subagent_type: 'general-purpose' } } as const
 
@@ -46,7 +46,7 @@ export const teammates: Definition = {
       env: teamEnv,
       steps: [
         { hook: 'SessionStart' },
-        { prompt: '[aang:team] Create the task Echo mate with TaskCreate, then spawn the teammate helper with the Agent tool to run it.' },
+        { prompt: '[catacomb:team] Create the task Echo mate with TaskCreate, then spawn the teammate helper with the Agent tool to run it.' },
         { file: 'teams/*/config.json', shows: '"name": "helper"' },
         { hook: 'TeammateIdle' },
         { idle: 2 },

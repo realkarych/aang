@@ -3,7 +3,7 @@ import { once } from 'node:events'
 import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { claudeAdapter } from '@aang/adapter-claude'
+import { claudeAdapter } from '@catacomb/adapter-claude'
 import {
   CheckContract,
   type Criterion,
@@ -15,10 +15,10 @@ import {
   type RawRecord,
   type RunId,
   type SnapshotTrigger,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import { createEngine, type Engine } from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import { createEngine, type Engine } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { expect, test, vi } from 'vitest'
 import { anotherVersion } from './another-normalizer.js'
 import { type HookDelivery, hookBatch, hookRecord, type JsonlFile, jsonlFile } from './batches.js'

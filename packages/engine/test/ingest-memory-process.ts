@@ -3,11 +3,11 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setImmediate } from 'node:timers/promises'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { codexAdapter } from '@aang/adapter-codex'
-import { CollectedRecord, type CollectorBatch } from '@aang/contract'
-import { createEngine } from '@aang/engine'
-import { openStore } from '@aang/store'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { CollectedRecord, type CollectorBatch } from '@catacomb/contract'
+import { createEngine } from '@catacomb/engine'
+import { openStore } from '@catacomb/store'
 
 const hook = (session: string, padding: string, start = false): CollectedRecord =>
   CollectedRecord.parse({
@@ -29,7 +29,7 @@ const hook = (session: string, padding: string, start = false): CollectedRecord 
 const gc = global.gc
 assert.ok(gc)
 for (const scenario of ['waiting hook', 'committed hook', 'deferred line']) {
-  const home = await mkdtemp(join(tmpdir(), 'aang-memory-'))
+  const home = await mkdtemp(join(tmpdir(), 'catacomb-memory-'))
   const store = openStore({ home })
   const engine = createEngine({
     store,

@@ -24,7 +24,7 @@ export const agentsFlag: Definition = {
   run: async ({ session, stage }) => {
     const summary = await stage('agents-flag', {
       agents: { [agentType]: { description: agentDescription, prompt: 'You check the project notes. Run the command from the task with the Bash tool and report its output.', tools: ['Bash'] } },
-      turns: [{ prompt: `[aang:agents-flag] Ask the ${agentType} subagent with the Agent tool to run \`echo checked\`. Reply with one sentence.` }],
+      turns: [{ prompt: `[catacomb:agents-flag] Ask the ${agentType} subagent with the Agent tool to run \`echo checked\`. Reply with one sentence.` }],
     })
     const sessionId = sessionOf(summary)
     const spawned = await checkDefinedAgent(session, await findTranscript(session, sessionId), agentType, agentDescription, 'checked')

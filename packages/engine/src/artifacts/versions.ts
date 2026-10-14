@@ -9,9 +9,9 @@ import type {
   FactOf,
   RunId,
   VersionIdentity,
-} from '@aang/contract'
-import { contentHash, objectId } from '@aang/contract/ids'
-import type { ArtifactVersionDraft, Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { contentHash, objectId } from '@catacomb/contract/ids'
+import type { ArtifactVersionDraft, Transaction } from '@catacomb/store'
 import { sessionRun } from '../observations/runs.js'
 import { actionCandidates, type VersionCandidate, type WriteKind } from './references.js'
 

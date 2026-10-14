@@ -6,7 +6,7 @@
     "node": ">=26"
   },
   "scripts": {
-    "build": "tsc -b tsconfig.build.json && pnpm --filter @aang/web build && go build -C packages/hook -o bin/ ./cmd/aang-hook && go build -o packages/testkit/bin/ packages/testkit/shim/exec-shim.go && go build -C tools/check-comments/dockerfile-comments -o bin/ .",
+    "build": "tsc -b tsconfig.build.json && pnpm --filter @catacomb/web build && go build -C packages/hook -o bin/ ./cmd/catacomb-hook && go build -o packages/testkit/bin/ packages/testkit/shim/exec-shim.go && go build -C tools/check-comments/dockerfile-comments -o bin/ .",
     "typecheck": "tsc -b",
     "lint": "go vet -C packages/hook ./... && go vet packages/testkit/shim/exec-shim.go && go vet -C tools/check-comments/dockerfile-comments ./... && node -e \"const out=process.getBuiltinModule('node:child_process').execFileSync('gofmt',['-l','packages/hook','packages/testkit/shim','tools/check-comments/dockerfile-comments'],{encoding:'utf8'});if(out){process.stdout.write(out);process.exitCode=1}\" && pnpm lint:comments && pnpm lint:eslint packages && pnpm lint:eslint --ignore-pattern packages/",
     "lint:comments": "node tools/check-comments/dist/main.js",
@@ -27,14 +27,14 @@
     "e2e": "playwright test"
   },
   "devDependencies": {
-    "@aang/adapter-claude": "workspace:*",
-    "@aang/adapter-codex": "workspace:*",
-    "@aang/contract": "workspace:*",
-    "@aang/engine": "workspace:*",
-    "@aang/eslint-plugin": "workspace:*",
-    "@aang/hook": "workspace:*",
-    "@aang/store": "workspace:*",
-    "@aang/testkit": "workspace:*",
+    "@catacomb/adapter-claude": "workspace:*",
+    "@catacomb/adapter-codex": "workspace:*",
+    "@catacomb/contract": "workspace:*",
+    "@catacomb/engine": "workspace:*",
+    "@catacomb/eslint-plugin": "workspace:*",
+    "@catacomb/hook": "workspace:*",
+    "@catacomb/store": "workspace:*",
+    "@catacomb/testkit": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "~1.63.0",
     "@types/node": "^26.6.3",

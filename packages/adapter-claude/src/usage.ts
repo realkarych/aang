@@ -1,4 +1,4 @@
-import type { CostStatePayload, FactDraft, TokenUsage } from '@aang/contract'
+import type { CostStatePayload, FactDraft, TokenUsage } from '@catacomb/contract'
 import { z } from 'zod'
 import { fact, type FactOrigin } from './facts.js'
 import { name } from './fields.js'

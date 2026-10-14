@@ -30,7 +30,7 @@ export const inputDialogs: Definition = {
   surfaces: ['claude_cli'],
   os: ['macos', 'linux'],
   expectedFacts: [
-    'An interactive CLI session shows the form of the MCP server aang-elicitation; after ~6 s it notifies elicitation_dialog and the user picks Hello and accepts',
+    'An interactive CLI session shows the form of the MCP server catacomb-elicitation; after ~6 s it notifies elicitation_dialog and the user picks Hello and accepts',
     'The server then asks to open a link; after ~6 s the session notifies elicitation_url_dialog, the user accepts and the opened link is confirmed',
     'Spawning the teammate helper in iTerm2 without the it2 CLI asks for teammate setup; after ~6 s the session notifies agent_needs_input and the user cancels, so the spawn fails',
   ],
@@ -49,7 +49,7 @@ export const inputDialogs: Definition = {
       env: { ...teamEnv, TERM_PROGRAM: 'iTerm.app', PATH: path, SHELL: shell, BROWSER: browser },
       steps: [
         { hook: 'SessionStart' },
-        { prompt: `[aang:dialogs] Call the choose_greeting tool of the ${elicitationServer} MCP server, then its confirm_link tool, then spawn the teammate helper with the Agent tool.` },
+        { prompt: `[catacomb:dialogs] Call the choose_greeting tool of the ${elicitationServer} MCP server, then its confirm_link tool, then spawn the teammate helper with the Agent tool.` },
         { notification: 'elicitation_dialog' },
         { press: 'right' },
         { press: 'enter' },

@@ -12,7 +12,7 @@ import {
   type UsageRate,
   type UsageReport,
   type UsageTotals,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { queryDaemon } from './admin.js'
 import type { Output } from './output.js'
 

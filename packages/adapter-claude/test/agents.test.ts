@@ -1,5 +1,5 @@
-import { claudeAdapter } from '@aang/adapter-claude'
-import { CollectedRecord, FactDraft, type ParseResult } from '@aang/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { CollectedRecord, FactDraft, type ParseResult } from '@catacomb/contract'
 import { describe, test } from 'vitest'
 import {
   cliEnv,
@@ -197,7 +197,7 @@ describe.concurrent('Claude subagents: link to the Agent call', () => {
     const sdkAgent = 'a489ecb7791c0c23e'
     const [, start] = factsOf(
       parseSnapshot(
-        `${projects}/-tmp-aang-spike-cc-sdk-work/${sdkSession}/subagents/agent-${sdkAgent}.meta.json`,
+        `${projects}/-tmp-catacomb-spike-cc-sdk-work/${sdkSession}/subagents/agent-${sdkAgent}.meta.json`,
         await readSample('claude-agent-sdk/transcript-subagent-meta.json'),
       ),
     )

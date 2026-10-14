@@ -1,4 +1,4 @@
-import type { CollectedGap, EpochNs, StreamKey } from '@aang/contract'
+import type { CollectedGap, EpochNs, StreamKey } from '@catacomb/contract'
 import { describeError } from './errors.js'
 import { millisecondsToNs, nowNs } from './time.js'
 

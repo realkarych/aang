@@ -1,5 +1,5 @@
-import { EpochNs, ModelVersion, type ObserverErrorClass, type ObserverInput, type ObserverState, RunId, type Runtime } from '@aang/contract'
-import type { ObserverCallError } from '@aang/store'
+import { EpochNs, ModelVersion, type ObserverErrorClass, type ObserverInput, type ObserverState, RunId, type Runtime } from '@catacomb/contract'
+import type { ObserverCallError } from '@catacomb/store'
 import { z } from 'zod'
 import type { LaunchErrorClass, LaunchFailure } from './backend.js'
 

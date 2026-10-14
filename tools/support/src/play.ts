@@ -2,9 +2,9 @@ import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, utimes } from 'n
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { codexAdapter } from '@aang/adapter-codex'
-import { createCollector, type CollectorService } from '@aang/collector'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { createCollector, type CollectorService } from '@catacomb/collector'
 import {
   type Adapter,
   type AdapterRegistry,
@@ -15,11 +15,11 @@ import {
   type Gap,
   type Runtime,
   spoolLayout,
-} from '@aang/contract'
-import { contentHash } from '@aang/contract/ids'
-import { createEngine } from '@aang/engine'
-import { openStore, type Store } from '@aang/store'
-import type { RecordingManifest } from '@aang/record'
+} from '@catacomb/contract'
+import { contentHash } from '@catacomb/contract/ids'
+import { createEngine } from '@catacomb/engine'
+import { openStore, type Store } from '@catacomb/store'
+import type { RecordingManifest } from '@catacomb/record'
 import {
   createPlayer,
   leaseSpool,
@@ -29,7 +29,7 @@ import {
   type PlayerStep,
   type RecordShift,
   type Target,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 
 export const adapters: AdapterRegistry = new Map<Runtime, Adapter>([
   ['claude', claudeAdapter],
@@ -169,7 +169,7 @@ const collectedAs = ({ root, path }: Target): Collected => {
 }
 
 const createRoots = async (): Promise<PlaybackRoots> => {
-  const base = await realpath(await mkdtemp(join(tmpdir(), 'aang-contract-')))
+  const base = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-contract-')))
   const home = join(base, 'home')
   const roots = { base, home, claude: join(home, '.claude'), codex: join(home, '.codex') }
   await Promise.all([roots.claude, roots.codex].map((directory) => mkdir(directory, { recursive: true })))
@@ -285,7 +285,7 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
   const clock = { now: EpochNs.parse(manifest.steps[0] === undefined ? BigInt(startsAt) * nanosecondsPerMs : stepTime(manifest.steps[0])) }
 
   const startIngestion = (): Ingestion => {
-    const store = openStore({ home: join(roots.base, 'aang') })
+    const store = openStore({ home: join(roots.base, 'catacomb') })
     const engine = createEngine({ store, adapters, watch: { all: true, roots: [] }, now: () => clock.now })
     const collector = createCollector({
       spool,

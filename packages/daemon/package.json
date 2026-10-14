@@ -1,5 +1,5 @@
 {
-  "name": "@aang/daemon",
+  "name": "@catacomb/daemon",
   "private": true,
   "type": "module",
   "exports": {
@@ -9,17 +9,17 @@
     }
   },
   "dependencies": {
-    "@aang/contract": "workspace:*",
-    "@aang/store": "workspace:*",
-    "@aang/collector": "workspace:*",
-    "@aang/adapter-claude": "workspace:*",
-    "@aang/adapter-codex": "workspace:*",
-    "@aang/engine": "workspace:*",
-    "@aang/observer": "workspace:*",
-    "@aang/hook": "workspace:*",
+    "@catacomb/contract": "workspace:*",
+    "@catacomb/store": "workspace:*",
+    "@catacomb/collector": "workspace:*",
+    "@catacomb/adapter-claude": "workspace:*",
+    "@catacomb/adapter-codex": "workspace:*",
+    "@catacomb/engine": "workspace:*",
+    "@catacomb/observer": "workspace:*",
+    "@catacomb/hook": "workspace:*",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@aang/testkit": "workspace:*"
+    "@catacomb/testkit": "workspace:*"
   }
 }

@@ -56,7 +56,7 @@ for (const [lane, tasks] of lanes.entries()) {
   }
 }
 const profile = {
-  format: 'aang-freshness-profile/1',
+  format: 'catacomb-freshness-profile/1',
   name: values.name ?? `${runtime}-workload`,
   time_scale: 1,
   window_ms: Number(values['window-ms']),

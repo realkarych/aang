@@ -1,5 +1,5 @@
-import type { Evidence, Fact, FactId } from '@aang/contract'
-import type { FactReader } from '@aang/store'
+import type { Evidence, Fact, FactId } from '@catacomb/contract'
+import type { FactReader } from '@catacomb/store'
 
 export type EvidenceReference =
   | { readonly id: FactId; readonly state: 'available'; readonly fact: Fact }

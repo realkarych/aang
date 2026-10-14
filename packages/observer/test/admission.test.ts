@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { expect, test, type TestContext } from 'vitest'
-import { createClaudeBackend, createCodexBackend, type LaunchStatus } from '@aang/observer'
-import { installFakeClaude, installFakeCodex, type ClaudeScenario } from '@aang/testkit'
+import { createClaudeBackend, createCodexBackend, type LaunchStatus } from '@catacomb/observer'
+import { installFakeClaude, installFakeCodex, type ClaudeScenario } from '@catacomb/testkit'
 import { failNextProcessTableRead, showExitedProcessesWhileReleased } from './process-table.js'
 import { until, wrapped } from './scene.js'
 
@@ -15,7 +15,7 @@ const builtins = { mcpServers: [], skills: [], plugins: ['cc-plugin-agents-md', 
 const input = { model: { version: 7 }, batch: { facts: [] }, private: 'working data must not reach admission' }
 const output = { base_version: 7, ops: [], needs: [] }
 const sandbox = async ({ onTestFinished }: TestContext) => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-admission-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-admission-')))
   onTestFinished(() => rm(root, { recursive: true, force: true, maxRetries: 10 }))
   const home = join(root, 'Όνομα Επώνυμο')
   await mkdir(home)
@@ -24,7 +24,7 @@ const sandbox = async ({ onTestFinished }: TestContext) => {
     options: {
       temporaryDirectory: root,
       environment: { ...process.env, HOME: home, USERPROFILE: home },
-      windowsLauncher: resolve('packages/hook/bin/aang-hook.exe'),
+      windowsLauncher: resolve('packages/hook/bin/catacomb-hook.exe'),
       admissionStatusPath: join(root, 'support.json'),
     },
   }

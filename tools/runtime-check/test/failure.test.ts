@@ -24,7 +24,7 @@ const runWithFailingClis = async (directory: string, suiteArgs: readonly string[
 }
 
 test('the runtime check fails when external CLIs report versions but every session fails', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'aang-runtime-failure-'))
+  const directory = await mkdtemp(join(tmpdir(), 'catacomb-runtime-failure-'))
   try {
     const { result, report } = await runWithFailingClis(directory, [])
     expect(result.timedOut, `${result.stdout}\n${result.stderr}\n${JSON.stringify(report)}`).toBe(false)
@@ -47,7 +47,7 @@ test('the runtime check fails when external CLIs report versions but every sessi
 }, 240_000)
 
 test('the plugin delivery check fails when external CLIs report versions but every session fails', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'aang-delivery-failure-'))
+  const directory = await mkdtemp(join(tmpdir(), 'catacomb-delivery-failure-'))
   try {
     const { result, report } = await runWithFailingClis(directory, ['--suite', 'delivery'])
     expect(result.timedOut, `${result.stdout}\n${result.stderr}\n${JSON.stringify(report)}`).toBe(false)
@@ -58,7 +58,7 @@ test('the plugin delivery check fails when external CLIs report versions but eve
       'claude plugin from the marketplace',
       'claude plugin from the skills directory',
       'claude hook launchers',
-      'codex hooks installed by aang',
+      'codex hooks installed by catacomb',
       'codex hook exit and timeout',
       'installed hook latency',
       'claude series with and without hooks',

@@ -1,4 +1,4 @@
-import type { JournalEntry, ModelChange } from '@aang/contract'
+import type { JournalEntry, ModelChange } from '@catacomb/contract'
 import { jsonOf } from '../input/batch.js'
 import { clipNotes } from '../input/fit.js'
 

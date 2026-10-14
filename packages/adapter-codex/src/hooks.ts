@@ -11,8 +11,8 @@ import {
   type RuntimeIds,
   SessionLaunch,
   type Speaker,
-} from '@aang/contract'
-import { canonicalJson, contentHash } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { canonicalJson, contentHash } from '@catacomb/contract/ids'
 import { z } from 'zod'
 import { agentNamespaces, mcpNamespacePrefix } from './calls.js'
 import {

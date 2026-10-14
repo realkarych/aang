@@ -1,4 +1,4 @@
-import type { CollectedRecord, RecordOwner } from '@aang/contract'
+import type { CollectedRecord, RecordOwner } from '@catacomb/contract'
 import { z } from 'zod'
 import { sessionEntity } from './facts.js'
 import { readJson } from './json.js'

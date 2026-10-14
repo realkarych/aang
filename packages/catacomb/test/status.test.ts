@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { installFakeClaude, installFakeCodex } from '@aang/testkit'
+import { installFakeClaude, installFakeCodex } from '@catacomb/testkit'
 import { describe, test } from 'vitest'
 import { isAlive } from './processes.js'
 import { createSandbox } from './sandbox.js'
@@ -41,17 +41,17 @@ const closedPort = async (): Promise<number> => {
   return address.port
 }
 
-describe.concurrent('aang status shows the connection state of the running daemon', () => {
-  test('without runtime CLIs the Claude hooks state is unknown, Codex without aang hooks needs no CLI to be not installed, and a stopped daemon shows no connection state', async ({
+describe.concurrent('catacomb status shows the connection state of the running daemon', () => {
+  test('without runtime CLIs the Claude hooks state is unknown, Codex without catacomb hooks needs no CLI to be not installed, and a stopped daemon shows no connection state', async ({
     expect,
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished)
-    expect((await sandbox.aang('start')).code).toBe(0)
+    expect((await sandbox.catacomb('start')).code).toBe(0)
 
-    const running = await sandbox.aang('status')
-    expect((await sandbox.aang('stop')).code).toBe(0)
-    const stopped = await sandbox.aang('status')
+    const running = await sandbox.catacomb('status')
+    expect((await sandbox.catacomb('stop')).code).toBe(0)
+    const stopped = await sandbox.catacomb('status')
 
     expect(running.code).toBe(0)
     expect(running.stdout).toContain(
@@ -63,27 +63,27 @@ describe.concurrent('aang status shows the connection state of the running daemo
   })
 
   test.skipIf(process.platform === 'win32')(
-    'each aang status checks the hooks again, so a trust change outside the watched files shows at once',
+    'each catacomb status checks the hooks again, so a trust change outside the watched files shows at once',
     async ({ expect, onTestFinished }) => {
       const sandbox = await createSandbox(onTestFinished)
-      const root = dirname(sandbox.aangHome)
+      const root = dirname(sandbox.catacombHome)
       const claude = installFakeClaude(join(root, 'fakes'))
       const codex = installFakeCodex(join(root, 'fakes'))
       const codexHome = join(root, '.codex')
-      const command = `${quoted(join(sandbox.aangHome, 'bin', 'aang-hook'))} codex user ${quoted(sandbox.spool)}`
+      const command = `${quoted(join(sandbox.catacombHome, 'bin', 'catacomb-hook'))} codex user ${quoted(sandbox.spool)}`
       await mkdir(codexHome, { recursive: true })
       await writeFile(join(codexHome, 'hooks.json'), JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: 'command', command }] }] } }))
       await writeFile(
-        join(sandbox.aangHome, 'config.json'),
+        join(sandbox.catacombHome, 'config.json'),
         JSON.stringify({ cli: { claude: claude.command, codex: codex.command }, api: { port: 0 }, otel: { port: 0 } }),
       )
-      expect((await sandbox.aang('start')).code).toBe(0)
+      expect((await sandbox.catacomb('start')).code).toBe(0)
 
-      const untrusted = await sandbox.aang('status')
+      const untrusted = await sandbox.catacomb('status')
       const checks = codex.calls().filter((call) => call.command === 'app_server').length
       codex.setScenario({ hooks: 'trusted' })
-      const trusted = await sandbox.aang('status')
-      expect((await sandbox.aang('stop')).code).toBe(0)
+      const trusted = await sandbox.catacomb('status')
+      expect((await sandbox.catacomb('stop')).code).toBe(0)
 
       expect(untrusted.stdout).toContain(
         `claude hooks: not installed\ncodex hooks: not trusted; trust them in Codex with /hooks\n${notObservable}`,
@@ -94,22 +94,22 @@ describe.concurrent('aang status shows the connection state of the running daemo
   )
 
   test.skipIf(process.platform === 'win32')(
-    'a hanging Claude CLI leaves only its own hooks state unknown: aang status answers with the rest of the connection state, and aang stop leaves no CLI behind',
+    'a hanging Claude CLI leaves only its own hooks state unknown: catacomb status answers with the rest of the connection state, and catacomb stop leaves no CLI behind',
     { timeout: 120_000 },
     async ({ expect, onTestFinished }) => {
       const sandbox = await createSandbox(onTestFinished)
-      const root = dirname(sandbox.aangHome)
+      const root = dirname(sandbox.catacombHome)
       const claude = installFakeClaude(join(root, 'fakes'), { pluginHang: true })
       const codex = installFakeCodex(join(root, 'fakes'))
       await mkdir(join(root, '.codex'), { recursive: true })
       await writeFile(
-        join(sandbox.aangHome, 'config.json'),
+        join(sandbox.catacombHome, 'config.json'),
         JSON.stringify({ cli: { claude: claude.command, codex: codex.command }, api: { port: 0 }, otel: { port: 0 } }),
       )
-      expect((await sandbox.aang('start')).code).toBe(0)
+      expect((await sandbox.catacomb('start')).code).toBe(0)
 
-      const status = await sandbox.aang('status')
-      const stop = await sandbox.aang('stop')
+      const status = await sandbox.catacomb('status')
+      const stop = await sandbox.catacomb('stop')
       const checks = claude.calls().filter((call) => call.command === 'plugin')
 
       expect(status).toMatchObject({ code: 0, stderr: '' })
@@ -124,19 +124,19 @@ describe.concurrent('aang status shows the connection state of the running daemo
 
   test('the placement from the config keys the versions of the sessions', async ({ expect, onTestFinished }) => {
     const sandbox = await createSandbox(onTestFinished, { placement: 'vm', watch: { all: true } })
-    const sessions = join(dirname(sandbox.aangHome), '.codex', 'sessions', '2026', '10', '04')
+    const sessions = join(dirname(sandbox.catacombHome), '.codex', 'sessions', '2026', '10', '04')
     await mkdir(sessions, { recursive: true })
     await writeFile(join(sessions, 'rollout-g7.jsonl'), await readFile(codexRollout))
-    expect((await sandbox.aang('start')).code).toBe(0)
+    expect((await sandbox.catacomb('start')).code).toBe(0)
 
     const version = `version codex_exec 0.159.2 on ${hostOs} (vm): unverified, 1 session\n`
     const deadline = Date.now() + 20_000
-    let status = await sandbox.aang('status')
+    let status = await sandbox.catacomb('status')
     while (!status.stdout.includes(version) && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 200))
-      status = await sandbox.aang('status')
+      status = await sandbox.catacomb('status')
     }
-    expect((await sandbox.aang('stop')).code).toBe(0)
+    expect((await sandbox.catacomb('stop')).code).toBe(0)
 
     expect(status.code).toBe(0)
     expect(status.stdout).toContain(
@@ -144,14 +144,14 @@ describe.concurrent('aang status shows the connection state of the running daemo
     )
   })
 
-  test('when the process of the daemon state is alive but no daemon answers, aang status reports it and fails', async ({
+  test('when the process of the daemon state is alive but no daemon answers, catacomb status reports it and fails', async ({
     expect,
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished)
-    expect((await sandbox.aang('start')).code).toBe(0)
+    expect((await sandbox.catacomb('start')).code).toBe(0)
     const state = await sandbox.daemonState()
-    expect((await sandbox.aang('stop')).code).toBe(0)
+    expect((await sandbox.catacomb('stop')).code).toBe(0)
     if (state === null) {
       throw new Error('the daemon wrote no state')
     }
@@ -161,16 +161,16 @@ describe.concurrent('aang status shows the connection state of the running daemo
     }
     sandbox.track(stranger.pid)
     await writeFile(
-      join(sandbox.aangHome, 'daemon.json'),
+      join(sandbox.catacombHome, 'daemon.json'),
       JSON.stringify({ ...state, pid: stranger.pid, api: { ...state.api, port: await closedPort() } }),
     )
 
-    const status = await sandbox.aang('status')
+    const status = await sandbox.catacomb('status')
 
     expect(status.code).toBe(1)
     expect(status.stdout).toContain(`daemon: running, pid ${String(stranger.pid)}`)
     expect(status.stdout).not.toContain('hooks:')
-    expect(status.stderr).toContain('aang status: the hooks check failed: ')
-    expect(status.stderr).toContain('aang status: the connection state is unavailable: ')
+    expect(status.stderr).toContain('catacomb status: the hooks check failed: ')
+    expect(status.stderr).toContain('catacomb status: the connection state is unavailable: ')
   })
 })

@@ -11,8 +11,8 @@ import {
   type RunId,
   type RunSnapshot,
   SseEvent,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
 import {
   applyObserverResponse,
   beginObserverCall,
@@ -20,9 +20,9 @@ import {
   createReadQueries,
   type ObserverResponseResult,
   type ReadQueries,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
-import { applyFeed } from '@aang/testkit'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
+import { applyFeed } from '@catacomb/testkit'
 import { expect, type TestContext } from 'vitest'
 import { type HookDelivery, hookBatch, jsonlFile, snapshotBatch } from './batches.js'
 import { adapters, factsOf, sessionKey } from './harness.js'

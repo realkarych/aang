@@ -27,7 +27,7 @@ interface RelativeViolation {
 }
 
 const packagesDirectory = 'packages'
-const scope = '@aang/'
+const scope = '@catacomb/'
 const implementationDirectories: readonly string[] = ['src', 'dist']
 
 const packageName = (directory: string): string => `${scope}${directory}`

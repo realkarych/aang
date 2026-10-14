@@ -97,9 +97,9 @@ export const processTrees = async (
   await writeCodexHome(context, codexHome, form === null ? null : allEventHooks(context, form))
   const codexSteps = [
     newPatch(context, 'jobs').step,
-    { type: 'function_call' as const, name: 'exec_command', arguments: { cmd: 'echo aang' } },
+    { type: 'function_call' as const, name: 'exec_command', arguments: { cmd: 'echo catacomb' } },
   ]
-  const claudeSteps = [...readSteps(context, 1), { name: 'Bash', input: { command: 'echo aang', description: 'echo' } }]
+  const claudeSteps = [...readSteps(context, 1), { name: 'Bash', input: { command: 'echo catacomb', description: 'echo' } }]
   const claudeObserver = await prepareClaudeObserver(context)
   const codexObserver = await prepareCodexObserver(context)
   const runs: readonly [string, Invocation][] = [

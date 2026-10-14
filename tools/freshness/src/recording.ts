@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { type ExpectedMapChange, RecordingManifest } from '@aang/record'
-import { type LoadedManifest, loadManifest, type PlayerStep } from '@aang/testkit'
+import { type ExpectedMapChange, RecordingManifest } from '@catacomb/record'
+import { type LoadedManifest, loadManifest, type PlayerStep } from '@catacomb/testkit'
 import type { FixedRecording } from './profile.js'
 
 export interface ControlEvent {

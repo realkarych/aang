@@ -1,6 +1,6 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { loadManifest } from '@aang/testkit'
+import { loadManifest } from '@catacomb/testkit'
 import { z } from 'zod'
 import { hookRecords, hooksNamed } from '../hooks.js'
 import { childrenFinished, collaboration, shell } from './calls.js'
@@ -9,7 +9,7 @@ import { allRollouts, check, completedItems, finished, type Rollout, responseIte
 
 const role = 'reviewer'
 const roleDescription = 'Reviews the project notes and reports what it checked.'
-const roleInstructions = 'You are the notes reviewer of the aang recording. Run the command from your task and report its output.'
+const roleInstructions = 'You are the notes reviewer of the catacomb recording. Run the command from your task and report its output.'
 const reviewTask = 'notes_review'
 const scanTask = 'notes_scan'
 const roleFile = `agents/${role}.toml`
@@ -72,7 +72,7 @@ export const agentRole = stubScenario({
     await writeRole(session.codex)
     await session.keep({ root: 'codex', path: 'config.toml' })
     await session.keep({ root: 'codex', path: roleFile })
-    const root = threadOf((await codexExec(session, [`[aang:agent-role] Spawn the ${role} agent ${reviewTask} and the default agent ${scanTask}, wait for them, then reply done.`])).stdout)
+    const root = threadOf((await codexExec(session, [`[catacomb:agent-role] Spawn the ${role} agent ${reviewTask} and the default agent ${scanTask}, wait for them, then reply done.`])).stdout)
     const children = (await allRollouts(session.codex)).filter((rollout) => sessionMeta(rollout)['parent_thread_id'] === root)
     const childAt = (task: string): Rollout => {
       const child = children.find((rollout) => sessionMeta(rollout)['agent_path'] === `/root/${task}`)

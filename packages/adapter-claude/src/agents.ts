@@ -1,4 +1,4 @@
-import type { AgentKey, AgentStartPayload, FactDraft, JsonValue } from '@aang/contract'
+import type { AgentKey, AgentStartPayload, FactDraft, JsonValue } from '@catacomb/contract'
 import { z } from 'zod'
 import { fact, type FactOrigin } from './facts.js'
 import { name, optionalText } from './fields.js'

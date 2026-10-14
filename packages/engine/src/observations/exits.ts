@@ -1,4 +1,4 @@
-import type { EpochNs } from '@aang/contract'
+import type { EpochNs } from '@catacomb/contract'
 import { byTime, type Evidence, type KindEvidence, ofKind } from './evidence.js'
 
 export interface ProcessExit {

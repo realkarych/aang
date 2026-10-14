@@ -16,7 +16,7 @@ const surfaceLines = (result: SurfaceReport): string[] => [
 
 export const summary = (report: CheckReport): string =>
   [
-    `## aang surface check on ${report.os}, placement ${report.placement}`,
+    `## catacomb surface check on ${report.os}, placement ${report.placement}`,
     '',
     `Access to the UI: ${mark(report.access.result)} ${report.access.origin ?? ''} runs ${String(report.access.runs)}, write ${String(report.access.write)}${report.access.error === null ? '' : ` — ${report.access.error}`}`,
     '',

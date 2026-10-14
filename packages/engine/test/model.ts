@@ -19,8 +19,8 @@ import {
   type RunId,
   type SessionId,
   StageId,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
 import type {
   AttentionItemDraft,
   ChangeSet,
@@ -28,7 +28,7 @@ import type {
   ModelEntityDraft,
   RunDraft,
   StageDraft,
-} from '@aang/engine'
+} from '@catacomb/engine'
 
 const sessionKey = (session: string) => ({ kind: 'session', runtime: 'claude', session }) as const
 

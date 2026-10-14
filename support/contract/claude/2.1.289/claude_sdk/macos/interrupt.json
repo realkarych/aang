@@ -197,7 +197,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "14ec11b03306f8da2b186da21c95bb0cfa21645de53fd9b38702cb8a2770da76",
+      "redelivery_key": "e83cecb3dfb6fc521a95f83a7594b6f4feb06522f92bc436ae003ed866eb2338",
       "payload": {}
     },
     {
@@ -256,7 +256,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "b1131934-d11e-4620-a761-00855ce0e00d",
-        "call": "toolu_aang_interrupt_0_0"
+        "call": "toolu_catacomb_interrupt_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -270,7 +270,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_interrupt_0_0",
+        "call_id": "toolu_catacomb_interrupt_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -281,7 +281,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "1ab9a827b19c7956acc4e281a47cc608ae7f86d7ea4cf899d01a4030ba4e86cb",
+      "redelivery_key": "031d01daa5ac81eee828c287a0bdb95f67f74020a50c6e53763b03d3ad2206d4",
       "payload": {
         "tool": "Bash",
         "action_kind": "command",
@@ -327,7 +327,7 @@
       "redelivery_key": null,
       "payload": {
         "operation": "enqueue",
-        "content": "[aang:interrupt] Run `sleep 30` with the Bash tool."
+        "content": "[catacomb:interrupt] Run `sleep 30` with the Bash tool."
       }
     },
     {
@@ -401,7 +401,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:interrupt] Run `sleep 30` with the Bash tool.",
+        "text": "[catacomb:interrupt] Run `sleep 30` with the Bash tool.",
         "origin": "human",
         "origin_raw": "sdk"
       }
@@ -561,7 +561,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "b1131934-d11e-4620-a761-00855ce0e00d",
-        "call": "toolu_aang_interrupt_0_0"
+        "call": "toolu_catacomb_interrupt_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -574,8 +574,8 @@
         "prompt_id": null,
         "record_uuid": "7f682374-6ada-43ce-bfc9-557363d9e260",
         "parent_uuid": "5fdc126d-72f6-4641-a73a-92f6ffdf846e",
-        "message_id": "msg_aang_1",
-        "call_id": "toolu_aang_interrupt_0_0",
+        "message_id": "msg_catacomb_1",
+        "call_id": "toolu_catacomb_interrupt_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -605,7 +605,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "b1131934-d11e-4620-a761-00855ce0e00d",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -618,7 +618,7 @@
         "prompt_id": null,
         "record_uuid": "7f682374-6ada-43ce-bfc9-557363d9e260",
         "parent_uuid": "5fdc126d-72f6-4641-a73a-92f6ffdf846e",
-        "message_id": "msg_aang_1",
+        "message_id": "msg_catacomb_1",
         "call_id": null,
         "ordinal": null
       },
@@ -651,7 +651,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "b1131934-d11e-4620-a761-00855ce0e00d",
-        "call": "toolu_aang_interrupt_0_0"
+        "call": "toolu_catacomb_interrupt_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -665,7 +665,7 @@
         "record_uuid": "eca6e80a-a12a-4862-b893-68f9f3bfc630",
         "parent_uuid": "7f682374-6ada-43ce-bfc9-557363d9e260",
         "message_id": null,
-        "call_id": "toolu_aang_interrupt_0_0",
+        "call_id": "toolu_catacomb_interrupt_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -950,7 +950,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "b1131934-d11e-4620-a761-00855ce0e00d",
-        "call": "toolu_aang_interrupt_0_0"
+        "call": "toolu_catacomb_interrupt_0_0"
       },
       "session": "#18",
       "agent": "#20",
@@ -986,7 +986,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "b1131934-d11e-4620-a761-00855ce0e00d",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "session": "#18",
       "agent": "#20",
@@ -1015,7 +1015,7 @@
         "runtime": "claude",
         "root_session": "#18",
         "goal": {
-          "text": "[aang:interrupt] Run `sleep 30` with the Bash tool.",
+          "text": "[catacomb:interrupt] Run `sleep 30` with the Bash tool.",
           "fact": "#8"
         },
         "brief": null,
@@ -1031,7 +1031,7 @@
             "runtime": "claude",
             "root_session": "#18",
             "goal": {
-              "text": "[aang:interrupt] Run `sleep 30` with the Bash tool.",
+              "text": "[catacomb:interrupt] Run `sleep 30` with the Bash tool.",
               "fact": "#8"
             },
             "brief": null,

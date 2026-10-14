@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { canonicalJson } from '@aang/contract/ids'
+import { canonicalJson } from '@catacomb/contract/ids'
 import { readGit } from '../ingest/git.js'
 import type { CriterionCheck, ReportedCommit } from './plan.js'
 

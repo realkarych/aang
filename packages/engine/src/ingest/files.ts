@@ -1,4 +1,4 @@
-import type { CollectedGap, CollectedRecord, FileCursor, RecordOwner, SessionKey, StreamKey } from '@aang/contract'
+import type { CollectedGap, CollectedRecord, FileCursor, RecordOwner, SessionKey, StreamKey } from '@catacomb/contract'
 import { type Adapters, type Owned, ownedRecord } from './records.js'
 
 export interface FileIdentity {

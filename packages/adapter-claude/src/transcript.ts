@@ -7,7 +7,7 @@ import type {
   ParseResult,
   PromptOrigin,
   Speaker,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { z } from 'zod'
 import { spawnedAgents } from './agents.js'
 import { callStarted } from './calls.js'

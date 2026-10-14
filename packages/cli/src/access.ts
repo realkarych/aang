@@ -1,16 +1,16 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { processEnvironment, resolveAangHome } from '@aang/contract/config-file'
-import { aangHomePaths, readDaemonState } from '@aang/contract/home'
+import { processEnvironment, resolveCatacombHome } from '@catacomb/contract/config-file'
+import { catacombHomePaths, readDaemonState } from '@catacomb/contract/home'
 import { daemonUrl, isAlive } from './daemon-process.js'
 import { newSecret, preparePrivateHome, writeUiToken } from './home.js'
 import type { Output } from './output.js'
 
 export const openLink = async (output: Output): Promise<number> => {
-  const paths = aangHomePaths(resolveAangHome(processEnvironment()))
+  const paths = catacombHomePaths(resolveCatacombHome(processEnvironment()))
   const state = await readDaemonState(paths.daemonState)
   if (state === null || !isAlive(state.pid)) {
-    output.error('aang open: aang is not running; start it with `aang start`')
+    output.error('catacomb open: catacomb is not running; start it with `catacomb start`')
     return 1
   }
   const code = newSecret()
@@ -21,12 +21,12 @@ export const openLink = async (output: Output): Promise<number> => {
 }
 
 export const rotateToken = async (output: Output): Promise<number> => {
-  const paths = aangHomePaths(resolveAangHome(processEnvironment()))
+  const paths = catacombHomePaths(resolveCatacombHome(processEnvironment()))
   await preparePrivateHome(paths)
   await rm(paths.authCodes, { recursive: true, force: true })
   const token = newSecret()
   await writeUiToken(paths, token)
   output.out(token)
-  output.error('aang token rotate: the UI token is replaced; sign in again with `aang open`')
+  output.error('catacomb token rotate: the UI token is replaced; sign in again with `catacomb open`')
   return 0
 }

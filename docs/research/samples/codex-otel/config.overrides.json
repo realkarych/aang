@@ -8,11 +8,11 @@
   "-c", "otel.trace_exporter.otlp-http.protocol=\"json\"",
   "-c", "otel.metrics_exporter.otlp-http.endpoint=\"http://127.0.0.1:4318/v1/metrics\"",
   "-c", "otel.metrics_exporter.otlp-http.protocol=\"json\"",
-  "-c", "otel.environment=\"aang-spike-cli\""
+  "-c", "otel.environment=\"catacomb-spike-cli\""
  ],
  "sdk_CodexOptions_config": {
   "otel": {
-   "environment": "aang-spike-sdk",
+   "environment": "catacomb-spike-sdk",
    "exporter": {"otlp-http": {"endpoint": "http://127.0.0.1:4318/v1/logs", "protocol": "json"}},
    "trace_exporter": {"otlp-http": {"endpoint": "http://127.0.0.1:4318/v1/traces", "protocol": "json"}},
    "metrics_exporter": {"otlp-http": {"endpoint": "http://127.0.0.1:4318/v1/metrics", "protocol": "json"}}

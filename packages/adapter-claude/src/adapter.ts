@@ -1,4 +1,4 @@
-import { type Adapter, type CollectedRecord, NormalizerVersion, type ParseResult } from '@aang/contract'
+import { type Adapter, type CollectedRecord, NormalizerVersion, type ParseResult } from '@catacomb/contract'
 import { unknown } from './facts.js'
 import { parseHook } from './hook.js'
 import { rawKey, streamKey } from './keys.js'

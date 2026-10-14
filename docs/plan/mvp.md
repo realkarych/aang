@@ -37,12 +37,12 @@ Status: accepted by the owner 2026-10-01. Basis: `rfc.md` (§4 sets the boundari
 | E. Intake and observation objects | `engine` | 0004–0006, 0008, 0009 | S.7, B.1, B.3 | 1 |
 | M. Model and view | `engine` | 0005–0008 | S.3b, S.4a, S.6c | 1 |
 | F. Observer | `observer`, `testkit/fake-cli` | 0002, 0007, 0010, 0013 | S.4a, S.6c | 1 |
-| G. Daemon, API, CLI | `daemon`, `cli`, `aang` | 0003–0005, 0010, 0011, 0013 | S.5, S.6a | 1 |
+| G. Daemon, API, CLI | `daemon`, `cli`, `catacomb` | 0003–0005, 0010, 0011, 0013 | S.5, S.6a | 1 |
 | T. Test infrastructure | `testkit` | 0004, 0010, 0012 | S.2a | 1 |
 | H. Web interface | `web` | 0008, 0011, 0012 | G.4, G.5, T.4, R.4 | 2 |
 | K. Chat | `observer`, `engine`, `daemon` | 0007, 0008 | M.6, M.7, F.9, G.6 | 2 |
 | U. Observer usage and report | `engine`, `daemon`, `cli` | 0009 | E.8, F.9, G.4 | 2 |
-| P. Packaging | root, `aang`, `daemon` | 0011, 0013 | H, K, U | 3 |
+| P. Packaging | root, `catacomb`, `daemon` | 0011, 0013 | H, K, U | 3 |
 | Q. Verification and measurements | — | 0010, 0013, RFC §9 | P | 3 |
 
 ```mermaid
@@ -136,7 +136,7 @@ In parallel with it, the following must be ready in time:
     - pnpm workspace, strict `tsconfig` with project references;
     - stubs of the 12 packages from ADR-0011;
     - Vitest workspace, Playwright config, `c8` coverage merging;
-    - Go toolchain for `aang-hook`;
+    - Go toolchain for `catacomb-hook`;
     - CI on GitHub Actions over a macOS, Linux and Windows matrix: install, types, tests, the E2E job.
   - Acceptance: `pnpm install && pnpm build && pnpm test` passes on a clean clone; CI green on three OSes.
 - **S.1b Repository rules**.
@@ -301,7 +301,7 @@ Samples are in `docs/research/samples/`: `claude-code-hooks/`, `claude-code-tran
   - Acceptance: `session-cdfb3544-fork-full.jsonl` produces facts from which the boundary of the copied block is visible.
   - Tests: integration.
 - **B.6 Usage, `cost-state`, registry**.
-  - Scope: usage facts (`message.id`, tokens, `stop_reason`, `<synthetic>`); the `cost-state` total; registry snapshots with the `entrypoint: aang-observer` mark.
+  - Scope: usage facts (`message.id`, tokens, `stop_reason`, `<synthetic>`); the `cost-state` total; registry snapshots with the `entrypoint: catacomb-observer` mark.
   - Acceptance: `rec-cost-state-all.jsonl` and the main stream records produce the expected keys and values.
   - Tests: integration.
 - **B.7 Refinement from the reference sessions** (R.4). Elicitation, teammates and workflows are split out into B.8: R.2 has no scenarios for them, R.4 has no recordings. The split was accepted by the owner 2026-10-04 (#124).
@@ -349,7 +349,7 @@ Samples are in `docs/research/samples/`: `codex-cli/`, `codex-sdk/`, `codex-otel
     - `codex.tool_decision` with `source` split (`User`, `Config`, `AutomatedReviewer`);
     - the `originator × source` table;
     - marking the observer's sessions.
-  - Acceptance: all OTel variants are recognized; the `session_meta.*` samples (exec, tui, guardian, subagent, `aang-observer`) are classified per ADR-0004.
+  - Acceptance: all OTel variants are recognized; the `session_meta.*` samples (exec, tui, guardian, subagent, `catacomb-observer`) are classified per ADR-0004.
   - Tests: integration.
 - **C.6 Plan and refinement from the reference sessions** (R.4).
   - Scope: `thread_goal_updated` and rollout plan records; `McpToolCall`; the thread total without `token_usage_record`.
@@ -357,7 +357,7 @@ Samples are in `docs/research/samples/`: `codex-cli/`, `codex-sdk/`, `codex-otel
 
 ### D. Hook and installation (`hook`)
 
-- **D.1 `aang-hook`** (S.2a; ADR-0013).
+- **D.1 `catacomb-hook`** (S.2a; ADR-0013).
   - Scope: a Go executable per the ADR-0004 contract, built for macOS, Linux and Windows (amd64, arm64):
     - the spool path from a command argument;
     - a header with the registration tag and NUL separators;
@@ -375,24 +375,24 @@ Samples are in `docs/research/samples/`: `codex-cli/`, `codex-sdk/`, `codex-otel
   - Tests: integration on three OSes; coverage via `go build -cover`.
 - **D.2 Claude plugin**.
   - Scope:
-    - generating `<AANG_HOME>/claude-plugin`: all events except `Worktree*`, `MessageDisplay` and `PreModelSwitch` (ADR-0004); `timeout: 2`; exec form — `command` with the absolute binary path, `args` with the runtime, the `plugin` tag and the absolute spool path from the current `AANG_HOME`;
-    - a copy of `aang-hook` (`aang-hook.exe` on Windows) in `<AANG_HOME>/bin` unchanged; in-place update, moving the busy file aside on Windows (ADR-0013);
+    - generating `<CATACOMB_HOME>/claude-plugin`: all events except `Worktree*`, `MessageDisplay` and `PreModelSwitch` (ADR-0004); `timeout: 2`; exec form — `command` with the absolute binary path, `args` with the runtime, the `plugin` tag and the absolute spool path from the current `CATACOMB_HOME`;
+    - a copy of `catacomb-hook` (`catacomb-hook.exe` on Windows) in `<CATACOMB_HOME>/bin` unchanged; in-place update, moving the busy file aside on Windows (ADR-0013);
     - the local marketplace and `claude plugin`;
     - `uninstall`;
     - checking that the plugin is enabled.
   - Acceptance:
     - reinstallation is idempotent; the arguments of the `claude` calls match expectations; `uninstall` removes the plugin;
-    - an overridden `AANG_HOME` and a path with spaces and non-ASCII characters reach `command` and `args` undistorted;
+    - an overridden `CATACOMB_HOME` and a path with spaces and non-ASCII characters reach `command` and `args` undistorted;
     - updating the binary during continuous hook calls on three OSes: the command line in the plugin does not change, every launched call runs the old or the new binary and finishes with exit 0. On Windows a call in the window between the two renames may fail to start; that is a lost event, there is no exit code 2.
   - Tests: integration in a temporary HOME with a fake `claude`.
 - **D.3 Codex hooks**.
-  - Scope: an entry with the `user` tag and the absolute spool path only at the end of the arrays; the binary path in the command line is escaped for the runtime's shell: `sh` on macOS and Linux, PowerShell on Windows — `& '<path>' 'codex' 'user' '<spool>'` with single quotes doubled (D.8); stale aang entries are neutralized in place (`true`, on Windows `exit 0`); a backup copy; `uninstall` neutralizes aang entries.
-  - Windows (owner decision 2026-10-06, ADR-0013, decision 7): `aang install` without flags does not install Codex hooks, and Codex sessions run in "files only" mode; `aang install --codex` installs them explicitly. `aang install` and `aang status` warn about a slowdown of 0.25–0.4 s per event.
+  - Scope: an entry with the `user` tag and the absolute spool path only at the end of the arrays; the binary path in the command line is escaped for the runtime's shell: `sh` on macOS and Linux, PowerShell on Windows — `& '<path>' 'codex' 'user' '<spool>'` with single quotes doubled (D.8); stale catacomb entries are neutralized in place (`true`, on Windows `exit 0`); a backup copy; `uninstall` neutralizes catacomb entries.
+  - Windows (owner decision 2026-10-06, ADR-0013, decision 7): `catacomb install` without flags does not install Codex hooks, and Codex sessions run in "files only" mode; `catacomb install --codex` installs them explicitly. `catacomb install` and `catacomb status` warn about a slowdown of 0.25–0.4 s per event.
   - Trust check on Windows: `codex app-server` is launched through the D.9 launcher in `stream` mode. The mode is not part of decision 7; it was accepted by the owner 2026-10-07 (ADR-0013, technical decision 4).
   - Acceptance:
-    - the positions and contents of other parties' entries do not change — verified on `codex-cli/hooks/hooks.json.logger-config.json` and on a synthetic file with a stale `aang hook` entry;
-    - reinstallation with an updated binary does not change the aang command line in `hooks.json`;
-    - a path with spaces and non-ASCII characters in `AANG_HOME` produces a working command line.
+    - the positions and contents of other parties' entries do not change — verified on `codex-cli/hooks/hooks.json.logger-config.json` and on a synthetic file with a stale `catacomb hook` entry;
+    - reinstallation with an updated binary does not change the catacomb command line in `hooks.json`;
+    - a path with spaces and non-ASCII characters in `CATACOMB_HOME` produces a working command line.
   - Tests: integration.
 - **D.4 Trust and installation state**.
   - Scope:
@@ -405,9 +405,9 @@ Samples are in `docs/research/samples/`: `codex-cli/`, `codex-sdk/`, `codex-otel
   - Tests: integration with a fake `app-server` that responds per the `desktop/exp-codex-desktop-appserver-hooks-list.json` excerpt and per a constructed `trusted` variant.
 - **D.5 Plugin delivery on live CLIs** (locally, script and report).
   - Scope:
-    - the marketplace and the fallback directory `~/.claude/skills/aang/.claude-plugin/` in the CLI and in the SDK with default `settingSources`;
+    - the marketplace and the fallback directory `~/.claude/skills/catacomb/.claude-plugin/` in the CLI and in the SDK with default `settingSources`;
     - the plugin exec form on the installed Claude version;
-    - runtime-side latency of the installed hook on macOS and Linux for both CLIs: a benchmark with the same launcher and the increase in time of a series of events with aang hooks relative to a series without them (ADR-0013);
+    - runtime-side latency of the installed hook on macOS and Linux for both CLIs: a benchmark with the same launcher and the increase in time of a series of events with catacomb hooks relative to a series without them (ADR-0013);
     - Codex behavior on a hook timeout and a non-zero exit code.
   - Acceptance: the report confirms decision 1 of ADR-0004 or switches delivery to the fallback method; a budget overrun or blocking behavior is escalated to the owner.
   - Result: `docs/research/d5-plugin-delivery-live.md`. Tool — `tools/runtime-check`, the `delivery` suite.
@@ -419,26 +419,26 @@ Samples are in `docs/research/samples/`: `codex-cli/`, `codex-sdk/`, `codex-otel
   - Scope:
     - the spike checklists: section 11 (both Desktops) — on macOS; section 6, items a–h (interactive Claude TUI) — on macOS and on Windows. Done by the owner. Desktop on Windows is not verified in the MVP (ADR-0013, decision 3);
     - separate instructions for Windows with native commands (PowerShell, `%TEMP%` instead of `/tmp`, without Bash and `touch`); TUI — in the native Windows console; a run in WSL does not close the item;
-    - the recorder is `aang-hook` into a temporary spool; the preparation script creates a valid lease in it, without which the hook writes nothing.
+    - the recorder is `catacomb-hook` into a temporary spool; the preparation script creates a valid lease in it, without which the hook writes nothing.
   - Acceptance: results in `docs/research/`; Desktop limitations are escalated to the owner (RFC §4) before stage 2.
   - Instructions: `docs/research/d7-owner-checklist.md` (macOS) and `docs/research/d7-owner-checklist-windows.md`. The preparation, collection and rollback script is `tools/owner-checklist`.
 - **D.8 Runtime verification on Windows** (GitHub Actions, report; ADR-0013).
   - Method (ADR-0013, decision 4): real `claude` and `codex` are installed on a `windows-latest` runner and pointed at local fake model endpoints — Claude via `ANTHROPIC_BASE_URL`, Codex via a Responses API stub. No secrets are needed. Storage of real OAuth authorization on Windows is marked unverified.
   - Scope:
-    - how Claude Code and Codex execute hook commands on Windows and which command line `aang-hook.exe` needs; Claude exec form; a profile with spaces and non-ASCII characters in the path;
-    - runtime-side latency of the installed hook for both CLIs: a benchmark with the same launcher and the increase in time of a series of events with aang hooks relative to a series without them (ADR-0013);
+    - how Claude Code and Codex execute hook commands on Windows and which command line `catacomb-hook.exe` needs; Claude exec form; a profile with spaces and non-ASCII characters in the path;
+    - runtime-side latency of the installed hook for both CLIs: a benchmark with the same launcher and the increase in time of a series of events with catacomb hooks relative to a series without them (ADR-0013);
     - Codex behavior on a hook timeout and a non-zero exit code;
     - transcript and rollout paths and formats, project directory encoding, line endings;
     - fs watch and file locks during reading;
     - CLI executables and `.cmd` shims, observer admission;
     - the CLI process tree in a Job Object per the D.9 launcher scheme: all processes are in the job and terminate together with it; processes the CLI spawns outside its tree (via OS services);
-    - the strict `aang-hook` benchmark on Linux and Windows (D.1).
+    - the strict `catacomb-hook` benchmark on Linux and Windows (D.1).
 
     Desktop data on Windows is not verified (ADR-0013, decision 3).
   - Acceptance: a report in `docs/research/`. Until the report, hook installation (D.2, D.3) and launching the observer (F.2, F.5) on Windows are not enabled; discrepancies found are added to ADR-0013. A hook budget overrun, blocking runtime behavior and CLI processes outside the launcher's job are escalated to the owner. Hook installation on Windows was enabled by the owner's decisions of 2026-10-06 (decisions 15 and 16 below).
   - Result: `docs/research/windows-runtimes.md`. Tool — `tools/runtime-check`, workflow — `Runtime check`.
 - **D.9 Windows launcher** (D.1; ADR-0013).
-  - Scope: an `aang-hook launch` mode of the same binary:
+  - Scope: an `catacomb-hook launch` mode of the same binary:
     - a Job Object with kill-on-close and without the right to break away from the job;
     - launching the CLI suspended, adding it to the job, resuming;
     - the first n bytes of stdin are the CLI input; closing stdin after them is the stop command;
@@ -705,7 +705,7 @@ Tests feed raw records through the real adapters (ADR-0012).
   - Scope:
     - argv and environment per ADR-0007 with a per-OS list of variables (ADR-0013), `crossSessionInbound`;
     - on Windows — finding the real executable instead of the `.cmd` shim;
-    - working directory `os.tmpdir()/aang-observer/empty` with an ancestor check;
+    - working directory `os.tmpdir()/catacomb-observer/empty` with an ancestor check;
     - `spawn` without a shell, parsing `stream-json`, checking `init`, the success flag;
     - a tree termination operation shared by all CLI launches (ADR-0013): a process group with an emptiness check on macOS and Linux, the D.9 launcher on Windows. On the root's exit, a timeout or a cancellation, the tree is terminated entirely; the slot is released only on a confirmed stop, otherwise `unavailable: process_stuck`;
     - usage.
@@ -733,7 +733,7 @@ Tests feed raw records through the real adapters (ADR-0012).
   - Scope:
     - a Responses API stub and a temporary `CODEX_HOME`, the ADR-0007 conditions (`body.tools`, `input[additional_tools].tools`, probe calls);
     - Claude admission on a synthetic input: `init`, absence of a transcript, the registry marker, tools not being executed;
-    - a control hook (not `aang-hook`) with positive and negative controls for both CLIs;
+    - a control hook (not `catacomb-hook`) with positive and negative controls for both CLIs;
     - on macOS and Linux — checking every admission call with process table snapshots: no descendant has left the process group; a snapshot error is an admission failure. This is a safety net, not process accounting (ADR-0013, decision 3 on technical questions; amended by the owner decision of 2026-10-04 on F.3, ADR-0007, decision 10);
     - local admission status;
     - a ban on working calls before admission.
@@ -808,12 +808,12 @@ Tests feed raw records through the real adapters (ADR-0012).
   - Scope: Codex on a stub in CI with the CLI installed; Claude locally with a tag; writing the isolation column into the matrix.
   - Acceptance: the result for the current versions is written to `support/matrix.json`.
 
-### G. Daemon, API, CLI (`daemon`, `cli`, `aang`)
+### G. Daemon, API, CLI (`daemon`, `cli`, `catacomb`)
 
 - **G.1 Lifecycle** (S.5, S.6a).
   - Scope:
-    - config; the `AANG_HOME` layout with 0700 permissions on macOS and Linux and a profile ACL on Windows; the lock from `store`;
-    - `aang start [--foreground]` with a detached process (`windowsHide` on Windows), `status`; a pid file;
+    - config; the `CATACOMB_HOME` layout with 0700 permissions on macOS and Linux and a profile ACL on Windows; the lock from `store`;
+    - `catacomb start [--foreground]` with a detached process (`windowsHide` on Windows), `status`; a pid file;
     - `stop`: first the intentional stop marker `spool/stopped`, then `POST /api/admin/shutdown` — the daemon deletes the lease and exits. If the API is unavailable, `stop` deletes the lease itself and reports from the pid file whether the process is alive; a live process means the stop is not confirmed (ADR-0013);
     - `start` removes the marker after acquiring the lock; with the marker present the daemon neither creates nor renews the lease, deletes one created in a race and exits normally;
     - spool lease renewed every hour; a volume and marker check every minute, deleting the lease when the threshold is reached.
@@ -829,7 +829,7 @@ Tests feed raw records through the real adapters (ADR-0012).
   - Scope:
     - token, bearer;
     - one-time link → cookie `HttpOnly; SameSite=Strict`;
-    - `aang open`, `token rotate`;
+    - `catacomb open`, `token rotate`;
     - address `127.0.0.1` and `--bind`;
     - serving the `web` static files from the same origin;
     - CSRF protection: a mutating cookie request is accepted only from the daemon's page and with JSON (ADR-0003, decision 1).
@@ -893,8 +893,8 @@ Tests feed raw records through the real adapters (ADR-0012).
 
 - **T.1 Temporary HOME and daemon launch** (S.2a, G.1).
   - Scope:
-    - a builder for `.claude`, `.codex`, `.aang` and the config;
-    - the temporary profile environment: `HOME` and `USERPROFILE` (on Windows `os.homedir()` takes it), explicit `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `AANG_HOME`;
+    - a builder for `.claude`, `.codex`, `.catacomb` and the config;
+    - the temporary profile environment: `HOME` and `USERPROFILE` (on Windows `os.homedir()` takes it), explicit `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `CATACOMB_HOME`;
     - launching the built daemon, waiting for readiness, stopping via the shutdown API.
   - Acceptance: parallel tests are isolated.
   - Tests: integration.
@@ -903,7 +903,7 @@ Tests feed raw records through the real adapters (ADR-0012).
   - Acceptance: a played file matches the source byte for byte; intervals are respected.
   - Tests: integration.
 - **T.3 Hooks and OTel player** (D.1).
-  - Scope: calling the real `aang-hook` with a payload, a tag and an environment, including double registration; without a running daemon — a temporary spool with a valid lease; OTLP requests.
+  - Scope: calling the real `catacomb-hook` with a payload, a tag and an environment, including double registration; without a running daemon — a temporary spool with a valid lease; OTLP requests.
   - Acceptance: hook events reach the spool in the original order; double registration produces two files with different tags.
   - Tests: integration.
 - **T.4 Playwright fixtures and coverage** (G.2–G.5, T.1–T.3, F.1, F.4).
@@ -969,7 +969,7 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
 - **H.9 Usage** (U.1).
   - Scope: three journals; attributed and unattributed parts; "total per Claude Code data" with a note about the exit; lower bounds.
   - Acceptance: E2E 11.
-  - Superseded by ADR-0015: the usage page is removed from the UI; `aang usage` stays (V.2).
+  - Superseded by ADR-0015: the usage page is removed from the UI; `catacomb usage` stays (V.2).
 
 **End-to-end E2E**
 
@@ -996,21 +996,21 @@ The E2E tests of every PR run on top of the real daemon, the player and a fake C
 ### U. Observer usage and report
 
 - **U.1 Observer and chat journals, report** (E.8, F.9, G.4).
-  - Scope: usage and latency of calls; usage per active hour; the API and `aang usage`.
+  - Scope: usage and latency of calls; usage per active hour; the API and `catacomb usage`.
   - Acceptance: the three journals are not mixed; an active hour is counted by solver activity.
   - Tests: integration.
-  - The usage UI is superseded by ADR-0015: the journals, the API and `aang usage` stay (V.2).
+  - The usage UI is superseded by ADR-0015: the journals, the API and `catacomb usage` stay (V.2).
 
 ## Stage 3. Delivery and verification
 
 ### P. Packaging
 
 - **P.1 npm package**.
-  - Scope: an `esbuild` build, the `web` static files, the `aang` command, `engines.node`; the `aang-hook` binaries as optional packages `aang-hook-<os>-<arch>`.
-  - Acceptance: `npm pack` → installation into a temporary prefix → `aang start`, `status`, `open` and `install` in a temporary HOME with fake CLIs on three OSes.
+  - Scope: an `esbuild` build, the `web` static files, the `catacomb` command, `engines.node`; the `catacomb-hook` binaries as optional packages `catacomb-hook-<os>-<arch>`.
+  - Acceptance: `npm pack` → installation into a temporary prefix → `catacomb start`, `status`, `open` and `install` in a temporary HOME with fake CLIs on three OSes.
   - Tests: smoke in CI on macOS, Linux and Windows.
 - **P.2 Docker image**.
-  - Scope: `node:26-slim` with aang as a base layer for the solver image.
+  - Scope: `node:26-slim` with catacomb as a base layer for the solver image.
   - Acceptance: in a derived image with fake CLIs, the player writes a sample and the API returns the run.
   - Tests: smoke in CI.
 - **P.3 Installation documentation** (documentation).
@@ -1090,7 +1090,7 @@ The web UI is reduced to a chat list, a full-screen stage map and a collapsible 
 | Links, fork, three axes, grounds, criterion confirmation on the established version (RFC §6) | 1 (map), 8; criterion confirmation without E2E: `engine/test/criteria.test.ts`, `engine/test/check-contracts.test.ts`, `engine/test/results.test.ts` | E.4–E.7c, M.2–M.5c |
 | Saved artifact versions and access to sources (RFC §6, §7) | 18 | A.8, E.7b, F.7c, K.1 |
 | An explicit input request without an LLM, LLM refusal, restart without duplicates (RFC §8) | 6, 7; `attention-badges.test.ts` | A, E.1, E.6, F.9, V.4 |
-| Separate usage (RFC §8) | — (`aang usage`) | E.8, U |
+| Separate usage (RFC §8) | — (`catacomb usage`) | E.8, U |
 | Secured access (ADR-0003) | 13 | G.2, H.1 |
 | Gaps are visible: hooks, source, version (RFC §7) | 9; health dot scenarios in `shell.test.ts` | A.6, E.3, G.7, R.5a, V.5 |
 | Desktop and SDK surfaces (RFC §4) | variants 1 | R.2, R.2d, R.4, R.4b, H.12, Q.1 |
@@ -1109,14 +1109,14 @@ Accepted by the owner 2026-10-01:
 4. The manual Desktop and TUI checklists (D.7) are done by the owner in stage 1, on macOS and Windows.
 5. The observer on a Claude version is enabled with a mark after automatic admission (ADR-0007, decision 7), so live use does not wait for F.10 for each new version.
 6. The MVP supports native Windows (ADR-0013); the D.8 check is done in stage 1.
-7. The `aang-hook` hook handler is a native Go binary for all OSes, an exception to ADR-0001 (ADR-0013).
+7. The `catacomb-hook` hook handler is a native Go binary for all OSes, an exception to ADR-0001 (ADR-0013).
 
 Accepted by the owner 2026-10-02:
 
 8. D.8 runs in GitHub Actions on `windows-latest`: real `claude` and `codex` on the runner, a fake model endpoint (Claude — `ANTHROPIC_BASE_URL`, Codex — a Responses API stub), a report in `docs/research/` based on the CI results. Storage of real OAuth authorization on Windows is marked unverified (ADR-0013, decision 4).
 9. Claude Desktop and Codex Desktop on Windows are not verified in the MVP; the support matrix has an explicit "not verified" mark. This narrows RFC §4 (ADR-0013, decision 3).
 10. A spool file with an unrecognized header stays in the spool with a gap and is discarded after the `spool.maxAgeDays` period (ADR-0004, decision 11).
-11. The strict `aang-hook` benchmark on native Linux and Windows is in D.8; on Windows the target is taken from CI (decision on PR #11, ADR-0013, decision 5).
+11. The strict `catacomb-hook` benchmark on native Linux and Windows is in D.8; on Windows the target is taken from CI (decision on PR #11, ADR-0013, decision 5).
 
 Accepted by the owner 2026-10-04 based on the F.3 report (`docs/research/f3-observer-measurement.md`, section 2):
 
@@ -1126,8 +1126,8 @@ Accepted by the owner 2026-10-04 based on the F.3 report (`docs/research/f3-obse
 
 Accepted by the owner 2026-10-06 based on the D.8 report (`docs/research/windows-runtimes.md`, section 2):
 
-15. The `aang-hook.exe` budget for Claude on Windows is p95 up to 25 ms per event; on macOS and Linux it is still 10 ms (ADR-0013, decision 6).
-16. Codex hooks on Windows are not installed by default: Codex sessions run in "files only" mode (ADR-0004), approval waits are not visible. The explicit flag `aang install --codex` enables hooks; `aang install` and `aang status` warn about a slowdown of 0.25–0.4 s per event (ADR-0013, decision 7).
+15. The `catacomb-hook.exe` budget for Claude on Windows is p95 up to 25 ms per event; on macOS and Linux it is still 10 ms (ADR-0013, decision 6).
+16. Codex hooks on Windows are not installed by default: Codex sessions run in "files only" mode (ADR-0004), approval waits are not visible. The explicit flag `catacomb install --codex` enables hooks; `catacomb install` and `catacomb status` warn about a slowdown of 0.25–0.4 s per event (ADR-0013, decision 7).
 
 Accepted by the owner 2026-10-07 based on the Q.4 report (`docs/research/q4-live-resilience.md`, section 2):
 

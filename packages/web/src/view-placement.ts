@@ -1,4 +1,4 @@
-import type { RunView, ViewElement, ViewPlacement } from '@aang/contract'
+import type { RunView, ViewElement, ViewPlacement } from '@catacomb/contract'
 
 export type PlacementOf = (element: ViewElement) => ViewPlacement | null
 

@@ -7,8 +7,8 @@ import type {
   RunId,
   TokenUsage,
   UsageTotals,
-} from '@aang/contract'
-import type { ObserverCallReader, StoredChatCall } from '@aang/store'
+} from '@catacomb/contract'
+import type { ObserverCallReader, StoredChatCall } from '@catacomb/store'
 import { type UsagePeriod, within } from './period.js'
 import { addCosts, addTokens, noTokens } from './totals.js'
 

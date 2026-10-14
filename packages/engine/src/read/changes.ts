@@ -14,9 +14,9 @@ import type {
   Stage,
   StageId,
   ViewPosition,
-} from '@aang/contract'
-import { canonicalJson, objectId } from '@aang/contract/ids'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { canonicalJson, objectId } from '@catacomb/contract/ids'
+import type { Store } from '@catacomb/store'
 import { compareText, grouped } from '../observations/evidence.js'
 import { InvalidPositionError, partsOf, planKinds, precedesPrune, type ReadContext, runOf, stagesOfLink } from './context.js'
 

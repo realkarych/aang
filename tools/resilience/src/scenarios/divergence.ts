@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import type { Action } from '@aang/contract'
+import type { Action } from '@catacomb/contract'
 import { findings } from '../findings.js'
 import type { Scenario } from '../scenario.js'
 import {

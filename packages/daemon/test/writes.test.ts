@@ -8,9 +8,9 @@ import {
   type RunId,
   type RunSnapshot,
   type SseEvent,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import { applyFeed } from '@aang/testkit'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import { applyFeed } from '@catacomb/testkit'
 import { describe, type TestContext, test } from 'vitest'
 import type { z } from 'zod'
 import { bearer, type Home, type RunningDaemon, startDaemon } from './daemon.js'

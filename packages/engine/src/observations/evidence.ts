@@ -1,6 +1,6 @@
-import type { AgentKey, Fact, FactKind, FactOf, RawRecord, SessionKey } from '@aang/contract'
-import { canonicalJson } from '@aang/contract/ids'
-import type { FactReader, RawRecordReader } from '@aang/store'
+import type { AgentKey, Fact, FactKind, FactOf, RawRecord, SessionKey } from '@catacomb/contract'
+import { canonicalJson } from '@catacomb/contract/ids'
+import type { FactReader, RawRecordReader } from '@catacomb/store'
 
 export interface ObservationSource {
   readonly facts: FactReader

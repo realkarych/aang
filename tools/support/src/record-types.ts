@@ -1,4 +1,4 @@
-import type { RawRecord } from '@aang/contract'
+import type { RawRecord } from '@catacomb/contract'
 
 const textOf = (value: unknown): string | null => (typeof value === 'string' ? value : null)
 

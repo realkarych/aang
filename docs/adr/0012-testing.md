@@ -6,7 +6,7 @@ Status: accepted by the owner 2026-10-01.
 
 ## Context
 
-AGENTS.md sets the testing rules: unit tests only by exception, 100% of business logic and scenarios through E2E, functional and integration tests, mocks only at external boundaries. ADR-0001 chose Playwright and Vitest with real SQLite and real processes. The external boundaries of aang are the Claude Code and Codex runtimes (their files, hooks, OTel) and the CLIs through which the observer and the chat work.
+AGENTS.md sets the testing rules: unit tests only by exception, 100% of business logic and scenarios through E2E, functional and integration tests, mocks only at external boundaries. ADR-0001 chose Playwright and Vitest with real SQLite and real processes. The external boundaries of catacomb are the Claude Code and Codex runtimes (their files, hooks, OTel) and the CLIs through which the observer and the chat work.
 
 ## Decision
 
@@ -15,7 +15,7 @@ AGENTS.md sets the testing rules: unit tests only by exception, 100% of business
 - **Runtimes.** Instead of live CLIs, tests use the `testkit/player` player. It replays reference sessions (ADR-0010) and the `docs/research/samples` samples in a temporary HOME the way the runtime does:
   - appends transcript and rollout lines with the original (scalable) intervals;
   - writes and updates JSON files (meta, registry, teams);
-  - calls the real `aang-hook` with the event payload in stdin;
+  - calls the real `catacomb-hook` with the event payload in stdin;
   - sends recorded OTLP logs to the receiver;
   - deletes, moves and archives files.
 - **LLM.** Fake `claude` and `codex` executables (`testkit/fake-cli`) are substituted via the CLI paths in the daemon config. They:
@@ -33,7 +33,7 @@ AGENTS.md sets the testing rules: unit tests only by exception, 100% of business
 | Level | Tool | What it covers |
 | --- | --- | --- |
 | E2E | Playwright on top of the built daemon, the player and the fake CLI | user scenarios of RFC §2, §5, §8 through the UI and API |
-| Integration | Vitest | `aang-hook` (the real binary on each OS, spool lease); the collector on real files (appending, incomplete lines, inode change, move, archive, loss); double hook registration and repeated identical requests; `prune` followed by a file move and a restart; adapters on samples; API and SSE over real HTTP; installation into a temporary HOME; observer launch and version admission with the fake CLI |
+| Integration | Vitest | `catacomb-hook` (the real binary on each OS, spool lease); the collector on real files (appending, incomplete lines, inode change, move, archive, loss); double hook registration and repeated identical requests; `prune` followed by a file move and a restart; adapters on samples; API and SSE over real HTTP; installation into a temporary HOME; observer launch and version admission with the fake CLI |
 | Functional | Vitest | `engine` through the public API: run linking, rules, three axes, validation of observer operations, view rules, the "since last view" diff, usage accounting |
 | Contract | Vitest | strict mode of the observer and chat schemas; reference sessions by version — in CI; observer isolation: Codex on the stub — in CI, Claude — locally (ADR-0010) |
 
@@ -70,7 +70,7 @@ A unit test is allowed only for fragments that cannot be adequately checked at a
   - V8 coverage of the daemon and the CLI is collected during integration and E2E runs and merged via `c8`.
   - `web` coverage — via Chromium JS coverage in Playwright.
   - The goal is 100% of lines of all TS packages except `testkit`; exclusions are listed explicitly in the coverage config.
-  - `aang-hook` coverage is collected during integration tests via `go build -cover`.
+  - `catacomb-hook` coverage is collected during integration tests via `go build -cover`.
 - **Scenario matrix.** The "RFC scenario → E2E test" mapping is maintained in `docs/plan/mvp.md`.
 - **CI on every PR** — GitHub Actions on a macOS, Linux and Windows matrix (ADR-0013):
   - a ban on comments in all repository languages (TS, Go, SQL, YAML, CSS); exceptions are the shebang and syntactically significant directives;
@@ -89,4 +89,4 @@ A unit test is allowed only for fragments that cannot be adequately checked at a
 
 Accepted by the owner 2026-10-01:
 
-1. The goal is 100% of lines of all TS packages, including `web`, and of the `aang-hook` handler through E2E, integration and functional tests; exclusions are listed explicitly in the coverage config and justified in the PR.
+1. The goal is 100% of lines of all TS packages, including `web`, and of the `catacomb-hook` handler through E2E, integration and functional tests; exclusions are listed explicitly in the coverage config and justified in the PR.

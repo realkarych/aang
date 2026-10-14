@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { EpochNs } from '@aang/contract'
+import type { EpochNs } from '@catacomb/contract'
 import { decodeJson, encodeJson } from './codec.js'
 import { prepareStatement, upsertInto, type WriteContext } from './context.js'
 

@@ -1,7 +1,7 @@
 import { chmodSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { ChangeSeq } from '@aang/contract'
+import { ChangeSeq } from '@catacomb/contract'
 import { type ArtifactReader, type ArtifactWriter, createArtifacts } from './artifacts.js'
 import { type ChangeFeed, createChangeFeed } from './changes.js'
 import { type ChatReader, type ChatWriter, createChat } from './chat.js'
@@ -192,7 +192,7 @@ export const openStore = ({ home }: StoreOptions): Store => {
   const lock = acquireWriterLock(home)
   let database: DatabaseSync | undefined
   try {
-    const databaseFile = join(home, 'aang.db')
+    const databaseFile = join(home, 'catacomb.db')
     database = new DatabaseSync(databaseFile)
     const schemaVersion = prepareSchema(database, databaseFile)
     return createStore(database, lock, { path: databaseFile, schemaVersion })

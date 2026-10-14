@@ -9,7 +9,7 @@ RFC §7 requires a daemon with an event collector, a journal, an LLM observer, l
 ## Decision
 
 - Language — TypeScript (strict) on Node 26 for the daemon, CLI and UI; a pnpm monorepo.
-  - Exception — the hook handler `aang-hook`: a native Go binary for all OSes (ADR-0013, accepted by the owner 2026-10-01). The exception is limited to this component.
+  - Exception — the hook handler `catacomb-hook`: a native Go binary for all OSes (ADR-0013, accepted by the owner 2026-10-01). The exception is limited to this component.
 - Storage — SQLite via the built-in `node:sqlite`.
 - Update stream to the UI — SSE; UI commands — HTTP JSON.
 - UI — React, Vite, React Flow (xyflow), ELK auto-layout.

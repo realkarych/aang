@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { type ChangeSeq, Gap, type GapId, type GapKind, type RunId, type SessionId } from '@aang/contract'
-import { canonicalJson, objectId } from '@aang/contract/ids'
+import { type ChangeSeq, Gap, type GapId, type GapKind, type RunId, type SessionId } from '@catacomb/contract'
+import { canonicalJson, objectId } from '@catacomb/contract/ids'
 import { decodeJson } from './codec.js'
 import { prepareStatement, upsertInto, type WriteContext } from './context.js'
 

@@ -8,8 +8,8 @@ import type {
   UsageRate,
   UsageReport,
   UsageTotals,
-} from '@aang/contract'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import type { Store } from '@catacomb/store'
 import { compareText } from '../observations/evidence.js'
 import { observerCallSpans } from '../read/observer-calls.js'
 import { callsUsage, chatCalls, observerUsage, probeCalls, type SpentCall } from './calls.js'

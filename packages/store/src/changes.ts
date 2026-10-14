@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { ChangeSeq, type Fact, type Gap, type RawRecord } from '@aang/contract'
+import { ChangeSeq, type Fact, type Gap, type RawRecord } from '@catacomb/contract'
 import { type ArtifactObject, artifactKinds, isArtifactKind, toArtifactObject } from './artifacts.js'
 import { prepareStatement } from './context.js'
 import { factColumns, type FactRow, toFact } from './facts.js'

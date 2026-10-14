@@ -1,6 +1,6 @@
-import type { CostStatePayload, RawSeq, RunId, TokenUsage, UsageKey } from '@aang/contract'
-import { canonicalJson, objectId } from '@aang/contract/ids'
-import type { ObservationDraft, Transaction } from '@aang/store'
+import type { CostStatePayload, RawSeq, RunId, TokenUsage, UsageKey } from '@catacomb/contract'
+import { canonicalJson, objectId } from '@catacomb/contract/ids'
+import type { ObservationDraft, Transaction } from '@catacomb/store'
 import type { AgentIdentity } from './agents.js'
 import { byContent, byTime, compareText, type Evidence, grouped, type KindEvidence, ofKind } from './evidence.js'
 

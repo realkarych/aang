@@ -3,7 +3,7 @@ import { admissionHookPath, claudeAdmissionArtifacts, runAdmissionHook } from '.
 import { randomUUID } from 'node:crypto'
 import { leaveProcessGroup, startDescendant } from './process-tree.js'
 import { resolve } from 'node:path'
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 import type { z } from 'zod'
 import {
   answerEvents,

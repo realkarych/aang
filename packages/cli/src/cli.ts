@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util'
-import { type EpochNs, type PruneRequest, RunId, UsageQuery } from '@aang/contract'
+import { type EpochNs, type PruneRequest, RunId, UsageQuery } from '@catacomb/contract'
 import { openLink, rotateToken } from './access.js'
 import { epochOfDate, otelConfig, prune, reparse, unwatch, watch } from './admin.js'
 import { type HookBinaryLocator, install, uninstall } from './install.js'
@@ -9,7 +9,7 @@ import { status } from './status.js'
 import { stop } from './stop.js'
 import { reportUsage } from './usage.js'
 
-const usage = `usage: aang <command>
+const usage = `usage: catacomb <command>
 
   start [--foreground] [--bind <address>]   start the daemon
   stop                                      stop the daemon and stop collecting hook events
@@ -23,13 +23,13 @@ const usage = `usage: aang <command>
   prune --run <id> | --before <date>        delete runs with all their records
   usage [--run <id>] [--from <date>] [--to <date>]
                                             show the solver, observer and chat usage
-  install [--claude] [--codex]              connect Claude Code and Codex hooks to aang;
+  install [--claude] [--codex]              connect Claude Code and Codex hooks to catacomb;
                                             on Windows Codex hooks only with --codex
-  uninstall                                 remove the Claude plugin and neutralize the Codex hooks of aang
-  otel-config [--rotate]                    print the [otel] section of the Codex config for aang
+  uninstall                                 remove the Claude plugin and neutralize the Codex hooks of catacomb
+  otel-config [--rotate]                    print the [otel] section of the Codex config for catacomb
 `
 
-export interface AangProgram {
+export interface CatacombProgram {
   readonly daemon: DaemonProgram
   readonly locateHookBinary: HookBinaryLocator
 }
@@ -38,7 +38,7 @@ class UsageError extends Error {}
 
 const noArguments = (command: string, args: string[]): void => {
   if (parseArgs({ args, allowPositionals: true, strict: true }).positionals.length > 0) {
-    throw new UsageError(`aang ${command} takes no arguments`)
+    throw new UsageError(`catacomb ${command} takes no arguments`)
   }
 }
 
@@ -62,7 +62,7 @@ const watchTarget = (
 ): { readonly path: string } | { readonly all: true } => {
   const [path, ...rest] = positionals
   if (all ? path !== undefined : path === undefined || rest.length > 0) {
-    throw new UsageError(`aang ${command} takes one directory or --all`)
+    throw new UsageError(`catacomb ${command} takes one directory or --all`)
   }
   return path === undefined ? { all: true } : { path }
 }
@@ -77,7 +77,7 @@ const runIdOf = (value: string): RunId => {
 
 const pruneRequest = (run: string | undefined, before: string | undefined): PruneRequest => {
   if ((run === undefined) === (before === undefined)) {
-    throw new UsageError('aang prune takes --run <id> or --before <date>')
+    throw new UsageError('catacomb prune takes --run <id> or --before <date>')
   }
   if (run !== undefined) {
     return { scope: 'run', run: runIdOf(run) }
@@ -91,7 +91,7 @@ const pruneRequest = (run: string | undefined, before: string | undefined): Prun
 
 const noPositionals = (command: string, positionals: readonly string[]): void => {
   if (positionals.length > 0) {
-    throw new UsageError(`aang ${command} takes no positional arguments`)
+    throw new UsageError(`catacomb ${command} takes no positional arguments`)
   }
 }
 
@@ -118,7 +118,7 @@ const usageQuery = (run: string | undefined, from: string | undefined, to: strin
   return query.data
 }
 
-const dispatch = async (argv: string[], program: AangProgram, output: Output): Promise<number> => {
+const dispatch = async (argv: string[], program: CatacombProgram, output: Output): Promise<number> => {
   const [command, ...args] = argv
   switch (command) {
     case 'start': {
@@ -176,7 +176,7 @@ const dispatch = async (argv: string[], program: AangProgram, output: Output): P
         strict: true,
       })
       if (positionals.length > 0) {
-        throw new UsageError('aang prune takes no positional arguments')
+        throw new UsageError('catacomb prune takes no positional arguments')
       }
       return prune(output, pruneRequest(values.run, values.before))
     }
@@ -188,13 +188,13 @@ const dispatch = async (argv: string[], program: AangProgram, output: Output): P
         strict: true,
       })
       if (positionals.length > 0) {
-        throw new UsageError('aang usage takes no positional arguments')
+        throw new UsageError('catacomb usage takes no positional arguments')
       }
       return reportUsage(output, usageQuery(values.run, values.from, values.to))
     }
     case 'token':
       if (args.length !== 1 || args[0] !== 'rotate') {
-        throw new UsageError('usage: aang token rotate')
+        throw new UsageError('usage: catacomb token rotate')
       }
       return rotateToken(output)
     case 'install': {
@@ -236,16 +236,16 @@ const isUsageError = (error: unknown): boolean =>
   error instanceof UsageError ||
   (error instanceof TypeError && 'code' in error && String(error.code).startsWith('ERR_PARSE_ARGS_'))
 
-export const runCli = async (argv: string[], program: AangProgram, output: Output = processOutput): Promise<number> => {
+export const runCli = async (argv: string[], program: CatacombProgram, output: Output = processOutput): Promise<number> => {
   try {
     return await dispatch(argv, program, output)
   } catch (error) {
     if (isUsageError(error)) {
-      output.error(`aang: ${describeError(error)}`)
+      output.error(`catacomb: ${describeError(error)}`)
       output.error(usage)
       return 2
     }
-    output.error(`aang ${argv[0] ?? ''}: ${describeError(error)}`)
+    output.error(`catacomb ${argv[0] ?? ''}: ${describeError(error)}`)
     return 1
   }
 }

@@ -1,6 +1,6 @@
-import { Action, Agent, type ArtifactVersion, type Fact } from '@aang/contract'
-import { canonicalJson, objectId } from '@aang/contract/ids'
-import type { Store } from '@aang/store'
+import { Action, Agent, type ArtifactVersion, type Fact } from '@catacomb/contract'
+import { canonicalJson, objectId } from '@catacomb/contract/ids'
+import type { Store } from '@catacomb/store'
 import type { Home } from './home.js'
 import { runA, sessionA } from './model.js'
 

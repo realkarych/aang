@@ -1,8 +1,8 @@
 import { mkdir, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { ChangeSeq, type Gap } from '@aang/contract'
-import { type DaemonState, readDaemonState, readSpoolState } from '@aang/contract/home'
-import { openStore } from '@aang/store'
+import { ChangeSeq, type Gap } from '@catacomb/contract'
+import { type DaemonState, readDaemonState, readSpoolState } from '@catacomb/contract/home'
+import { openStore } from '@catacomb/store'
 import { describe, type TestContext, test } from 'vitest'
 import { createHome, type Home, spawnDaemon, startDaemon } from './daemon.js'
 

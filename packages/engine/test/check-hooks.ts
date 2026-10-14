@@ -1,4 +1,4 @@
-import { CheckContract } from '@aang/contract'
+import { CheckContract } from '@catacomb/contract'
 import type { HookDelivery } from './batches.ts'
 import { claudeHook } from './samples.ts'
 

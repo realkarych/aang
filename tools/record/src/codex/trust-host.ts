@@ -12,7 +12,7 @@ const [codex, config, ...extra] = process.argv.slice(2)
 if (codex === undefined || config === undefined || extra.length > 0) throw new Error('Usage: trust-host <codex> <config.toml>')
 
 const listHooks = async (): Promise<z.infer<typeof Listing>['data'][number]['hooks']> => {
-  const server = await startAppServer(codex, ['app-server'], { name: 'aang_record', title: 'aang record', version: '0.0.0' }, () => undefined)
+  const server = await startAppServer(codex, ['app-server'], { name: 'catacomb_record', title: 'catacomb record', version: '0.0.0' }, () => undefined)
   try {
     const listing = Listing.parse(await Promise.race([server.request('hooks/list', {}), server.failed]))
     return listing.data[0]?.hooks ?? []

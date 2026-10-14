@@ -13,7 +13,7 @@ import (
 const (
 	launchMode    = "launch"
 	streamedInput = "stream"
-	launchUsage   = "usage: aang-hook launch <status-file> <input-bytes|stream> <program> [argument ...]"
+	launchUsage   = "usage: catacomb-hook launch <status-file> <input-bytes|stream> <program> [argument ...]"
 )
 
 const streamChunkSize = 64 * 1024

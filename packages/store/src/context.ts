@@ -1,5 +1,5 @@
 import type { DatabaseSync, StatementSync } from 'node:sqlite'
-import type { ChangeSeq } from '@aang/contract'
+import type { ChangeSeq } from '@catacomb/contract'
 
 export interface WriteContext {
   readonly assertActive: () => void

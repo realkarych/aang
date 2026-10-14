@@ -55,8 +55,8 @@ const pathsOf = async (sandbox: Sandbox): Promise<Paths> => {
   const probeRepo = join(dir, 'probe-repo')
   return {
     dir,
-    pluginDir: join(dir, 'aang-home', 'claude-plugin'),
-    spool: join(dir, 'aang-home', 'spool'),
+    pluginDir: join(dir, 'catacomb-home', 'claude-plugin'),
+    spool: join(dir, 'catacomb-home', 'spool'),
     probeRepo,
     worktree: join(probeRepo, '.claude', 'worktrees', 'brave-otter'),
   }
@@ -71,14 +71,14 @@ const recordDesktopSession = async (sandbox: Sandbox, paths: Paths): Promise<voi
   const env = {
     CLAUDE_CODE_ENTRYPOINT: 'claude-desktop',
     CLAUDE_CODE_HOST_SESSION_ID: hostSession,
-    CLAUDE_PLUGIN_ROOT: join(sandbox.claudeConfigDir, 'plugins', 'cache', 'aang', 'aang', '1.0.0'),
+    CLAUDE_PLUGIN_ROOT: join(sandbox.claudeConfigDir, 'plugins', 'cache', 'catacomb', 'catacomb', '1.0.0'),
   }
   const steps = [
     { hook_event_name: 'SessionStart', source: 'startup' },
     { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_use_id: 'toolu_d1', tool_input: { command: `echo ${secret}` } },
     { hook_event_name: 'PostToolUse', tool_name: 'Bash', tool_use_id: 'toolu_d1', tool_response: { stdout: secret } },
-    { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_use_id: 'toolu_d2', tool_input: { command: 'touch aang-perm-deny.txt' } },
-    { hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'touch aang-perm-deny.txt' } },
+    { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_use_id: 'toolu_d2', tool_input: { command: 'touch catacomb-perm-deny.txt' } },
+    { hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'touch catacomb-perm-deny.txt' } },
     { hook_event_name: 'PostToolBatch', tool_calls: [{ tool_name: 'Bash', tool_use_id: 'toolu_d2', tool_response: `${secret} denied` }] },
     { hook_event_name: 'PreCompact', trigger: 'manual', custom_instructions: secret },
     { hook_event_name: 'SessionStart', source: 'compact' },
@@ -156,7 +156,7 @@ const recordCodexSession = async (sandbox: Sandbox, paths: Paths): Promise<void>
 }
 
 const codexInvoker = (sandbox: Sandbox, paths: Paths) => {
-  const deployed = join(paths.dir, 'aang-home', 'bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
+  const deployed = join(paths.dir, 'catacomb-home', 'bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook')
   const env = { CODEX_HOME: sandbox.codexHome, CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'Codex Desktop' }
   return (payload: Readonly<Record<string, unknown>>) =>
     runProcess(deployed, ['codex', 'user', paths.spool], env, JSON.stringify(payload))
@@ -261,7 +261,7 @@ describe('owner checklist for Claude Desktop and Codex Desktop data', () => {
     expect(codex).toContain(
       '- session_meta: originator `"Codex Desktop"`, source `"vscode"`, thread_source `"user"`, parent_thread_id `null`, cli_version `"0.159.2"`',
     )
-    expect(codex).toContain('`~/aang-desktop-probe-outside` among writable roots: no')
+    expect(codex).toContain('`~/catacomb-desktop-probe-outside` among writable roots: no')
     expect(codex).toContain(`- Rollout: \`${join('~', '.codex', 'sessions', '2026', '10', '03', `rollout-2026-10-03T10-00-00-${codexSession}.jsonl`)}\``)
 
     const worktreeSession = sectionOf(summary, '### S3')
@@ -281,7 +281,7 @@ describe('owner checklist for Claude Desktop and Codex Desktop data', () => {
       env: { CODEX_HOME: join('~', '.codex'), CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'Codex Desktop' },
     })
     expect(events.find((event) => event.session_id === claudeSession)).toMatchObject({
-      env: { CLAUDE_PLUGIN_ROOT: join('~', '.claude', 'plugins', 'cache', 'aang', 'aang', '1.0.0') },
+      env: { CLAUDE_PLUGIN_ROOT: join('~', '.claude', 'plugins', 'cache', 'catacomb', 'catacomb', '1.0.0') },
       cwd: join('<dir>', 'probe-repo', '.claude', 'worktrees', 'brave-otter'),
     })
     const filesJson = JSON.parse(files['files.json'] ?? '{}') as {

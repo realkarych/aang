@@ -1,4 +1,4 @@
-import type { Link, StageId } from '@aang/contract'
+import type { Link, StageId } from '@catacomb/contract'
 
 export type StageLink = Extract<Link, { stage: StageId }>
 

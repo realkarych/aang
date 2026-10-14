@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test, expect, type TestContext } from 'vitest'
-import { createClaudeLauncher, createCodexLauncher, observerSystemPrompt } from '@aang/observer'
-import { installFakeClaude, installFakeCodex } from '@aang/testkit'
+import { createClaudeLauncher, createCodexLauncher, observerSystemPrompt } from '@catacomb/observer'
+import { installFakeClaude, installFakeCodex } from '@catacomb/testkit'
 
 const output = { base_version: 7, ops: [], needs: [] }
 const input = { model: { version: 7 }, batch: { facts: [] } }
@@ -16,7 +16,7 @@ const systemRoot = process.env.SystemRoot ?? 'C:\\Windows'
 const isolatedPath = process.platform === 'win32' ? [join(systemRoot, 'System32'), systemRoot, join(systemRoot, 'System32', 'Wbem')].join(';') : '/usr/bin:/bin'
 
 const sandbox = async ({ onTestFinished }: TestContext) => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-observer-test-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-observer-test-')))
   onTestFinished(() => rm(root, { recursive: true, force: true, maxRetries: 10 }))
   const home = join(root, 'Όνομα Επώνυμο')
   await mkdir(home)
@@ -25,7 +25,7 @@ const sandbox = async ({ onTestFinished }: TestContext) => {
     options: {
       temporaryDirectory: root,
       environment: { ...process.env, HOME: home, USERPROFILE: home, ANTHROPIC_API_KEY: 'discard', NODE_OPTIONS: '--invalid', CLAUDE_CODE_SESSION_ID: 'solver', CODEX_HOME: 'discard' },
-      windowsLauncher: resolve('packages/hook/bin/aang-hook.exe'),
+      windowsLauncher: resolve('packages/hook/bin/catacomb-hook.exe'),
     },
   }
 }
@@ -38,7 +38,7 @@ test('Claude launches with the isolated profile and returns structured output an
   expect(result).toMatchObject({ ok: true, output, usage: { model: 'claude-opus-5-5', cost_usd: 0.04196, tokens: { uncached_input_tokens: 2, output_tokens: 872, cache_read_input_tokens: 0, cache_write_input_tokens: 3064 } } })
   expect(backend.status()).toEqual({ state: { state: 'ok' }, activeCalls: 0 })
   const call = cli.calls().find((call) => call.command === 'print')
-  expect(call).toMatchObject({ violations: [], cwd: join(root, 'aang-observer', 'empty'), systemPrompt: observerSystemPrompt })
+  expect(call).toMatchObject({ violations: [], cwd: join(root, 'catacomb-observer', 'empty'), systemPrompt: observerSystemPrompt })
   expect(JSON.parse(call?.prompt ?? '')).toEqual(input)
   expect(call?.env).not.toHaveProperty('ANTHROPIC_API_KEY')
   expect(call?.env).not.toHaveProperty('NODE_OPTIONS')
@@ -181,7 +181,7 @@ test('Codex cannot launch a model absent from the isolated catalog', async (cont
 
 test('the observer refuses a populated working directory without deleting its files', async (context) => {
   const { root, options } = await sandbox(context)
-  const cwd = join(root, 'aang-observer', 'empty')
+  const cwd = join(root, 'catacomb-observer', 'empty')
   await mkdir(cwd, { recursive: true })
   await writeFile(join(cwd, 'data'), 'keep')
   const cli = installFakeClaude(root)

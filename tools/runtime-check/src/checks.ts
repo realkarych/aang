@@ -34,13 +34,13 @@ const claudeObserver = claudeSession.extend({
   toolsOfferedToModel: z.tuple([z.literal('StructuredOutput')]),
   result: z.looseObject({ subtype: z.literal('success'), is_error: no, structured_output: structured }),
   transcriptsWritten: zero,
-  registryEntrypoints: z.array(z.literal('aang-observer')).min(1),
+  registryEntrypoints: z.array(z.literal('catacomb-observer')).min(1),
 })
 const codexObserver = codexSession.extend({
   lastMessage: z.string().refine((value) => {
     try { return structured.safeParse(JSON.parse(value)).success } catch { return false }
   }, 'missing structured output'),
-  originator: z.literal('aang_observer'),
+  originator: z.literal('catacomb_observer'),
   bodyTools: z.union([z.null(), empty]),
   additionalTools: z.array(empty).min(1),
   routerUnsupportedInStderr: yes,
@@ -93,7 +93,7 @@ const schemas: Readonly<Record<string, z.ZodType>> = {
     concurrentReads: z.looseObject({ reads: positive, failures: z.record(z.string(), zero) }),
   }),
   'hook latency by launcher': z.looseObject({
-    'direct spawn (exec form, strict aang-hook benchmark)': measurement,
+    'direct spawn (exec form, strict catacomb-hook benchmark)': measurement,
     'direct spawn without a lease (no spool write)': measurement.extend({ delivered: zero }),
     'claude shell form': measurement,
     'codex command': measurement,
@@ -127,7 +127,7 @@ const schemas: Readonly<Record<string, z.ZodType>> = {
     state: z.literal('enabled'),
   }),
   'claude plugin from the skills directory': pluginDelivery,
-  'codex hooks installed by aang': z.looseObject({
+  'codex hooks installed by catacomb': z.looseObject({
     commandMatchesMeasuredForm: yes,
     repeatedInstall: z.looseObject({ error: z.null(), commandUnchanged: yes, hooksFileUnchanged: yes }),
     state: z.looseObject({ status: z.literal('untrusted') }),
@@ -135,10 +135,10 @@ const schemas: Readonly<Record<string, z.ZodType>> = {
     accountShell: z.looseObject({ launcher: z.array(z.string()).min(3) }),
   }),
   'installed hook latency': z.looseObject({
-    'claude: aang-hook started directly (exec form)': leasedMeasurement,
-    'claude: aang-hook without a lease (no spool write)': measurement.extend({ delivered: zero }),
+    'claude: catacomb-hook started directly (exec form)': leasedMeasurement,
+    'claude: catacomb-hook without a lease (no spool write)': measurement.extend({ delivered: zero }),
     'codex: installed command through the account shell': leasedMeasurement,
-    'codex: aang-hook alone': leasedMeasurement,
+    'codex: catacomb-hook alone': leasedMeasurement,
   }),
   'claude plugin removal': z.looseObject({
     uninstall: z.looseObject({ error: z.null() }), repeatedUninstall: z.looseObject({ error: z.null() }),

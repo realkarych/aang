@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { endpoints, type Runtime, type SessionKey } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+import { endpoints, type Runtime, type SessionKey } from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
 import { describe, test } from 'vitest'
 import { bearer, type Home, spawnDaemon } from './daemon.js'
 import {
@@ -76,7 +76,7 @@ const lostSources: readonly LostSource[] = [
 
 const recordsOf = (home: Home, session: string): number => storedCount(home, streamRecords, claudeStream(session))
 
-describe.concurrent('aang watch and unwatch change which sessions the daemon takes', () => {
+describe.concurrent('catacomb watch and unwatch change which sessions the daemon takes', () => {
   test(
     'after watch the discarded files of the project within the lookback are reread despite their cursors, older ones are not, and the roots are kept in the store without rewriting the config',
     { timeout: 60_000 },

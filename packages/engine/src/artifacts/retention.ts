@@ -12,9 +12,9 @@ import {
   type FactOf,
   type RunId,
   type SessionId,
-} from '@aang/contract'
-import { contentHash, objectId } from '@aang/contract/ids'
-import type { RetainedContent, Store } from '@aang/store'
+} from '@catacomb/contract'
+import { contentHash, objectId } from '@catacomb/contract/ids'
+import type { RetainedContent, Store } from '@catacomb/store'
 import { fieldOf } from '../checks/commands.js'
 import { applyPatch } from './patches.js'
 import { actionCandidates, type FilePatch } from './references.js'

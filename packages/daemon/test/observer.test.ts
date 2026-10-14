@@ -2,13 +2,13 @@ import { existsSync } from 'node:fs'
 import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { codexAdapter } from '@aang/adapter-codex'
-import { type Adapter, EpochNs, type Runtime, type SessionKey } from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import { createEngine, observerInputTokens } from '@aang/engine'
-import { openStore } from '@aang/store'
-import { installFakeClaude, installFakeCodex } from '@aang/testkit'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { type Adapter, EpochNs, type Runtime, type SessionKey } from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import { createEngine, observerInputTokens } from '@catacomb/engine'
+import { openStore } from '@catacomb/store'
+import { installFakeClaude, installFakeCodex } from '@catacomb/testkit'
 import { type TestContext, test } from 'vitest'
 import { bearer, createHome, type Home, startDaemon } from './daemon.js'
 import {
@@ -227,7 +227,7 @@ test(
     const target = runId(root)
     const source = runId(moved)
     const factsOf = (key: SessionKey): string[] => {
-      const database = new DatabaseSync(join(home.paths.home, 'aang.db'), { readOnly: true })
+      const database = new DatabaseSync(join(home.paths.home, 'catacomb.db'), { readOnly: true })
       try {
         return database
           .prepare("SELECT id FROM facts WHERE json_extract(entity_key, '$.session') = ? ORDER BY id")

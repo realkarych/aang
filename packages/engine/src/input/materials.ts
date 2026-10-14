@@ -14,8 +14,8 @@ import type {
   RawSeq,
   RunContext,
   Truncation,
-} from '@aang/contract'
-import { canonicalJson } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { canonicalJson } from '@catacomb/contract/ids'
 import { storedRunContext } from './context.js'
 import type { InputScope, ScopeReader } from './scope.js'
 import { withoutThinking } from './thinking.js'

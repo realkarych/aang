@@ -1,7 +1,7 @@
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from 'react'
 import './dock.css'
 
-const collapsedKey = 'aang:chat-collapsed'
+const collapsedKey = 'catacomb:chat-collapsed'
 const wideQuery = '(min-width: 1100px)'
 
 const storedCollapsed = (): boolean => {

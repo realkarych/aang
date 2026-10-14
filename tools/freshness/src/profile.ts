@@ -1,5 +1,5 @@
 import { isAbsolute } from 'node:path'
-import { Runtime } from '@aang/contract'
+import { Runtime } from '@catacomb/contract'
 import { z } from 'zod'
 
 const positiveMs = z.int().positive()
@@ -33,7 +33,7 @@ export type ProfileRun = z.infer<typeof ProfileRun>
 
 export const LoadProfile = z
   .strictObject({
-    format: z.literal('aang-freshness-profile/1'),
+    format: z.literal('catacomb-freshness-profile/1'),
     name: z.string().min(1),
     time_scale: z.number().positive().default(1),
     window_ms: positiveMs,
@@ -67,7 +67,7 @@ export type FixedRecording = z.infer<typeof FixedRecording>
 
 export const FixedProfile = z
   .strictObject({
-    format: z.literal('aang-freshness-fixed-profile/1'),
+    format: z.literal('catacomb-freshness-fixed-profile/1'),
     fixed_at: z.iso.datetime(),
     profile: LoadProfile,
     recordings: z.array(FixedRecording),

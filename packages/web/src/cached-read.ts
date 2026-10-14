@@ -1,4 +1,4 @@
-import type { ArtifactVersionId, ArtifactVersionResponse, Fact, FactId } from '@aang/contract'
+import type { ArtifactVersionId, ArtifactVersionResponse, Fact, FactId } from '@catacomb/contract'
 import { readArtifactVersion, readFact } from './api.js'
 import { nowNs } from './format.js'
 

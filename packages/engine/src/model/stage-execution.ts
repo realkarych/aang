@@ -10,8 +10,8 @@ import {
   type FactId,
   LinkId,
   type RunId,
-} from '@aang/contract'
-import type { Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import type { Transaction } from '@catacomb/store'
 import { applyChangeSet, type AppliedChangeSet, type ModelChangeDraft } from './journal.js'
 import { canonicalEvidence, stageAttention, stageDecision } from './stage-decision.js'
 

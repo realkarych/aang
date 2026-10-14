@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import { endpoints, type RunId, type RunSnapshot, type Stage } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
+import { endpoints, type RunId, type RunSnapshot, type Stage } from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
 import {
   branchStageTitles,
   continuedStageTitle,
@@ -14,7 +14,7 @@ import {
   type RunningDaemon,
   sampleScenarioManifest,
   splitStageTitles,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import type { Locator, Page } from '@playwright/test'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { claudeGoal } from './samples.js'
@@ -205,7 +205,7 @@ test.describe('with the observer building the map', () => {
     await expect(stage(page, preparationStageTitle)).toBeVisible(observed)
     const preparation = stage(page, preparationStageTitle)
     await expect(preparation).toContainText('Execution: done')
-    await expect(preparation).toContainText('Basis: aang interpretation')
+    await expect(preparation).toContainText('Basis: catacomb interpretation')
     await expect(preparation.getByRole('listitem')).toHaveCount(2)
     await expect(preparation).not.toContainText('Human decision')
     for (const axis of await preparation.getByRole('listitem').all()) {

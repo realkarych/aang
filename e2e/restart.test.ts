@@ -7,11 +7,11 @@ import {
   type RawRecord,
   type RunSnapshot,
   type ViewRuleSpec,
-} from '@aang/contract'
-import { aangHomePaths } from '@aang/contract/home'
-import { loadManifest, type Profile, type RunningDaemon, sampleScenarioManifest } from '@aang/testkit'
+} from '@catacomb/contract'
+import { catacombHomePaths } from '@catacomb/contract/home'
+import { loadManifest, type Profile, type RunningDaemon, sampleScenarioManifest } from '@catacomb/testkit'
 import type { APIRequestContext } from '@playwright/test'
-import { aangEntry, expect, getWithoutKeepAlive, type HookFields, type HookSamples, test } from './fixtures.js'
+import { catacombEntry, expect, getWithoutKeepAlive, type HookFields, type HookSamples, test } from './fixtures.js'
 import { tornAt } from './recordings.js'
 import { claudeFork, claudeOriginal, hookFields, runOf, sessionFile } from './samples.js'
 import { healthLacks, healthProblems, runRowOf, waitingFor } from './screens.js'
@@ -172,7 +172,7 @@ const intake = async (request: APIRequestContext, paths: readonly string[]): Pro
 }
 
 const queued = async (profile: Profile): Promise<string[]> =>
-  readdir(aangHomePaths(profile.aangHome).spoolReady).catch(() => [])
+  readdir(catacombHomePaths(profile.catacombHome).spoolReady).catch(() => [])
 
 interface Transcripts {
   readonly main: string
@@ -286,7 +286,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
     collector: { rootsScanIntervalMs: 250, spoolScanIntervalMs: 250 },
     api: { port: daemon.api.port },
   })
-  const restarted = await profile.startDaemon({ entry: aangEntry })
+  const restarted = await profile.startDaemon({ entry: catacombEntry })
   await healthLacks(page, 'Link:', reconnected)
   await expect.poll(() => queued(profile), reconnected).toEqual([])
 

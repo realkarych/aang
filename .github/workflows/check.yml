@@ -75,7 +75,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6144
           NODE_V8_COVERAGE: ${{ github.workspace }}/coverage/tmp
-          AANG_ISOLATION_CODEX: codex
+          CATACOMB_ISOLATION_CODEX: codex
       - run: |
           node tools/coverage/dist/main.js coverage/tmp coverage/part/v8.json
           if [ -d coverage/hook ]; then cp -R coverage/hook coverage/part/hook; fi

@@ -13,8 +13,8 @@ import {
   ObserverCallId,
   type RunId,
   type SessionKey,
-} from '@aang/contract'
-import { contentHash, objectId, runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { contentHash, objectId, runId } from '@catacomb/contract/ids'
 import {
   applyChangeSet,
   applyObserverResponse,
@@ -23,8 +23,8 @@ import {
   createReadQueries,
   type Engine,
   type ReadQueries,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { hookBatch, jsonlFile } from './batches.js'
 import { adapters, factsOf, sessionKey } from './harness.js'

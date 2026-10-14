@@ -17,7 +17,7 @@ import type {
   SessionKey,
   Speaker,
   UsageKey,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import type { RolloutLine } from './line.js'
 import { isRoot, type ThreadStream } from './stream.js'
 

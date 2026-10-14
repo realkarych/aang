@@ -8,8 +8,8 @@ import {
   OperatingSystem,
   Runtime,
   Surface,
-} from '@aang/contract'
-import { PlayerManifest } from '@aang/testkit'
+} from '@catacomb/contract'
+import { PlayerManifest } from '@catacomb/testkit'
 import { z } from 'zod'
 
 export const Segment = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/)
@@ -134,7 +134,7 @@ export const ControlEvent = z.strictObject({
 export type ControlEvent = z.infer<typeof ControlEvent>
 
 export const RecordingManifest = z.strictObject({
-  format: z.literal('aang-recording/1'),
+  format: z.literal('catacomb-recording/1'),
   runtime: Runtime,
   engine_version: Segment,
   app_version: z.string().min(1).nullable(),

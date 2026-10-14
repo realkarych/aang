@@ -9,7 +9,7 @@ import { quoteWindowsArgument, run, type RunResult } from '../dist/process.js'
 
 test('Windows PowerShell publishes and replaces real Job trace snapshots atomically', async ({ skip }) => {
   skip(process.platform !== 'win32', 'The native Job Object harness requires Windows PowerShell 5.1 and Windows WMI')
-  const directory = await mkdtemp(join(tmpdir(), 'aang native job έλεγχος '))
+  const directory = await mkdtemp(join(tmpdir(), 'catacomb native job έλεγχος '))
   let running: Promise<RunResult> | undefined
   try {
     const specPath = join(directory, 'spec.json')

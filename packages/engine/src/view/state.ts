@@ -5,8 +5,8 @@ import {
   type RunId,
   type ViewMark,
   type ViewPosition,
-} from '@aang/contract'
-import type { AttentionViewDraft, Store, Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import type { AttentionViewDraft, Store, Transaction } from '@catacomb/store'
 import { InvalidPositionError } from '../read/context.js'
 
 export interface ViewStateOptions {

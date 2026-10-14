@@ -40,7 +40,7 @@ A usage record is an observation object with a unique key (ADR-0006). One record
   - For a fork it includes the inherited part, which is labeled.
   - It is the only source of compaction usage and of Claude's monetary estimate. It is not summed with usage records.
   - In `-p` the line is written at the end of every launch, and in interactive sessions only on exit. While an interactive session is running there is no money and no compaction usage, and the UI labels this.
-- **The Desktop summary helper model** is visible only in the stream-json of the Desktop engine, which aang does not read. Its usage is marked as unavailable; whether it is included in `cost-state` the spike did not check.
+- **The Desktop summary helper model** is visible only in the stream-json of the Desktop engine, which catacomb does not read. Its usage is marked as unavailable; whether it is included in `cost-state` the spike did not check.
 - **Codex**
   - The key is `(thread_id, response_id)` of a `token_usage_record` record. `thread_id` is taken from the file's `session_meta.id`: the record's `session_id` field is the root id.
   - The records cover compaction calls (in the file of their own thread), subagents and guardian (in their own files).
@@ -70,7 +70,7 @@ A usage record is an observation object with a unique key (ADR-0006). One record
 
 ### Report
 
-`aang usage` and the usage panel show, per run and per period:
+`catacomb usage` and the usage panel show, per run and per period:
 
 - the three ledgers;
 - usage per active hour — an hour in which there was solver activity;
@@ -78,7 +78,7 @@ A usage record is an observation object with a unique key (ADR-0006). One record
 
 ## Consequences
 
-- aang's numbers may not match `cost-state`; both are shown side by side.
+- catacomb's numbers may not match `cost-state`; both are shown side by side.
 - Stage usage will often be incomplete. An honest "not attributed" is preferred to a guess.
 
 ## Owner decisions

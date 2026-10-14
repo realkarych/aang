@@ -22,11 +22,11 @@ const run = promisify(execFile)
 const gitEnvironment = (): NodeJS.ProcessEnv => ({
   ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))),
   GIT_CONFIG_NOSYSTEM: '1',
-  GIT_CONFIG_GLOBAL: join(tmpdir(), 'aang-engine-no-gitconfig'),
+  GIT_CONFIG_GLOBAL: join(tmpdir(), 'catacomb-engine-no-gitconfig'),
 })
 
 export const git = async (cwd: string, ...args: readonly string[]): Promise<string> => {
-  const { stdout } = await run('git', ['-c', 'user.name=aang', '-c', 'user.email=aang@example.invalid', ...args], {
+  const { stdout } = await run('git', ['-c', 'user.name=catacomb', '-c', 'user.email=catacomb@example.invalid', ...args], {
     cwd,
     env: gitEnvironment(),
   })
@@ -40,7 +40,7 @@ export const createRepository = async (path: string): Promise<void> => {
 }
 
 export const createWorkspace = async (register: Register): Promise<Workspace> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-workspace-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-workspace-')))
   register(() => rm(root, { recursive: true, force: true, maxRetries: 5 }))
   const repository = join(root, 'projects', 'watched')
   const nested = join(repository, 'packages', 'app')

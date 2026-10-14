@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	spoolMagic         = "aang-spool/1"
+	spoolMagic         = "catacomb-spool/1"
 	temporaryDirectory = "tmp"
 	readyDirectory     = "new"
 	stoppedMarker      = "stopped"
@@ -59,7 +59,7 @@ func record(args []string, now time.Time) {
 }
 
 func isObserver() bool {
-	return os.Getenv("AANG_OBSERVER") == "1" || os.Getenv("CLAUDE_CODE_ENTRYPOINT") == "aang-observer"
+	return os.Getenv("CATACOMB_OBSERVER") == "1" || os.Getenv("CLAUDE_CODE_ENTRYPOINT") == "catacomb-observer"
 }
 
 func acceptsEvents(spool string, now time.Time) bool {

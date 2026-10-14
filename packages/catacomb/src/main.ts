@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { runCli } from '@aang/cli'
+import { runCli } from '@catacomb/cli'
 import { findHookBinary, missingHookBinary } from './hook-binary.js'
 
 const entry = fileURLToPath(import.meta.url)
@@ -30,7 +30,7 @@ process.exitCode = await runCli(process.argv.slice(2), {
     command: process.execPath,
     args: [entry],
     run: async (options) => {
-      const { runDaemon } = await import('@aang/daemon')
+      const { runDaemon } = await import('@catacomb/daemon')
       return runDaemon({ ...options, staticRoot, supportMatrix, placement, version })
     },
   },

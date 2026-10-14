@@ -8,9 +8,9 @@ import { startModelStub } from '../dist/claude/stub.js'
 import { drivers, EngineUnavailableError, recordSession, verifyRecording } from '../dist/index.js'
 
 const exec = promisify(execFile)
-const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
-const required = new Set((process.env['AANG_RECORD_REQUIRE'] ?? '').split(',').filter(Boolean))
-const excluded = new Set(['CLAUDE_CONFIG_DIR', 'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_HOST_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'AANG_OBSERVER'])
+const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook')
+const required = new Set((process.env['CATACOMB_RECORD_REQUIRE'] ?? '').split(',').filter(Boolean))
+const excluded = new Set(['CLAUDE_CONFIG_DIR', 'CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_HOST_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CATACOMB_OBSERVER'])
 const slashes = (path: string): string => path.replaceAll('\\', '/')
 const temporary: string[] = []
 
@@ -34,7 +34,7 @@ const settingsOf = async (home: string): Promise<Readonly<Record<string, unknown
 
 test('a regular Claude home recording attaches the recorder, runs no user hook or MCP server, even after --, and leaves the settings files unchanged', { tags: ['runtime'], timeout: 600_000 }, async (context) => {
   const driver = drivers.find(({ surface }) => surface === 'claude_cli')
-  const engine = await driver?.resolve({ claude: process.env['AANG_RECORD_CLAUDE'] }).catch((error: unknown) => {
+  const engine = await driver?.resolve({ claude: process.env['CATACOMB_RECORD_CLAUDE'] }).catch((error: unknown) => {
     if (error instanceof EngineUnavailableError) return undefined
     throw error
   })
@@ -43,7 +43,7 @@ test('a regular Claude home recording attaches the recorder, runs no user hook o
     context.skip()
     return
   }
-  const root = await mkdtemp(join(tmpdir(), 'aang-regular-claude-'))
+  const root = await mkdtemp(join(tmpdir(), 'catacomb-regular-claude-'))
   temporary.push(root)
   const home = join(root, 'home')
   const claude = join(home, '.claude')
@@ -63,7 +63,7 @@ test('a regular Claude home recording attaches the recorder, runs no user hook o
   const stub = await startModelStub({}, join(root, 'model-stub.jsonl'))
   try {
     const model = {
-      ANTHROPIC_BASE_URL: stub.url, ANTHROPIC_API_KEY: 'sk-ant-api03-aang-record-model-stub', ANTHROPIC_AUTH_TOKEN: '', CLAUDE_CODE_OAUTH_TOKEN: '',
+      ANTHROPIC_BASE_URL: stub.url, ANTHROPIC_API_KEY: 'sk-ant-api03-catacomb-record-model-stub', ANTHROPIC_AUTH_TOKEN: '', CLAUDE_CODE_OAUTH_TOKEN: '',
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', DISABLE_AUTOUPDATER: '1', DISABLE_TELEMETRY: '1', DISABLE_ERROR_REPORTING: '1',
     }
     const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => !excluded.has(key)))

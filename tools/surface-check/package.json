@@ -1,18 +1,18 @@
 {
-  "name": "@aang/surface-check",
+  "name": "@catacomb/surface-check",
   "private": true,
   "type": "module",
   "bin": {
-    "aang-surface-check": "./dist/main.js"
+    "catacomb-surface-check": "./dist/main.js"
   },
   "dependencies": {
-    "@aang/contract": "workspace:*",
-    "@aang/hook": "workspace:*",
-    "@aang/observer": "workspace:*",
-    "@aang/record": "workspace:*",
-    "@aang/store": "workspace:*",
-    "@aang/support": "workspace:*",
-    "@aang/testkit": "workspace:*",
+    "@catacomb/contract": "workspace:*",
+    "@catacomb/hook": "workspace:*",
+    "@catacomb/observer": "workspace:*",
+    "@catacomb/record": "workspace:*",
+    "@catacomb/store": "workspace:*",
+    "@catacomb/support": "workspace:*",
+    "@catacomb/testkit": "workspace:*",
     "zod": "^4.6.5"
   }
 }

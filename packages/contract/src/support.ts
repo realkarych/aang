@@ -4,7 +4,7 @@ import { Runtime } from './primitives.js'
 
 const name = z.string().min(1)
 
-export const supportMatrixFormat = 'aang-support-matrix/1'
+export const supportMatrixFormat = 'catacomb-support-matrix/1'
 
 export const OperatingSystem = z.enum(['macos', 'linux', 'windows'])
 export type OperatingSystem = z.infer<typeof OperatingSystem>

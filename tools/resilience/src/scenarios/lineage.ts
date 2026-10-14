@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises'
-import { endpoints, type Link, type RunId } from '@aang/contract'
+import { endpoints, type Link, type RunId } from '@catacomb/contract'
 import { findings } from '../findings.js'
 import type { Scenario } from '../scenario.js'
 import {
@@ -181,7 +181,7 @@ const codexForks: Scenario = {
   name: 'codex-forks',
   area: 'lineage',
   summary:
-    'codex exec fork creates a run linked to its source run; a fork whose source was deleted before the daemon saw it points to a run aang does not have',
+    'codex exec fork creates a run linked to its source run; a fork whose source was deleted before the daemon saw it points to a run catacomb does not have',
   runtimes: ['codex'],
   scripts: () => ({
     codex: {

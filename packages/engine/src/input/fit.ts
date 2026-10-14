@@ -1,4 +1,4 @@
-import type { ChatInput, InputFact, JsonValue, ModelSnapshot, ObserverInput, RunDescription, Truncation } from '@aang/contract'
+import type { ChatInput, InputFact, JsonValue, ModelSnapshot, ObserverInput, RunDescription, Truncation } from '@catacomb/contract'
 import { clipJson, jsonBytes, prefixOf } from './materials.js'
 
 export interface Packing {

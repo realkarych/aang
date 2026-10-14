@@ -1,4 +1,4 @@
-import type { Surface, SurfaceBasis, SurfaceClaim } from '@aang/contract'
+import type { Surface, SurfaceBasis, SurfaceClaim } from '@catacomb/contract'
 
 interface OriginatorSurface {
   readonly surface: Surface

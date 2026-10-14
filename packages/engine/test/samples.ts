@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
-import type { JsonValue, SpoolEnv } from '@aang/contract'
-import { spoolEnvKeys } from '@aang/contract'
+import type { JsonValue, SpoolEnv } from '@catacomb/contract'
+import { spoolEnvKeys } from '@catacomb/contract'
 
 type JsonObject = { readonly [key: string]: JsonValue }
 

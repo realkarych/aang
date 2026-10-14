@@ -17,9 +17,9 @@ import {
   type SupportRow,
   supportRowOf,
   supportStatusOf,
-} from '@aang/contract'
-import { readSupportMatrix } from '@aang/contract/support-file'
-import { loadManifest } from '@aang/testkit'
+} from '@catacomb/contract'
+import { readSupportMatrix } from '@catacomb/contract/support-file'
+import { loadManifest } from '@catacomb/testkit'
 import { beforeAll, describe, expect, onTestFinished, test } from 'vitest'
 import {
   checkRecording,
@@ -90,7 +90,7 @@ const recorded = (recording: SpikeRecording): string => {
 }
 
 beforeAll(async () => {
-  const root = await mkdtemp(join(tmpdir(), 'aang-support-generated-'))
+  const root = await mkdtemp(join(tmpdir(), 'catacomb-support-generated-'))
   for (const recording of [claudeSubagents, claudeReconnect, claudeSourceLoss, codexResumeCompaction, codexToolDecisions]) {
     generated.set(recording, await recordSpike(join(root, 'sessions'), recording))
   }
@@ -98,7 +98,7 @@ beforeAll(async () => {
 }, 180_000)
 
 const workspace = async (): Promise<{ readonly sessions: string; readonly support: string }> => {
-  const root = await temporaryDirectory((cleanup) => { onTestFinished(cleanup) }, 'aang-support-run-')
+  const root = await temporaryDirectory((cleanup) => { onTestFinished(cleanup) }, 'catacomb-support-run-')
   return { sessions: join(root, 'sessions'), support: join(root, 'support') }
 }
 
@@ -171,9 +171,9 @@ describe('the contract run over recordings generated from the spike samples', ()
     expect(mismatch.stderr).toContain(`the manifest describes claude/2.1.286/claude_cli/${hostOs}/subagents`)
     await rm(misplaced, { recursive: true })
 
-    const noHook = await supportCli(['check', '--fixtures', sessions, '--support', support, '--hook', join(support, 'aang-hook-missing')])
+    const noHook = await supportCli(['check', '--fixtures', sessions, '--support', support, '--hook', join(support, 'catacomb-hook-missing')])
     expect(noHook.code).toBe(1)
-    expect(noHook.stderr).toMatch(/step \d+ \(hook "contract-step-\d+"\) failed: spawn .*aang-hook-missing/)
+    expect(noHook.stderr).toMatch(/step \d+ \(hook "contract-step-\d+"\) failed: spawn .*catacomb-hook-missing/)
   }, 120_000)
 
   test('a changed snapshot, a missing or stale snapshot and an outdated matrix fail the check', async () => {

@@ -1,4 +1,4 @@
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 
 const detailFields = ['command', 'cmd', 'file_path', 'path', 'pattern', 'url', 'query', 'prompt', 'subject'] as const
 

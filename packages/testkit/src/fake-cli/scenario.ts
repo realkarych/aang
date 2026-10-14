@@ -1,4 +1,4 @@
-import { Runtime } from '@aang/contract'
+import { Runtime } from '@catacomb/contract'
 import { z } from 'zod'
 import { ScenarioScript } from '../observer-scenarios/scripts.js'
 

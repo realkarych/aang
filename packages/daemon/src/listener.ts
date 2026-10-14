@@ -1,4 +1,4 @@
-import type { Listener } from '@aang/contract'
+import type { Listener } from '@catacomb/contract'
 
 const bracketed = /^\[([^\]]+)\](?::([0-9]+))?$/
 const hostAndPort = /^([^:[\]]+):([0-9]+)$/

@@ -1,6 +1,6 @@
-import { type ChatMessage, type ChatQuestionRequest, endpoints, type RunId } from '@aang/contract'
-import { ChatError, type ReadQueries } from '@aang/engine'
-import { ChatClosedError } from '@aang/observer'
+import { type ChatMessage, type ChatQuestionRequest, endpoints, type RunId } from '@catacomb/contract'
+import { ChatError, type ReadQueries } from '@catacomb/engine'
+import { ChatClosedError } from '@catacomb/observer'
 import { ApiFailure, type ApiRoute, readRoute, writeRoute } from './routes.js'
 
 export interface ChatSources {

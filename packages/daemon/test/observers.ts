@@ -1,9 +1,9 @@
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { type InterpretationStatus, ObserverInput, type ObserverErrorClass, type RunId, type Runtime } from '@aang/contract'
-import { hookInstallPaths } from '@aang/hook'
-import type { ClaudeReply, CodexReply, FakeCli } from '@aang/testkit'
+import { type InterpretationStatus, ObserverInput, type ObserverErrorClass, type RunId, type Runtime } from '@catacomb/contract'
+import { hookInstallPaths } from '@catacomb/hook'
+import type { ClaudeReply, CodexReply, FakeCli } from '@catacomb/testkit'
 import type { Home } from './daemon.js'
 import { hookBinary } from './sessions.js'
 
@@ -31,7 +31,7 @@ export const toolAttempt: CodexReply = { kind: 'answer', output: briefing, toolA
 
 export const heldToolAttempt = (gate: string): CodexReply => ({ ...toolAttempt, gate })
 
-const dropped = /^(?:path|aang_.*|claude.*|codex_.*|ai_agent)$/i
+const dropped = /^(?:path|catacomb_.*|claude.*|codex_.*|ai_agent)$/i
 
 export const observerEnvironment = (home: Home): Record<string, string> => ({
   ...Object.fromEntries(
@@ -86,7 +86,7 @@ export const admissionOf = async (home: Home, runtime: Runtime): Promise<Record<
 }
 
 export const progressOf = (home: Home, run: RunId): RunProgress => {
-  const database = new DatabaseSync(join(home.paths.home, 'aang.db'), { readOnly: true })
+  const database = new DatabaseSync(join(home.paths.home, 'catacomb.db'), { readOnly: true })
   try {
     const statuses = database
       .prepare('SELECT status FROM fact_interpretation WHERE run_id = ? ORDER BY fact_id')

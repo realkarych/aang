@@ -1,7 +1,7 @@
 import { writeSync } from 'node:fs'
-import { EpochNs, ObserverCallId, ObserverInput } from '@aang/contract'
-import { applyObserverResponse, beginObserverCall } from '@aang/engine'
-import { openStore } from '@aang/store'
+import { EpochNs, ObserverCallId, ObserverInput } from '@catacomb/contract'
+import { applyObserverResponse, beginObserverCall } from '@catacomb/engine'
+import { openStore } from '@catacomb/store'
 
 const [, , home, phase] = process.argv
 if (home === undefined || phase === undefined) {

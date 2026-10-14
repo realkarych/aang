@@ -1,4 +1,4 @@
-import aang from '@aang/eslint-plugin'
+import catacomb from '@catacomb/eslint-plugin'
 import js from '@eslint/js'
 import { defineConfig } from 'eslint/config'
 import reactHooks from 'eslint-plugin-react-hooks'
@@ -36,8 +36,8 @@ export default defineConfig(
     extends: [reactHooks.configs.flat['recommended-latest']],
   },
   {
-    plugins: { aang },
-    rules: { 'aang/dependency-direction': 'error', 'aang/esm-only': 'error' },
+    plugins: { catacomb },
+    rules: { 'catacomb/dependency-direction': 'error', 'catacomb/esm-only': 'error' },
   },
   {
     files: ['e2e/**/*.ts'],

@@ -249,7 +249,7 @@ const claudeRootCreatedLater: Scenario = {
   name: 'claude-projects-root-created-after-start',
   area: 'sources',
   summary:
-    'The daemon starts before Claude ever created its projects directory (first Claude session after installing aang): hooks arrive at once, the transcript is found by the periodic tree scan',
+    'The daemon starts before Claude ever created its projects directory (first Claude session after installing catacomb): hooks arrive at once, the transcript is found by the periodic tree scan',
   runtimes: ['claude'],
   scripts: () => ({ claude: { first: [[bash(echo('first'))], [{ text: 'done' }]] } }),
   run: async (lab) => {

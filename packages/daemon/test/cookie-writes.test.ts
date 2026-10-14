@@ -1,5 +1,5 @@
 import { request } from 'node:http'
-import { ApiError, type ApiErrorCode, endpoints } from '@aang/contract'
+import { ApiError, type ApiErrorCode, endpoints } from '@catacomb/contract'
 import { describe, test, type TestContext } from 'vitest'
 import { bearer, createHome, type Home, type RunningDaemon, startDaemon } from './daemon.js'
 
@@ -60,12 +60,12 @@ const signedIn = async (onTestFinished: TestContext['onTestFinished']): Promise<
   return {
     home,
     daemon,
-    cookie: { cookie: `aang_token=${home.token}` },
+    cookie: { cookie: `catacomb_token=${home.token}` },
     elsewhere: `http://127.0.0.1:${String(daemon.ready.api.port + 1)}`,
   }
 }
 
-describe.concurrent('a change signed in with the session cookie must come as JSON from the aang page itself', () => {
+describe.concurrent('a change signed in with the session cookie must come as JSON from the catacomb page itself', () => {
   test('a change from another origin is refused with 403 before any route runs, and reads stay open', async ({
     expect,
     onTestFinished,
@@ -80,7 +80,7 @@ describe.concurrent('a change signed in with the session cookie must come as JSO
       { origin: 'null' },
       { origin: elsewhere, 'sec-fetch-site': 'same-origin' },
       { host: '127.0.0.1:9000', origin: 'http://127.0.0.1:9000' },
-      { host: 'aang.example.com', origin: 'https://aang.example.com' },
+      { host: 'catacomb.example.com', origin: 'https://catacomb.example.com' },
       { host: 'attacker.example', origin: 'http://attacker.example' },
       { host: 'attacker.example', 'sec-fetch-site': 'same-origin' },
       { 'sec-fetch-site': 'same-site' },
@@ -100,7 +100,7 @@ describe.concurrent('a change signed in with the session cookie must come as JSO
     }
     const page = await send(daemon, 'POST', '/', { ...cookie, ...json, origin: elsewhere })
     expect(page.status).toBe(403)
-    expect(page.text).toContain('must come from the aang page itself')
+    expect(page.text).toContain('must come from the catacomb page itself')
     const status = await send(daemon, 'GET', endpoints.status.path, { ...cookie, origin: elsewhere }, '')
     expect(outcome(status)).toEqual(accepted)
 
@@ -139,7 +139,7 @@ describe.concurrent('a change signed in with the session cookie must come as JSO
       { 'content-type': 'text/plain' },
       { 'content-type': 'text/plain;charset=UTF-8' },
       { 'content-type': 'application/x-www-form-urlencoded' },
-      { 'content-type': 'multipart/form-data; boundary=aang' },
+      { 'content-type': 'multipart/form-data; boundary=catacomb' },
       { 'content-type': 'application/jsonp' },
       {},
     ]

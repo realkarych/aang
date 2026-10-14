@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { ClaudeReply } from '@aang/testkit'
+import type { ClaudeReply } from '@catacomb/testkit'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { Annotations, FixedProfile, Measurement, Report } from '../dist/index.js'
 import {
@@ -23,7 +23,7 @@ const workspace = async (): Promise<Workspace> => {
 }
 
 const loadProfile = (name: string, windowMs: number, cli: string | null, runs: readonly object[]) => ({
-  format: 'aang-freshness-profile/1',
+  format: 'catacomb-freshness-profile/1',
   name,
   window_ms: windowMs,
   observer: { claude: { cli, target_p95_ms: 30_000 } },
@@ -99,14 +99,14 @@ const repeatedBefore = (label: string, gapMs: number) =>
 const lostBetweenRepeats = (label: string, gapMs: number) =>
   reshaped(label, (step) => [
     { ...step, label: undefined },
-    { ...step, at: step.at + gapMs, env: { ...(step.env as Readonly<Record<string, string>>), AANG_OBSERVER: '1' } },
+    { ...step, at: step.at + gapMs, env: { ...(step.env as Readonly<Record<string, string>>), CATACOMB_OBSERVER: '1' } },
     { ...step, at: step.at + 2 * gapMs, label: `${label}-repeated` },
   ])
 
 const lostAmongRepeats = (label: string) =>
   reshaped(label, (step) => [
     { ...step, label: undefined },
-    { ...step, env: { ...(step.env as Readonly<Record<string, string>>), AANG_OBSERVER: '1' } },
+    { ...step, env: { ...(step.env as Readonly<Record<string, string>>), CATACOMB_OBSERVER: '1' } },
     { ...step, label: undefined, registration: 'user' },
     { ...step, label: `${label}-repeated` },
   ])
@@ -198,7 +198,7 @@ describe('the load profile', () => {
       stdout: '',
       stderr: `${tools} has changed since the profile was fixed\n`,
     })
-    expect(existsSync(join(space.measurement, 'aang'))).toBe(false)
+    expect(existsSync(join(space.measurement, 'catacomb'))).toBe(false)
 
     const unmeasured = await space.freshness('report', space.measurement)
     expect(unmeasured.code).toBe(1)
@@ -525,7 +525,7 @@ describe('the measurement', () => {
       })
       const cli = space.fakeCodex({ replies: [{ kind: 'script', script: 'claimed-done' }] })
       await space.writeProfile({
-        format: 'aang-freshness-profile/1',
+        format: 'catacomb-freshness-profile/1',
         name: 'codex',
         time_scale: timeScale,
         window_ms: 20_000,

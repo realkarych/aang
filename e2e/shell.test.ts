@@ -1,18 +1,18 @@
 import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { endpoints, type RunId, type RunSummary, type StatusResponse } from '@aang/contract'
-import { aangHomePaths } from '@aang/contract/home'
-import { observerScenarios, sampleScenarioManifest } from '@aang/testkit'
+import { endpoints, type RunId, type RunSummary, type StatusResponse } from '@catacomb/contract'
+import { catacombHomePaths } from '@catacomb/contract/home'
+import { observerScenarios, sampleScenarioManifest } from '@catacomb/testkit'
 import type { Route } from '@playwright/test'
-import { aangEntry, expect, test } from './fixtures.js'
+import { catacombEntry, expect, test } from './fixtures.js'
 import { claudeGoal, claudeOriginal, codexGoal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
 import { healthDot, healthLacks, healthProblems, runRowOf, waitingChip, waitingFor } from './screens.js'
 
 const claudeSession = claudeOriginal.session
 const claudeRun = runOf(claudeOriginal)
 const codexRun = runOf(codexThread)
-const claudeProject = 'projects/-tmp-aang-spike-cc-transcripts-run'
+const claudeProject = 'projects/-tmp-catacomb-spike-cc-transcripts-run'
 
 const watchAll = { watch: { all: true } }
 
@@ -125,7 +125,7 @@ test('a Codex session without hook events shows inactive hooks and the files-onl
   await expect(await healthProblems(page)).toContainText('Hooks: inactive in 1 session')
   await healthLacks(page, 'Link:')
 
-  await page.getByRole('link', { name: 'aang' }).click()
+  await page.getByRole('link', { name: 'catacomb' }).click()
   await expect(runRowOf(page, codexRun)).toContainText(codexGoal)
 })
 
@@ -208,14 +208,14 @@ test('the run page follows the stream live and re-reads the run when the stream 
   await expect(await healthProblems(page)).toContainText('Link: no connection to the daemon')
   await expect(await healthProblems(page)).toContainText('The daemon is not responding.')
 
-  for (const file of ['aang.db', 'aang.db-wal', 'aang.db-shm']) {
-    await rm(join(profile.aangHome, file), { force: true })
+  for (const file of ['catacomb.db', 'catacomb.db-wal', 'catacomb.db-shm']) {
+    await rm(join(profile.catacombHome, file), { force: true })
   }
   await rm(join(profile.codex, 'sessions'), { recursive: true, force: true })
   await rm(join(profile.claude, ...claudeProject.split('/'), claudeSession), { recursive: true, force: true })
   await writeFile(transcript, beforeSubagent)
   await profile.configure({ ...watchAll, collector: { rootsScanIntervalMs: 250 }, api: { port: daemon.api.port } })
-  const restarted = await profile.startDaemon({ entry: aangEntry })
+  const restarted = await profile.startDaemon({ entry: catacombEntry })
   expect(restarted.url).toBe(daemon.url)
   await expect.poll(async () => (await readRunSummary(restarted.request, claudeRun))?.agents).toBe(1)
 
@@ -246,7 +246,7 @@ test('the run list says when only the list request fails and shows the run once 
 
   await page.route(runsRoute, dropRuns)
   await page.goto('/')
-  await expect(trouble).toHaveText('Could not load the run list. aang keeps retrying.')
+  await expect(trouble).toHaveText('Could not load the run list. catacomb keeps retrying.')
   const listProblems = await healthProblems(page)
   await expect(listProblems).toContainText('Link: list not updating')
   await expect(healthDot(page)).toHaveAttribute('aria-expanded', 'true')
@@ -270,7 +270,7 @@ test('the run list says when only the list request fails and shows the run once 
   await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
   await expect(await healthProblems(page)).toContainText('Link: list not updating')
   await expect(await healthProblems(page)).toContainText(
-    'The daemon did not return the run list. aang keeps retrying; the list on screen may be stale.',
+    'The daemon did not return the run list. catacomb keeps retrying; the list on screen may be stale.',
   )
 
   await page.unroute(runsRoute, dropRuns)
@@ -290,17 +290,17 @@ test.describe('a Claude-only install', () => {
     page,
     daemon,
     profile,
-    aang,
+    catacomb,
     fakeClaude,
     player,
     hook,
   }) => {
-    await aang('install', '--claude')
+    await catacomb('install', '--claude')
     expect(await daemon.stop(), daemon.output()).toEqual({ code: 0, signal: null })
     const gate = join(profile.root, 'admission-gate')
     fakeClaude.setScenario({ ...observerScenarios['map-layout'].live, admissionGate: gate })
     await profile.configure({ ...watchAll, cli: { claude: fakeClaude.path }, api: { port: daemon.api.port } })
-    const restarted = await profile.startDaemon({ entry: aangEntry })
+    const restarted = await profile.startDaemon({ entry: catacombEntry })
     expect(restarted.url).toBe(daemon.url)
     const status = async (): Promise<StatusResponse> =>
       endpoints.status.response.parse(await (await restarted.request(endpoints.status.path)).json())
@@ -326,7 +326,7 @@ test.describe('a Claude-only install', () => {
       ])
 
     await page.goto('/')
-    await expect(page.getByText('aang watches all directories.', { exact: false })).toBeVisible()
+    await expect(page.getByText('catacomb watches all directories.', { exact: false })).toBeVisible()
     await expect(healthDot(page)).toHaveCount(0)
     await expect(page.getByRole('region', { name: 'Observation status' })).toHaveCount(0)
 
@@ -390,7 +390,7 @@ test.describe('the health dot', () => {
   }) => {
     await page.goto('/')
     await expect(page.getByRole('heading', { name: 'No runs yet' })).toBeVisible()
-    await expect(page.getByText('aang watches all directories.', { exact: false })).toBeVisible()
+    await expect(page.getByText('catacomb watches all directories.', { exact: false })).toBeVisible()
 
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await expect(runRowOf(page, claudeRun)).toBeVisible()
@@ -412,7 +412,7 @@ test.describe('the health dot', () => {
     await expect(await healthProblems(page)).toContainText(/source lost(?:: .*)? since \d/)
     await expect(await healthProblems(page)).toContainText('Records: 1 unrecognized record in this run')
 
-    const { spoolReady } = aangHomePaths(profile.aangHome)
+    const { spoolReady } = catacombHomePaths(profile.catacombHome)
     await mkdir(spoolReady, { recursive: true })
     await writeFile(join(spoolReady, 'h1-overflow.evt'), 'x'.repeat(5_000))
     await expect(await healthProblems(page)).toContainText('Spool: over threshold')
@@ -421,7 +421,7 @@ test.describe('the health dot', () => {
 })
 
 test.describe('an empty list with watched directories', () => {
-  const watched = join(tmpdir(), 'aang-h1-watched-project')
+  const watched = join(tmpdir(), 'catacomb-h1-watched-project')
 
   test.use({ config: { watch: { roots: [{ path: watched }] } } })
 

@@ -3,7 +3,7 @@
 Observer and chat replies for E2E 1, 3, 4, 5, 7, 8, 15, 17 and rejected replies in the inspector (ADR-0012, H.6), as well as for map E2E 14 (H.5). The fake `claude` and `codex` (F.1, F.4) reply from them the same way as the real CLI: the reply is built from the input and references the ids of facts, stages, agents, actions, attention items and the `model_version` from it.
 
 ```ts
-import { installFakeClaude, observerScenarios } from '@aang/testkit'
+import { installFakeClaude, observerScenarios } from '@catacomb/testkit'
 
 const fake = installFakeClaude(directory, observerScenarios['since-last-view'].before)
 fake.setScenario(observerScenarios['since-last-view'].after)

@@ -1,4 +1,4 @@
-import type { Action, Agent, AttentionItem, Basis, BasisKind, RunSnapshot, Stage, StageId } from '@aang/contract'
+import type { Action, Agent, AttentionItem, Basis, BasisKind, RunSnapshot, Stage, StageId } from '@catacomb/contract'
 import { predecessorsOf } from './stage-lineage.js'
 import { isHidden, placementsOf } from './view-placement.js'
 

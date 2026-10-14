@@ -5,8 +5,8 @@ import {
   ObserverCallId,
   type ObserverOp,
   ObserverOutput,
-} from '@aang/contract'
-import { applyObserverResponse, beginObserverCall } from '@aang/engine'
+} from '@catacomb/contract'
+import { applyObserverResponse, beginObserverCall } from '@catacomb/engine'
 import { expect, test } from 'vitest'
 import { hookBatch } from './batches.js'
 import { factsOf, startEngine } from './harness.js'

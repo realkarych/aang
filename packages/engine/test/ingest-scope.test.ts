@@ -1,4 +1,4 @@
-import type { ScopeDecision } from '@aang/contract'
+import type { ScopeDecision } from '@catacomb/contract'
 import { describe, expect, test, vi } from 'vitest'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
 import {
@@ -160,19 +160,19 @@ interface ObserverCase {
 
 const observerCases: readonly ObserverCase[] = [
   {
-    name: 'a Claude session with the aang-observer entrypoint',
+    name: 'a Claude session with the catacomb-observer entrypoint',
     runtime: 'claude',
-    lines: (cwd) => claudeTranscript({ session: 's-observer', cwd, entrypoint: 'aang-observer' }),
+    lines: (cwd) => claudeTranscript({ session: 's-observer', cwd, entrypoint: 'catacomb-observer' }),
   },
   {
-    name: 'a Codex session with the aang_observer originator',
+    name: 'a Codex session with the catacomb_observer originator',
     runtime: 'codex',
-    lines: (cwd) => codexRollout({ thread: 's-observer', cwd, sessionMeta: { originator: 'aang_observer' } }),
+    lines: (cwd) => codexRollout({ thread: 's-observer', cwd, sessionMeta: { originator: 'catacomb_observer' } }),
   },
   {
-    name: 'a Codex session with the aang-observer thread source',
+    name: 'a Codex session with the catacomb-observer thread source',
     runtime: 'codex',
-    lines: (cwd) => codexRollout({ thread: 's-observer', cwd, sessionMeta: { thread_source: 'aang-observer' } }),
+    lines: (cwd) => codexRollout({ thread: 's-observer', cwd, sessionMeta: { thread_source: 'catacomb-observer' } }),
   },
 ]
 

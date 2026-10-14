@@ -1,12 +1,12 @@
-import { spoolEnvKeys } from '@aang/contract'
+import { spoolEnvKeys } from '@catacomb/contract'
 
 export type Environment = Readonly<Record<string, string>>
 
 export type InheritedEnvironment = Readonly<Partial<Record<string, string>>>
 
-const enclosingRuntimeVariable = /^(?:AANG_|CLAUDE|CODEX_|AI_AGENT$)/i
+const enclosingRuntimeVariable = /^(?:CATACOMB_|CLAUDE|CODEX_|AI_AGENT$)/i
 
-const hookVariables: readonly string[] = [...spoolEnvKeys, 'AANG_OBSERVER'].map((name) => name.toUpperCase())
+const hookVariables: readonly string[] = [...spoolEnvKeys, 'CATACOMB_OBSERVER'].map((name) => name.toUpperCase())
 
 const upperCased = (names: Iterable<string>): Set<string> => new Set([...names].map((name) => name.toUpperCase()))
 

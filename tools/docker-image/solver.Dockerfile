@@ -1,11 +1,11 @@
-ARG AANG_IMAGE=aang
-ARG BUILD_IMAGE=aang:build
+ARG CATACOMB_IMAGE=catacomb
+ARG BUILD_IMAGE=catacomb:build
 
 FROM ${BUILD_IMAGE} AS fake-solver
 RUN pnpm exec tsc -b tools/docker-image
-RUN pnpm --filter=@aang/docker-image --prod deploy /opt/fake-solver
+RUN pnpm --filter=@catacomb/docker-image --prod deploy /opt/fake-solver
 
-FROM ${AANG_IMAGE}
+FROM ${CATACOMB_IMAGE}
 USER root
 COPY --from=fake-solver /opt/fake-solver /opt/fake-solver
 COPY packages/testkit/sample-scenarios /opt/samples/packages/testkit/sample-scenarios

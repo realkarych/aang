@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { Store } from '@aang/store'
+import type { Store } from '@catacomb/store'
 import {
   createPlayer,
   type LoadedManifest,
@@ -9,7 +9,7 @@ import {
   type PlayOptions,
   type SampleScenario,
   sampleScenarioManifest,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import { expect, onTestFinished, vi } from 'vitest'
 import { recordsOf, startEngine } from './harness.js'
 import { createHome } from './home.js'

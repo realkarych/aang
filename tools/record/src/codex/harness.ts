@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Surface } from '@aang/contract'
+import type { Surface } from '@catacomb/contract'
 import type { RunOutput } from '../record.js'
 import type { Scenario, ScenarioSession } from '../scenario.js'
 import { writeCodexHome } from './home.js'

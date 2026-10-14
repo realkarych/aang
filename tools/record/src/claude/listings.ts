@@ -11,7 +11,7 @@ const AgentListing = z.looseObject({ addedTypes: z.array(z.string()), addedLines
 const SkillListing = z.looseObject({ content: z.string(), names: z.array(z.string()).optional() })
 const AgentInput = z.looseObject({ subagent_type: z.string() })
 
-export const agentPrompt = (key: string, word: string): string => `[aang:${key}] Run \`echo ${word}\` with the Bash tool and report its output.`
+export const agentPrompt = (key: string, word: string): string => `[catacomb:${key}] Run \`echo ${word}\` with the Bash tool and report its output.`
 
 export const agentCall = (type: string, key: string, word: string, description: string): StubBlock =>
   ({ tool: 'Agent', input: { description, prompt: agentPrompt(key, word), subagent_type: type, run_in_background: false } })

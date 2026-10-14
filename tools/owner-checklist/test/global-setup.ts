@@ -14,12 +14,12 @@ declare module 'vitest' {
 
 const execFileAsync = promisify(execFile)
 const hookModule = fileURLToPath(new URL('../../../packages/hook', import.meta.url))
-const executableName = process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook'
+const executableName = process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook'
 
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
-  const output = await mkdtemp(join(tmpdir(), 'aang-d7-hook-'))
+  const output = await mkdtemp(join(tmpdir(), 'catacomb-d7-hook-'))
   const binary = join(output, executableName)
-  await execFileAsync('go', ['build', '-o', binary, './cmd/aang-hook'], {
+  await execFileAsync('go', ['build', '-o', binary, './cmd/catacomb-hook'], {
     cwd: hookModule,
     env: { ...process.env, CGO_ENABLED: '0' },
   })

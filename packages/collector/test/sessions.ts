@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { codexAdapter } from '@aang/adapter-codex'
-import { StreamKey } from '@aang/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { StreamKey } from '@catacomb/contract'
 import type { Sandbox } from './sandbox.js'
 
 export const sessions = [

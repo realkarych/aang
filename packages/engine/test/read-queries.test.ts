@@ -17,8 +17,8 @@ import {
   StageId,
   StageInspector,
   TempId,
-} from '@aang/contract'
-import { contentHash, objectId, runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { contentHash, objectId, runId } from '@catacomb/contract/ids'
 import {
   applyChangeSet,
   applyObserverResponse,
@@ -28,7 +28,7 @@ import {
   failObserverCall,
   InvalidPositionError,
   type RunFeed,
-} from '@aang/engine'
+} from '@catacomb/engine'
 import { describe, expect, test } from 'vitest'
 import { sessionKey } from './harness.js'
 import { createHome } from './home.js'

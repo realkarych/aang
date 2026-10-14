@@ -49,7 +49,7 @@ const removeAbandoned = async (lock: string, abandoned: string, deadline: number
     if (recovering !== undefined && !isRunning(lockOwner(recovering))) {
       throw new HookInstallError(
         'install_locked',
-        `${recovery}: process ${recovering} stopped while taking over ${lock}; remove both files once no aang installation is running`,
+        `${recovery}: process ${recovering} stopped while taking over ${lock}; remove both files once no catacomb installation is running`,
       )
     }
     return false

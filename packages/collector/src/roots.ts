@@ -1,5 +1,5 @@
 import { basename, join } from 'node:path'
-import type { Runtime } from '@aang/contract'
+import type { Runtime } from '@catacomb/contract'
 import type { SnapshotRoot } from './snapshot.js'
 import type { TailRoot } from './tail.js'
 import type { TreeRoot } from './tree.js'

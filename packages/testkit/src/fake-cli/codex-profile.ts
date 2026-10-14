@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 import { toolFreeTraits } from './codex-catalog.js'
 import { isJsonObject, parseJson, readText, type TextRead } from './io.js'
 import { allValues, flag, lastValue, valued, type OptionSpec, type ParsedOptions } from './options.js'
@@ -117,7 +117,7 @@ const requirements: readonly Requirement<CodexProfileCall>[] = [
   { id: '--ignore-rules', met: present('ignore-rules') },
   { id: '--skip-git-repo-check', met: present('skip-git-repo-check') },
   { id: '-s read-only', met: equals('sandbox', 'read-only') },
-  { id: '--thread-source aang-observer', met: equals('thread-source', 'aang-observer') },
+  { id: '--thread-source catacomb-observer', met: equals('thread-source', 'catacomb-observer') },
   { id: '-c model_catalog_json', met: ({ catalog }) => catalog !== undefined },
   {
     id: '-m matches the catalog slug',
@@ -144,8 +144,8 @@ const requirements: readonly Requirement<CodexProfileCall>[] = [
     id: `--disable ${feature}`,
     met: ({ options }) => allValues(options, 'disable').includes(feature),
   })),
-  environmentRequirement('CODEX_INTERNAL_ORIGINATOR_OVERRIDE', 'aang_observer'),
-  environmentRequirement('AANG_OBSERVER', '1'),
+  environmentRequirement('CODEX_INTERNAL_ORIGINATOR_OVERRIDE', 'catacomb_observer'),
+  environmentRequirement('CATACOMB_OBSERVER', '1'),
 ]
 
 export const codexViolations = (call: CodexProfileCall): string[] => violations(requirements, call)

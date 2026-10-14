@@ -1,4 +1,4 @@
-import type { FactDraft, JsonValue, QuestionAskedPayload, QuestionSource } from '@aang/contract'
+import type { FactDraft, JsonValue, QuestionAskedPayload, QuestionSource } from '@catacomb/contract'
 import { z } from 'zod'
 import { type CallOrigin, callFact, type ToolCall } from './facts.js'
 import { optionalText } from './fields.js'

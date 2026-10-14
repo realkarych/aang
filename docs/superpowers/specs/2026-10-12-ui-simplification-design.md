@@ -20,17 +20,17 @@ The web UI shows too much around the map: a status strip, a run header with abou
 | D4 | Depth | UI only. The backend, API, tables, observer, Codex, Windows, OTel and tools stay. Exception: D9 |
 | D5 | Attention (questions, permissions, blockers) | A "waiting for you" badge on the map node and a count in the chat list; no attention zone |
 | D6 | Click on a node | Narrows the chat to the stage and shows a 2–3 line stage summary at the top of the chat panel; no inspector |
-| D7 | Node card | Name, execution state (colour plus icon), basis icon (observed / claimed by the agent / aang's interpretation), attention badge |
-| D8 | Observation health | A single dot in the header only while something is wrong; the text on hover or click; details stay in `aang status` |
+| D7 | Node card | Name, execution state (colour plus icon), basis icon (observed / claimed by the agent / catacomb's interpretation), attention badge |
+| D8 | Observation health | A single dot in the header only while something is wrong; the text on hover or click; details stay in `catacomb status` |
 | D9 | Chat list row | Compact: goal, project folder, state, "waiting for you: N", relative time; newest first. Adds `cwd` to `RunSummary` |
-| D10 | Trace, "Since last review", PlanFacts, usage page | All removed from the UI. `aang usage` stays in the CLI |
+| D10 | Trace, "Since last review", PlanFacts, usage page | All removed from the UI. `catacomb usage` stays in the CLI |
 | D11 | Formalization | ADR-0015 plus an amendment of RFC §4–§5 and of the coverage table in `docs/plan/mvp.md` |
 
 ## Screens
 
 ### Header (every screen)
 
-One thin row: the `aang` wordmark. On a chat screen also "← Chats" and the run goal. On the right, the health dot (D8), rendered only when a problem exists. The current `Masthead` "Usage" link, `StatusStrip` and the run `Facts` list are removed.
+One thin row: the `catacomb` wordmark. On a chat screen also "← Chats" and the run goal. On the right, the health dot (D8), rendered only when a problem exists. The current `Masthead` "Usage" link, `StatusStrip` and the run `Facts` list are removed.
 
 The health dot reuses the problem detection in `lamps.ts`: it is shown when any lamp is in a non-ok state; hover or click opens a small popover listing the problem lamps with their existing text. The lamp row and its expandable details panel are removed.
 
@@ -56,7 +56,7 @@ Layout: header, then a two-column body filling the viewport height. Left: the ma
 
 - name;
 - execution state: colour plus icon plus accessible label (RFC §5: colour is always paired with a label or icon);
-- basis icon with a tooltip: observed, claimed by the agent, interpreted by aang;
+- basis icon with a tooltip: observed, claimed by the agent, interpreted by catacomb;
 - attention badge: the number of open attention items whose `stage` is this stage; hidden when zero;
 - the existing expand toggle for stages with substages.
 

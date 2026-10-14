@@ -16,22 +16,22 @@ using System.Text;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
 
-public class AangJobProcess
+public class CatacombJobProcess
 {
     public int Pid { get; set; }
     public string Name { get; set; }
 }
 
-public class AangJobResult
+public class CatacombJobResult
 {
-    public AangJobResult()
+    public CatacombJobResult()
     {
         RootExitCode = -1;
         ActiveAfterTerminate = -1;
         StopConfirmedMs = -1;
         TotalProcesses = -1;
-        Seen = new List<AangJobProcess>();
-        RemainingAfterRootExit = new List<AangJobProcess>();
+        Seen = new List<CatacombJobProcess>();
+        RemainingAfterRootExit = new List<CatacombJobProcess>();
     }
 
     public string Error { get; set; }
@@ -39,14 +39,14 @@ public class AangJobResult
     public long RootExitCode { get; set; }
     public bool RootTimedOut { get; set; }
     public int TotalProcesses { get; set; }
-    public List<AangJobProcess> Seen { get; set; }
-    public List<AangJobProcess> RemainingAfterRootExit { get; set; }
+    public List<CatacombJobProcess> Seen { get; set; }
+    public List<CatacombJobProcess> RemainingAfterRootExit { get; set; }
     public int ActiveAfterTerminate { get; set; }
     public long StopConfirmedMs { get; set; }
     public long DurationMs { get; set; }
 }
 
-public static class AangJob
+public static class CatacombJob
 {
     const uint CreateSuspended = 0x00000004;
     const uint CreateUnicodeEnvironment = 0x00000400;
@@ -225,12 +225,12 @@ public static class AangJob
         }
     }
 
-    static List<AangJobProcess> Describe(IEnumerable<int> pids, Dictionary<int, string> names)
+    static List<CatacombJobProcess> Describe(IEnumerable<int> pids, Dictionary<int, string> names)
     {
-        List<AangJobProcess> described = new List<AangJobProcess>();
+        List<CatacombJobProcess> described = new List<CatacombJobProcess>();
         foreach (int pid in pids)
         {
-            described.Add(new AangJobProcess { Pid = pid, Name = names.ContainsKey(pid) ? names[pid] : NameOf(pid) });
+            described.Add(new CatacombJobProcess { Pid = pid, Name = names.ContainsKey(pid) ? names[pid] : NameOf(pid) });
         }
         return described;
     }
@@ -252,9 +252,9 @@ public static class AangJob
         return Marshal.StringToHGlobalUni(string.Join("\0", environment) + "\0\0");
     }
 
-    public static AangJobResult Run(string commandLine, string[] environment, string directory, string stdinPath, string stdoutPath, string stderrPath, int timeoutMs)
+    public static CatacombJobResult Run(string commandLine, string[] environment, string directory, string stdinPath, string stdoutPath, string stderrPath, int timeoutMs)
     {
-        AangJobResult result = new AangJobResult();
+        CatacombJobResult result = new CatacombJobResult();
         Stopwatch clock = Stopwatch.StartNew();
         IntPtr job = CreateJobObjectW(IntPtr.Zero, null);
         if (job == IntPtr.Zero)
@@ -346,7 +346,7 @@ public static class AangJob
 
 Add-Type -TypeDefinition $source -Language CSharp
 
-$traceName = 'aangProcessTrace'
+$traceName = 'catacombProcessTrace'
 $traceError = $null
 try {
     Register-CimIndicationEvent -ClassName Win32_ProcessStartTrace -SourceIdentifier $traceName -ErrorAction Stop
@@ -354,7 +354,7 @@ try {
     $traceError = $_.Exception.Message
 }
 
-$job = [AangJob]::Run($spec.commandLine, [string[]]$spec.environment, $spec.cwd, $spec.stdin, $spec.stdout, $spec.stderr, [int]$spec.timeoutMs)
+$job = [CatacombJob]::Run($spec.commandLine, [string[]]$spec.environment, $spec.cwd, $spec.stdin, $spec.stdout, $spec.stderr, [int]$spec.timeoutMs)
 
 function Describe-TraceEvents($events, $alive) {
     @($events | ForEach-Object {

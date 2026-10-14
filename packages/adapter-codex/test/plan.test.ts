@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
-import { codexAdapter } from '@aang/adapter-codex'
-import { CollectedRecord, EpochNs, type FactDraft, type OperatingSystem } from '@aang/contract'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { CollectedRecord, EpochNs, type FactDraft, type OperatingSystem } from '@catacomb/contract'
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
 import { factsOf, parseFacts, record, streamFrom, threadStream, withPayload } from './rollout-records.js'
@@ -10,8 +10,8 @@ const goalNotification = new URL(
   '../../../docs/research/samples/codex-app-server/notification.thread-goal-updated.json',
   import.meta.url,
 )
-const published = 'call_aang_1_0'
-const completed = 'call_aang_3_0'
+const published = 'call_catacomb_1_0'
+const completed = 'call_catacomb_3_0'
 const observedAt = EpochNs.parse(1_791_076_742_988_323_785n)
 
 const Playback = z.looseObject({

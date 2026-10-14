@@ -1,14 +1,14 @@
 import { symlink } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
-import { loadConfig, processEnvironment } from '@aang/contract/config-file'
-import { aangHomePaths } from '@aang/contract/home'
-import { createPlayer, installFakeClaude, installFakeCodex, loadManifest } from '@aang/testkit'
+import { loadConfig, processEnvironment } from '@catacomb/contract/config-file'
+import { catacombHomePaths } from '@catacomb/contract/home'
+import { createPlayer, installFakeClaude, installFakeCodex, loadManifest } from '@catacomb/testkit'
 
 const usage = `usage: node dist/main.js <command>
 
   install-clis <directory> <bin>   install fake claude and codex into <directory> and link them from <bin>
-  play <manifest>                  play a player manifest into the runtime roots and the spool aang uses
+  play <manifest>                  play a player manifest into the runtime roots and the spool catacomb uses
 `
 
 const installClis = async (directory: string, bin: string): Promise<void> => {
@@ -19,11 +19,11 @@ const installClis = async (directory: string, bin: string): Promise<void> => {
 
 const play = async (manifest: string): Promise<void> => {
   const environment = processEnvironment()
-  const { aangHome, runtimeRoots } = await loadConfig(environment)
+  const { catacombHome, runtimeRoots } = await loadConfig(environment)
   const player = createPlayer(await loadManifest(resolve(manifest)), {
     roots: { home: environment.homedir, ...runtimeRoots },
     timeScale: 0,
-    hook: { binary: 'aang-hook', spool: aangHomePaths(aangHome).spool },
+    hook: { binary: 'catacomb-hook', spool: catacombHomePaths(catacombHome).spool },
   })
   try {
     await player.play()

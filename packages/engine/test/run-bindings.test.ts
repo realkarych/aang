@@ -15,8 +15,8 @@ import {
   type Runtime,
   type SessionId,
   StageId,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
 import {
   applyChangeSet,
   applyObserverResponse,
@@ -26,8 +26,8 @@ import {
   type Engine,
   failObserverCall,
   startObserverBatch,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { claudeHooks, millisecond } from './attention-fixtures.js'
 import { hookBatch, jsonlFile } from './batches.js'

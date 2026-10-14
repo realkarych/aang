@@ -1,4 +1,4 @@
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 import { runScenarioScript, type ScenarioScript } from '../observer-scenarios/scripts.js'
 import { renderTemplate } from './template.js'
 

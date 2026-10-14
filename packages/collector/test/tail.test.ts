@@ -1,6 +1,6 @@
 import { appendFile, mkdir, open, rename, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { CollectedRecord, type FileCursor, type StreamKey } from '@aang/contract'
+import { CollectedRecord, type FileCursor, type StreamKey } from '@catacomb/contract'
 import { expect, test, vi } from 'vitest'
 import { createSandbox, holdExclusively, runCollector, type Sandbox, sleep } from './sandbox.js'
 

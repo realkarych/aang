@@ -1,11 +1,11 @@
 import { copyFile, mkdir, realpath, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { type ChatMessage, Config, endpoints, type RunId, type Runtime, type UsageReport } from '@aang/contract'
-import { configFileName } from '@aang/contract/config-file'
-import { aangHomePaths } from '@aang/contract/home'
-import { hookInstallPaths } from '@aang/hook'
-import { openStore, type Store } from '@aang/store'
+import { type ChatMessage, Config, endpoints, type RunId, type Runtime, type UsageReport } from '@catacomb/contract'
+import { configFileName } from '@catacomb/contract/config-file'
+import { catacombHomePaths } from '@catacomb/contract/home'
+import { hookInstallPaths } from '@catacomb/hook'
+import { openStore, type Store } from '@catacomb/store'
 import {
   createPlayer,
   type HookTarget,
@@ -14,7 +14,7 @@ import {
   playbackShift,
   profileEnvironment,
   type RunningDaemon,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import type { z } from 'zod'
 import type { Played } from './control.js'
 import { evaluateEvents } from './evaluate.js'
@@ -185,9 +185,9 @@ const callsOf = async (daemon: RunningDaemon): Promise<MeasuredCall[]> => {
   return calls.flat()
 }
 
-const daemonConfig = (profile: LoadProfile, aang: string): Config => {
+const daemonConfig = (profile: LoadProfile, catacomb: string): Config => {
   const cliOf = (runtime: Runtime, settings: ObserverSettings | undefined): string | null =>
-    settings === undefined ? join(aang, 'absent', runtime) : settings.cli
+    settings === undefined ? join(catacomb, 'absent', runtime) : settings.cli
   const { claude, codex } = profile.observer
   return Config.parse({
     watch: { all: true },
@@ -410,21 +410,21 @@ export const measure = async (options: MeasureOptions): Promise<Measurement> => 
   const { profile } = fixed
   const scheduled = await schedule(fixed, options.fixtures)
   const home = join(directory, measurementFiles.home)
-  const aang = join(directory, measurementFiles.aang)
+  const catacomb = join(directory, measurementFiles.catacomb)
   const roots: PlayerRoots = { home, claude: join(home, '.claude'), codex: join(home, '.codex') }
   await createOnce(
-    () => mkdir(aang, { mode: 0o700 }),
+    () => mkdir(catacomb, { mode: 0o700 }),
     `a measurement has already run in ${directory}; fix the profile into a new directory`,
   )
   for (const runtimeDirectory of usedRuntimeHome(roots)) {
     await mkdir(runtimeDirectory, { recursive: true })
   }
-  await writeFile(join(aang, configFileName), json(daemonConfig(profile, aang)))
-  const launcher = hookInstallPaths(aang).binary
+  await writeFile(join(catacomb, configFileName), json(daemonConfig(profile, catacomb)))
+  const launcher = hookInstallPaths(catacomb).binary
   await mkdir(dirname(launcher), { recursive: true })
   await copyFile(options.hookBinary, launcher)
-  const paths = aangHomePaths(aang)
-  const env = profileEnvironment(process.env, { AANG_HOME: aang, CLAUDE_CONFIG_DIR: roots.claude, CODEX_HOME: roots.codex })
+  const paths = catacombHomePaths(catacomb)
+  const env = profileEnvironment(process.env, { CATACOMB_HOME: catacomb, CLAUDE_CONFIG_DIR: roots.claude, CODEX_HOME: roots.codex })
   const daemon = await launchDaemon(paths, env, { entry: options.daemonEntry })
   const plan: Plan = { profile, scheduled, roots, hook: { binary: options.hookBinary, spool: paths.spool, env } }
   const collected = await collect(daemon, plan).catch(async (error: unknown) => {
@@ -435,7 +435,7 @@ export const measure = async (options: MeasureOptions): Promise<Measurement> => 
     throw stopped === null ? error : new Error(`${messageOf(error)}\n${messageOf(stopped)}`, { cause: error })
   })
   await shutDown(daemon)
-  const store = openStore({ home: aang })
+  const store = openStore({ home: catacomb })
   const { events, spent, calls } = (() => {
     try {
       return {
@@ -455,7 +455,7 @@ export const measure = async (options: MeasureOptions): Promise<Measurement> => 
     }
   })()
   const measurement: Measurement = {
-    format: 'aang-freshness-measurement/1',
+    format: 'catacomb-freshness-measurement/1',
     profile_digest: digest,
     daemon_version: collected.version,
     started_at: collected.startedAt,
@@ -476,7 +476,7 @@ export const measure = async (options: MeasureOptions): Promise<Measurement> => 
   }
   await writeNew(join(directory, measurementFiles.measurement), Measurement.encode(measurement))
   const annotations: Annotations = {
-    format: 'aang-freshness-annotations/1',
+    format: 'catacomb-freshness-annotations/1',
     events: events.flatMap(({ recording, label, description, evaluation }) =>
       evaluation.kind === 'annotation' ? [{ recording, label, description, candidates: evaluation.candidates, verdict: null }] : [],
     ),

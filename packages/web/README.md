@@ -1,12 +1,12 @@
 # Web interface
 
-A React application that the daemon serves as static files from the same origin (ADR-0011). `pnpm build` builds it with Vite into `dist/`; the `aang` package finds the directory via `import.meta.resolve('@aang/web')`, which points to `dist/index.html`. The subpaths `@aang/web/map-graph` and `@aang/web/map-layout` point to the sources of the map modules and are needed only by the package's own tests. The `web` code talks to the daemon only through the API and SSE and imports the response schemas from `contract`.
+A React application that the daemon serves as static files from the same origin (ADR-0011). `pnpm build` builds it with Vite into `dist/`; the `catacomb` package finds the directory via `import.meta.resolve('@catacomb/web')`, which points to `dist/index.html`. The subpaths `@catacomb/web/map-graph` and `@catacomb/web/map-layout` point to the sources of the map modules and are needed only by the package's own tests. The `web` code talks to the daemon only through the API and SSE and imports the response schemas from `contract`.
 
 The interface has two screens: the chat list and the chat screen with a full-screen stage map and a collapsible chat panel (ADR-0015). State is everywhere shown by color together with an icon and a label (RFC §5).
 
 ## Shell
 
-- **Sign-in.** The page opens only with the cookie from the one-time `aang open` link (ADR-0003). If any request gets 401 — the token was replaced or the cookie is stale — the application shows the "Signed out" screen with a hint about `aang open`.
+- **Sign-in.** The page opens only with the cookie from the one-time `catacomb open` link (ADR-0003). If any request gets 401 — the token was replaced or the cookie is stale — the application shows the "Signed out" screen with a hint about `catacomb open`.
 - **Address.** The chat list is `/`, a chat is `/?run=<id>`, a selected stage is `/?run=<id>&stage=<id>`. The daemon serves `index.html` only at `/`, so the run is passed as a parameter, not as a path. Old addresses keep working: `/?view=usage` opens the list, `&mode=changes` is ignored.
 - **The run page** takes the snapshot `GET /api/runs/:run` and subscribes to `GET /api/stream?run=` with `Last-Event-ID` equal to the snapshot's `change_seq`. The stream is read via `fetch`, not `EventSource`, because the very first request already carries `Last-Event-ID`.
   - The `run`, `facts`, `model`, `attention` and `chat` events are applied to the snapshot by `id`; removed agents are dropped. The position is the `id` of the last event.
@@ -19,10 +19,10 @@ The interface has two screens: the chat list and the chat screen with a full-scr
 
 One thin row on every screen (`banner`):
 
-- the `aang` wordmark, a link to the list;
+- the `catacomb` wordmark, a link to the list;
 - on a chat screen, "← Chats" and the run goal as `h1`: the goal `run.goal` (the human's first prompt, ADR-0006), else the observer's brief, else the runtime and start time;
 - **"Waiting for you" chip** — on a chat screen, only while open attention items exist that the map cannot show. An item goes to the chip when its stage is `null`, unknown to the snapshot, not active (replaced, merged or split), or hidden by a view rule on the stage itself or on an ancestor. Items of stages that are on the map, including inside a collapsed stage, are counted on the map instead (see "Node card"). So every open item is either on the map or in the chip. The chip is a button: a caution glyph and the count are visible, "Waiting for you: " is visually hidden, so its accessible name is "Waiting for you: N". Hover or focus shows a tooltip (`role=tooltip`, also the button's description) that lists the items as "kind: text"; Escape hides it.
-- **Health dot** — shown only while observation has a problem (D8). The problems are the lamps of `lamps.ts` that are not in the normal level, selected by `problemsOf`; "not observable" modes are never a problem. The dot is a button named "Observation problems: N", coloured by the worst problem; a click opens the region "Observation problems" that lists each problem lamp with its details and points to `aang status` for the rest. The following are **not** problems:
+- **Health dot** — shown only while observation has a problem (D8). The problems are the lamps of `lamps.ts` that are not in the normal level, selected by `problemsOf`; "not observable" modes are never a problem. The dot is a button named "Observation problems: N", coloured by the worst problem; a click opens the region "Observation problems" that lists each problem lamp with its details and points to `catacomb status` for the rest. The following are **not** problems:
   - hooks that are not installed (`not_installed`) or whose installation was not checked; untrusted and disabled hooks, inactive hooks in sessions and double registration are problems;
   - an observer backend disabled with `cli_missing` when no listed run uses that vendor; it is a problem once a run of that vendor exists;
   - an observer disabled with `version_not_admitted` while its admission is `pending` and no backend failed admission; a failed or absent admission is a problem;
@@ -71,7 +71,7 @@ ADR-0008, "Map on updates": a new model version does not reset the selected stag
 
 ### Node card
 
-A card shows the stage name, execution (icon and label), the basis of that state (observed event, solver claim or aang interpretation; for an interpretation the tooltip has the rule or the observer call) and, when open items wait, a "waiting for you" badge: a caution glyph and the count, "Waiting for you: " visually hidden, with the title "Waiting for you: N". An expanded stage counts its own items. A collapsed stage, and a stage collapsed by a filter, counts its own items and those of every substage it hides (the roll-up), so no open item disappears from the map. A stage collapsed by a filter also shows "collapsed by a filter" with its tree totals.
+A card shows the stage name, execution (icon and label), the basis of that state (observed event, solver claim or catacomb interpretation; for an interpretation the tooltip has the rule or the observer call) and, when open items wait, a "waiting for you" badge: a caution glyph and the count, "Waiting for you: " visually hidden, with the title "Waiting for you: N". An expanded stage counts its own items. A collapsed stage, and a stage collapsed by a filter, counts its own items and those of every substage it hides (the roll-up), so no open item disappears from the map. A stage collapsed by a filter also shows "collapsed by a filter" with its tree totals.
 
 ### Filter chips
 
@@ -79,7 +79,7 @@ Active view rules (from chat answers or the API) appear above the map as `ul` "A
 
 ### Chat panel
 
-- **Reveal on selection.** Selecting a stage on the map reveals the chat panel: on a wide screen (from 1100 px) a collapsed panel expands, on a narrow screen the panel opens as a sheet over the map. A new selection reveals it again even if the user collapsed it before. The "Collapse chat" / "Expand chat" button toggles the panel; on a wide screen the collapsed state is kept in `localStorage` (`aang:chat-collapsed`), and a refused storage only loses the memory.
+- **Reveal on selection.** Selecting a stage on the map reveals the chat panel: on a wide screen (from 1100 px) a collapsed panel expands, on a narrow screen the panel opens as a sheet over the map. A new selection reveals it again even if the user collapsed it before. The "Collapse chat" / "Expand chat" button toggles the panel; on a wide screen the collapsed state is kept in `localStorage` (`catacomb:chat-collapsed`), and a refused storage only loses the memory.
 - **Stage summary.** With a stage selected, the top of the panel is the region "Selected stage": the stage name, execution and basis, the stage summary, and the open items as "Waiting for you": the stage's own items and, while its card is collapsed (by hand or by a filter), the items of the substages it hides as "<substage> · <kind>: <text>", the same items its badge counts. "✕ Whole run" (the glyph is hidden from screen readers) clears the selection.
 - **Question.** The "Question" field and the "Ask" button (or Ctrl/Cmd+Enter) send `POST /api/runs/:run/chat`, scoped to the selected stage or to the whole run; "Ask about the whole run" clears the selection. If the question was not sent, the reason stays under the field with the text.
 - **History.** `GET /api/runs/:run/chat` after every snapshot read and the stream's `chat` events; reading it delays neither the map nor the stream; a failure is retried once a second.
@@ -91,7 +91,7 @@ Below 1100 px the chat panel is a sheet over the map, closed until a stage is se
 
 ## Removed by ADR-0015
 
-The status strip and its lamp row, the usage page, the run facts, the trace of sessions and agents, the plan facts, the attention zone with marks and history, the stage inspector, "Since last review" and the changes mode, and the view-rule list. The daemon keeps serving their endpoints; `aang status` and `aang usage` remain in the CLI.
+The status strip and its lamp row, the usage page, the run facts, the trace of sessions and agents, the plan facts, the attention zone with marks and history, the stage inspector, "Since last review" and the changes mode, and the view-rule list. The daemon keeps serving their endpoints; `catacomb status` and `catacomb usage` remain in the CLI.
 
 ## Limitations of the current version
 

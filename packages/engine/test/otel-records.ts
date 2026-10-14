@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { CollectedRecord } from '@aang/contract'
+import { CollectedRecord } from '@catacomb/contract'
 
 interface OtelSample {
   readonly _case: string

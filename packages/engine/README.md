@@ -135,7 +135,7 @@ and does not change the order of attention.
 ## Check contracts
 
 `createEngine` takes the check contracts of each watched root in
-`watch.roots[].contracts`, the shape of `~/.aang/config.json`. A run uses the
+`watch.roots[].contracts`, the shape of `~/.catacomb/config.json`. A run uses the
 contracts of every root that contains the `cwd` of its root session, compared after
 resolving symbolic links. When roots are nested, a contract of the deepest root
 replaces contracts of the same name from outer roots.
@@ -1093,7 +1093,7 @@ sources only:
 - `mcp_server`: the servers of MCP actions with the names of the tools called.
 - `hook`: the hooks of the solver that ran in a session, from its `hook_run` facts
   that carry the hook's command; `ref` is the command and the text lists where it
-  ran (the runtime's trigger, such as `PostToolUse:Bash`, or the event). The aang
+  ran (the runtime's trigger, such as `PostToolUse:Bash`, or the event). The catacomb
   hook is not a hook of the solver: the adapter gives it no `hook_run` fact.
 - `git`: one entry per worktree, whose `ref` is the top of the worktree (or the `cwd`
   of a session outside git): the branch of each session working there and, for each
@@ -1382,7 +1382,7 @@ result reported (`usage`, `modelUsage` and `total_cost_usd` of Claude,
   `observerCalls.chat`). A follow-up that resolves `needs` names the call it
   continues, and the chain is one call from the first start to the last end.
 
-`usage(query)` of the read queries gives the usage report of `aang usage` and the
+`usage(query)` of the read queries gives the usage report of `catacomb usage` and the
 usage panel; `query` takes a run, a period from `from` (inclusive) to `to`
 (exclusive), or both, and an unknown run gives `null`:
 
@@ -1450,8 +1450,8 @@ daemon saves the watch settings. Observer sessions keep their decision.
   after the file is deleted before the reread, is taken by the session's
   decision and attached to the session and its run.
 
-`engine.prune(request, prefixHash)` removes the runs of `aang prune --run` or of
-`aang prune --before`: the runs whose sessions had their last event before the
+`engine.prune(request, prefixHash)` removes the runs of `catacomb prune --run` or of
+`catacomb prune --before`: the runs whose sessions had their last event before the
 date. In one transaction it deletes the raw records of the run's streams and
 sessions with their facts, objects, gaps, the model and its journal, observer
 calls, view state, chat and bindings, and saves a boundary per stream in
@@ -1512,7 +1512,7 @@ restart with the store.
 
 Selectors are deterministic. Agent type, name and role and a tool name match a
 whole value without regard to case or surrounding spaces; the role is the runtime
-role (`agent_role`) or the role in aang (`main`, `subagent`, `teammate`,
+role (`agent_role`) or the role in catacomb (`main`, `subagent`, `teammate`,
 `service`). Service agents are the agents with the service role. A stage title
 matches a fragment, and stage ids and action kinds match exactly. Stage selectors
 see every stage of the run, replaced ones included.

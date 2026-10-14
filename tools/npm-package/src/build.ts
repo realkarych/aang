@@ -1,10 +1,10 @@
 import { readFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { stageAang } from './aang-package.js'
+import { stageCatacomb } from './catacomb-package.js'
 import { stageHookPackage } from './hook-package.js'
 import { hookPackageName, hookPlatforms } from './platforms.js'
 import { npm } from './process.js'
-import { aangVersion } from './repository.js'
+import { catacombVersion } from './repository.js'
 
 export interface PackedPackage {
   readonly name: string
@@ -43,15 +43,15 @@ export const buildNpmPackages = async (out: string): Promise<PackedPackage[]> =>
   const destination = resolve(out)
   const stage = join(destination, 'stage')
   await rm(stage, { recursive: true, force: true })
-  const version = await aangVersion()
-  const aang = join(stage, 'aang')
+  const version = await catacombVersion()
+  const catacomb = join(stage, 'catacomb')
   const hooks = hookPlatforms.map((platform) => ({ platform, directory: join(stage, hookPackageName(platform)) }))
   await Promise.all([
-    stageAang(aang, version),
+    stageCatacomb(catacomb, version),
     ...hooks.map(({ platform, directory }) => stageHookPackage(directory, platform, version)),
   ])
   const packed: PackedPackage[] = []
-  for (const directory of [aang, ...hooks.map(({ directory }) => directory)]) {
+  for (const directory of [catacomb, ...hooks.map(({ directory }) => directory)]) {
     packed.push(await pack(directory, destination))
   }
   return packed

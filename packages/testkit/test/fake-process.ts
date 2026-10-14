@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { FakeCli } from '@aang/testkit'
+import type { FakeCli } from '@catacomb/testkit'
 
 type Awaitable<T> = T | Promise<T>
 
@@ -14,7 +14,7 @@ export interface Workspace {
 }
 
 export const createWorkspace = async (register: (cleanup: () => Awaitable<void>) => void): Promise<Workspace> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-fake-cli-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-fake-cli-')))
   register(() => rm(root, { recursive: true, force: true, maxRetries: 5 }))
   const home = join(root, 'home')
   const cwd = join(root, 'observer', 'empty')

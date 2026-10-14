@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { createProfile, type Profile } from '@aang/testkit'
+import { createProfile, type Profile } from '@catacomb/testkit'
 import type { TestContext } from 'vitest'
 
 const samples = new URL('../../../docs/research/samples/', import.meta.url)

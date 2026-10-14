@@ -7,19 +7,19 @@ import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { createPlayer, createProfile, loadManifest } from '@aang/testkit'
+import { createPlayer, createProfile, loadManifest } from '@catacomb/testkit'
 import { afterEach, expect, test, vi } from 'vitest'
 import { recordScenario, recordSession, verifyRecording, type CreatedEntries, type Scenario, type SurfaceDriver } from '../dist/index.js'
 
 const exec = promisify(execFile)
 const cli = fileURLToPath(new URL('../dist/main.js', import.meta.url))
 const script = fileURLToPath(new URL('./scenario-runtime.ts', import.meta.url))
-const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
+const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook')
 const os = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
 const temporary: string[] = []
 
 const directory = async (): Promise<string> => {
-  const path = await mkdtemp(join(tmpdir(), 'aang-scenario-test-'))
+  const path = await mkdtemp(join(tmpdir(), 'catacomb-scenario-test-'))
   temporary.push(path)
   return path
 }
@@ -47,7 +47,7 @@ test('captures OTLP logs as anonymized playback steps and returns command output
     expect(session.otlp).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/v1\/logs$/)
     expect(session.os).toBe(os)
     expect(session.hook).toBe(binary)
-    output = (await session.run(process.execPath, [script, 'otlp', session.otlp], { env: { AANG_SCENARIO_MARK: 'marked' } })).stdout
+    output = (await session.run(process.execPath, [script, 'otlp', session.otlp], { env: { CATACOMB_SCENARIO_MARK: 'marked' } })).stdout
   })
   expect(output).toBe('posted marked without the Agent SDK version')
   const manifest = JSON.parse(await readFile(join(recording, 'manifest.json'), 'utf8')) as { model: string }
@@ -182,7 +182,7 @@ test('the regular Claude home is the real home without CLAUDE_CONFIG_DIR, keeps 
   await writeFile(join(claude, 'projects', '-Users-someone-else-old', '9d0c51f4-6d0e-4b5e-8f3a-2f6f0f4a7c11.jsonl'), `${JSON.stringify({ type: 'user', cwd: '/Users/someone-else/old' })}\n`)
   await mkdir(join(claude, 'sessions'), { recursive: true })
   await writeFile(join(claude, 'sessions', '1.json'), JSON.stringify({ pid: 1, sessionId: 'existing', cwd: '/Users/someone-else/old' }))
-  await mkdir(join(claude, 'plugins', 'data', 'aang-probe-inline'), { recursive: true })
+  await mkdir(join(claude, 'plugins', 'data', 'catacomb-probe-inline'), { recursive: true })
   vi.stubEnv('HOME', home)
   vi.stubEnv('USERPROFILE', home)
   vi.stubEnv('CLAUDE_CONFIG_DIR', undefined)
@@ -214,7 +214,7 @@ test('the regular Claude home is the real home without CLAUDE_CONFIG_DIR, keeps 
   expect(created).toEqual([{
     sessions: [session],
     paths: [
-      join(claude, 'plugins', 'data', 'aang-inline'),
+      join(claude, 'plugins', 'data', 'catacomb-inline'),
       join(claude, 'projects', String(project)),
       join(claude, 'session-env', session),
       join(claude, 'sessions', `${String(environment.pid)}.json`),
@@ -264,7 +264,7 @@ const fakeEngine = async (work: string, kind: 'stream' | 'sdk'): Promise<string>
     await writeFile(module, [
       "import { writeFileSync } from 'node:fs'",
       'export const query = ({ prompt, options }) => {',
-      '  writeFileSync(options.env.AANG_TEST_OUT, JSON.stringify({ settingSources: options.settingSources ?? null, strictMcpConfig: options.strictMcpConfig ?? null }))',
+      '  writeFileSync(options.env.CATACOMB_TEST_OUT, JSON.stringify({ settingSources: options.settingSources ?? null, strictMcpConfig: options.strictMcpConfig ?? null }))',
       `  const stream = (async function* () { for await (const _ of prompt) yield* [${messages('sdk-session')}] })()`,
       '  return Object.assign(stream, { interrupt: async () => undefined })',
       '}',
@@ -277,7 +277,7 @@ const fakeEngine = async (work: string, kind: 'stream' | 'sdk'): Promise<string>
     `#!${process.execPath}`,
     "import { writeFileSync } from 'node:fs'",
     "import { createInterface } from 'node:readline'",
-    'writeFileSync(process.env.AANG_TEST_OUT, JSON.stringify(process.argv.slice(2)))',
+    'writeFileSync(process.env.CATACOMB_TEST_OUT, JSON.stringify(process.argv.slice(2)))',
     `createInterface({ input: process.stdin }).on('line', () => { for (const message of [${messages('stream-session')}]) process.stdout.write(JSON.stringify(message) + '\\n') })`,
     '',
   ].join('\n'))
@@ -298,7 +298,7 @@ test.for([
   const run = async (name: string, recorder: readonly string[]): Promise<unknown> => {
     const out = join(work, `${name}.out.json`)
     const plan = join(work, `${name}.plan.json`)
-    await writeFile(plan, JSON.stringify({ engine, args: ['--setting-sources', 'user,project,local'], env: { AANG_TEST_OUT: out }, turns: [{ prompt: 'hello' }] }))
+    await writeFile(plan, JSON.stringify({ engine, args: ['--setting-sources', 'user,project,local'], env: { CATACOMB_TEST_OUT: out }, turns: [{ prompt: 'hello' }] }))
     await exec(process.execPath, [host, plan, join(work, `${name}.summary.json`), '--plugin-dir', work, ...recorder], { cwd: work })
     return JSON.parse(await readFile(out, 'utf8'))
   }

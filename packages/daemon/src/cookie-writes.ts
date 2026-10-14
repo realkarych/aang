@@ -1,5 +1,5 @@
 import type { IncomingMessage } from 'node:http'
-import type { ApiErrorCode } from '@aang/contract'
+import type { ApiErrorCode } from '@catacomb/contract'
 
 export interface Refusal {
   readonly code: ApiErrorCode
@@ -32,7 +32,7 @@ export const cookieWriteCheck = (port: number): CookieWriteCheck => {
     if (!fromDaemonPage(request)) {
       return {
         code: 'forbidden',
-        message: 'a change signed in with the session cookie must come from the aang page itself',
+        message: 'a change signed in with the session cookie must come from the catacomb page itself',
       }
     }
     if (!isJson(request.headers['content-type'])) {

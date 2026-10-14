@@ -1,4 +1,4 @@
-import type { Fact, FactId, RawSeq, SessionKey, StreamKey } from '@aang/contract'
+import type { Fact, FactId, RawSeq, SessionKey, StreamKey } from '@catacomb/contract'
 import { agentKey, byContent, compareText, type Evidence, type ObservationSource, ofKind } from './evidence.js'
 
 export interface ForkOrigin {

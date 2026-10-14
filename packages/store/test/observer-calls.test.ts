@@ -1,5 +1,5 @@
-import { type CallUsage, type ChatInput, EpochNs, ModelVersion, ObserverCallId, type ObserverInput, RunId } from '@aang/contract'
-import type { ChatCallRecord, ObserverCheck, StoredChatCall } from '@aang/store'
+import { type CallUsage, type ChatInput, EpochNs, ModelVersion, ObserverCallId, type ObserverInput, RunId } from '@catacomb/contract'
+import type { ChatCallRecord, ObserverCheck, StoredChatCall } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { createHome } from './home.js'
 

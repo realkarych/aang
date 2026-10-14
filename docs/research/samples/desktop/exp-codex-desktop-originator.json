@@ -1,8 +1,8 @@
 {
  "binary": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex app-server (codex-cli 0.159.2)",
- "codex_home": "/tmp/aang-spike/desktop/exp-codex/home (mock Responses provider, no auth)",
+ "codex_home": "/tmp/catacomb-spike/desktop/exp-codex/home (mock Responses provider, no auth)",
  "runs": [
-  "run1: clientInfo.name=aang_desktop_emu, env CODEX_INTERNAL_ORIGINATOR_OVERRIDE=Codex, hooks untrusted -> no hooks fired",
+  "run1: clientInfo.name=catacomb_desktop_emu, env CODEX_INTERNAL_ORIGINATOR_OVERRIDE=Codex, hooks untrusted -> no hooks fired",
   "run2: clientInfo.name=codex_desktop, title='Codex Desktop', override=Codex, hooks trusted -> 6 hooks fired",
   "run3: same + capabilities.experimentalApi=true, override=Codex",
   "run4: clientInfo.name=codex_desktop, capabilities.experimentalApi=true, no override"

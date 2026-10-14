@@ -17,8 +17,8 @@ import {
   type Runtime,
   type SessionId,
   type StageId,
-} from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
 import type {
   ArtifactReader,
   FactReader,
@@ -26,7 +26,7 @@ import type {
   ObservationReader,
   ObserverCallReader,
   RawRecordReader,
-} from '@aang/store'
+} from '@catacomb/store'
 
 export interface ScopeReader {
   readonly facts: FactReader

@@ -1,7 +1,7 @@
-import { Stage } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import { type MapStage, type StageGraph, visibleMap } from '@aang/web/map-graph'
-import { type LayoutEngine, layoutMap, type Placement } from '@aang/web/map-layout'
+import { Stage } from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
+import { type MapStage, type StageGraph, visibleMap } from '@catacomb/web/map-graph'
+import { type LayoutEngine, layoutMap, type Placement } from '@catacomb/web/map-layout'
 import ELK, { type ElkNode } from 'elkjs/lib/elk.bundled.js'
 import { describe, expect, test } from 'vitest'
 

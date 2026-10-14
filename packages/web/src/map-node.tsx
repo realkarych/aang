@@ -1,4 +1,4 @@
-import type { StageId, ViewTotals } from '@aang/contract'
+import type { StageId, ViewTotals } from '@catacomb/contract'
 import { type Edge, type EdgeProps, Handle, type Node, type NodeProps, Position } from '@xyflow/react'
 import type { ElkPoint } from 'elkjs/lib/elk.bundled.js'
 import type { ReactElement } from 'react'

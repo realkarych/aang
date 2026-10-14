@@ -2,7 +2,7 @@ import type {
   ActionOutcome,
   BasisKind,
   Execution,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import type { ReactElement } from 'react'
 import type { Level } from './lamps.js'
 

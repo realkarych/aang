@@ -9,7 +9,7 @@ import type {
   SpoolEnv,
   Surface,
   SurfaceClaim,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { z } from 'zod'
 import { startedAgent } from './agents.js'
 import { compactionTrigger } from './compaction.js'
@@ -20,7 +20,7 @@ import { isJsonObject } from './json.js'
 import { agentKey, ownerKey, questionKey, sessionKey, teammateKey } from './keys.js'
 import { answerText } from './questions.js'
 
-const observerEntrypoint = 'aang-observer'
+const observerEntrypoint = 'catacomb-observer'
 const desktopEntrypoint = 'claude-desktop'
 const compactSource = 'compact'
 

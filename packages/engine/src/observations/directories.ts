@@ -1,6 +1,6 @@
 import { posix, win32 } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { FactOf, JsonValue } from '@aang/contract'
+import type { FactOf, JsonValue } from '@catacomb/contract'
 import { fieldOf } from '../checks/commands.js'
 
 type Start = FactOf<'action_start'>

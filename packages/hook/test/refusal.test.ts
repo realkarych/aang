@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { spoolLayout } from '@aang/contract'
+import { spoolLayout } from '@catacomb/contract'
 import { test } from 'vitest'
 import { cleanExit, createSpool, type HookStdin, nowSeconds, runHook, type Spool } from './hook.js'
 
@@ -27,8 +27,8 @@ const cases: readonly RefusalCase[] = [
   { name: 'an extra argument', args: (spool) => [...spool.args(), 'extra'] },
   { name: 'an unknown runtime', args: (spool) => ['gemini', 'plugin', spool.path] },
   { name: 'an unknown registration tag', args: (spool) => ['claude', 'project', spool.path] },
-  { name: 'the AANG_OBSERVER marker', env: { AANG_OBSERVER: '1' } },
-  { name: 'the aang-observer entrypoint', env: { CLAUDE_CODE_ENTRYPOINT: 'aang-observer' } },
+  { name: 'the CATACOMB_OBSERVER marker', env: { CATACOMB_OBSERVER: '1' } },
+  { name: 'the catacomb-observer entrypoint', env: { CLAUDE_CODE_ENTRYPOINT: 'catacomb-observer' } },
   { name: 'the stop marker next to an active lease', prepare: (spool) => spool.add(spoolLayout.stoppedMarker) },
   { name: 'no lease', leases: [] },
   { name: 'only an expired lease', leases: [nowSeconds() - 60] },

@@ -1,5 +1,5 @@
-import { type Agent, endpoints, type RunId, type RunSnapshot, type Runtime, type Surface } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
+import { type Agent, endpoints, type RunId, type RunSnapshot, type Runtime, type Surface } from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
 import {
   agentStageTitle,
   type LoadedManifest,
@@ -7,7 +7,7 @@ import {
   mainStageTitle,
   observerScenarios,
   type RunningDaemon,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import type { Locator, Page } from '@playwright/test'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { threadsOf, variantRecording } from './recordings.js'

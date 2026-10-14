@@ -34,14 +34,14 @@ if (!Number.isInteger(productRuns) || productRuns < 1) throw new Error('--runs m
 const home = homedir()
 const codexHome = await realpath(values['codex-home'] ?? join(home, '.codex'))
 const temporary = await realpath(tmpdir())
-const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-d6-')))
+const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-d6-')))
 const project = join(root, 'project')
 const databaseCopies = join(root, 'databases')
 await mkdir(project)
 await mkdir(databaseCopies)
-await writeFile(join(project, 'README.md'), '# aang D.6 test project\n')
+await writeFile(join(project, 'README.md'), '# catacomb D.6 test project\n')
 process.chdir(project)
-const clientInfo = { name: 'aang', title: 'aang hook installation', version: '0.0.0' }
+const clientInfo = { name: 'catacomb', title: 'catacomb hook installation', version: '0.0.0' }
 const knownHosts = ['chatgpt.com', 'ab.chatgpt.com', 'api.openai.com', 'github.com', 'api.github.com', 'codeload.github.com']
 const hostsByAddress = new Map()
 for (const host of knownHosts) {
@@ -648,8 +648,8 @@ const productRun = async (index) => {
   const begin = Date.now()
   let outcome
   try {
-    const state = await codexHooksState({ aangHome: process.env.AANG_HOME ?? join(home, '.aang'), codexHome, codex: { command: values.codex } })
-    outcome = { status: state.status, aangHooks: describeHooks(state.hooks), warnings: state.warnings.map(redact) }
+    const state = await codexHooksState({ catacombHome: process.env.CATACOMB_HOME ?? join(home, '.catacomb'), codexHome, codex: { command: values.codex } })
+    outcome = { status: state.status, catacombHooks: describeHooks(state.hooks), warnings: state.warnings.map(redact) }
   } catch (error) {
     outcome = { error: redact(String(error?.message ?? error)) }
   } finally {

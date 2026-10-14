@@ -4,16 +4,16 @@ import {
   type HookOutputKind,
   type HookRunPayload,
   RegistrationTag,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { z } from 'zod'
 import { fact, type FactOrigin } from './facts.js'
 import { name, optionalText } from './fields.js'
 
 const stopEvent = 'Stop'
 
-const aangHook = new RegExp(`^(?:.*[\\\\/])?aang-hook(?:\\.exe)? claude (?:${RegistrationTag.options.join('|')}) `)
+const catacombHook = new RegExp(`^(?:.*[\\\\/])?catacomb-hook(?:\\.exe)? claude (?:${RegistrationTag.options.join('|')}) `)
 
-const isAangHook = (command: string): boolean => aangHook.test(command)
+const isCatacombHook = (command: string): boolean => catacombHook.test(command)
 
 const occurrence = { hookEvent: name, hookName: optionalText }
 
@@ -85,13 +85,13 @@ const hookRunFact = (origin: FactOrigin, owner: FactEntityKey, payload: HookRunP
 
 export const hookRunFacts = (origin: FactOrigin, owner: FactEntityKey, attachment: HookRunAttachment): FactDraft[] => {
   const payload = runOf(attachment)
-  return payload.name !== null && isAangHook(payload.name) ? [] : [hookRunFact(origin, owner, payload)]
+  return payload.name !== null && isCatacombHook(payload.name) ? [] : [hookRunFact(origin, owner, payload)]
 }
 
 export const stopHookFacts = (origin: FactOrigin, owner: FactEntityKey, summary: StopHookSummary): FactDraft[] => {
   const outcome = summary.hookErrors.length === 0 && !summary.preventedContinuation ? 'success' : 'unknown'
   const commands = [...new Set(summary.hookInfos.map(({ command }) => command))].filter(
-    (command) => !isAangHook(command),
+    (command) => !isCatacombHook(command),
   )
   return commands.map((command) =>
     hookRunFact(origin, owner, { name: command, event: stopEvent, trigger: null, outcome, output: null }),

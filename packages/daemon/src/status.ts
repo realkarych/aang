@@ -19,9 +19,9 @@ import {
   supportStatusOf,
   type VersionKey,
   type VersionStatus,
-} from '@aang/contract'
-import { type AangHomePaths, readSpoolState } from '@aang/contract/home'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { type CatacombHomePaths, readSpoolState } from '@catacomb/contract/home'
+import type { Store } from '@catacomb/store'
 import { ignoreMissing } from './missing.js'
 import { type OverThreshold, recordedOverThreshold } from './spool.js'
 import { loadWatch } from './watch.js'
@@ -36,7 +36,7 @@ export interface StatusSources {
   readonly store: Store
   readonly config: Config
   readonly runtimeRoots: Readonly<Record<Runtime, string>>
-  readonly paths: AangHomePaths
+  readonly paths: CatacombHomePaths
   readonly hooks: () => Readonly<Record<Runtime, HookInstallation>>
   readonly matrix: SupportMatrix
   readonly host: SupportHost
@@ -107,7 +107,7 @@ const versionsOf = (sessions: readonly Session[], matrix: SupportMatrix, host: S
 }
 
 const spoolStatus = async (
-  paths: AangHomePaths,
+  paths: CatacombHomePaths,
   thresholdBytes: number,
   over: OverThreshold | null,
 ): Promise<SpoolStatus> => {

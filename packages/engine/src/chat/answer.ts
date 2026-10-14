@@ -10,9 +10,9 @@ import type {
   RunId,
   ViewRuleId,
   ViewRuleSpec,
-} from '@aang/contract'
-import { canonicalJson } from '@aang/contract/ids'
-import type { Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { canonicalJson } from '@catacomb/contract/ids'
+import type { Transaction } from '@catacomb/store'
 import { addViewRule, ViewRuleError } from '../view/rules.js'
 
 export interface VerifiedCitations {

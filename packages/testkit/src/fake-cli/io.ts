@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { setTimeout } from 'node:timers/promises'
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 
 export const readStdin = async (): Promise<string> => {
   const chunks: Buffer[] = []

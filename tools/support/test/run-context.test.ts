@@ -8,10 +8,10 @@ import {
   type RunContextEntry,
   type RunId,
   type SessionId,
-} from '@aang/contract'
-import { recordRunContext } from '@aang/engine'
-import type { Store } from '@aang/store'
-import { type LoadedManifest, loadManifest } from '@aang/testkit'
+} from '@catacomb/contract'
+import { recordRunContext } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
+import { type LoadedManifest, loadManifest } from '@catacomb/testkit'
 import { describe, type OnTestFinishedHandler, test } from 'vitest'
 import {
   findRecordings,
@@ -134,7 +134,7 @@ const unconfirmedHookType = (manifest: LoadedManifest): LoadedManifest => ({
 
 describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () => {
   test.for(ofScenario('user-hooks'))(
-    '%s: the user hook enters the context by its command, its runs reach the observer, the aang hook is no hook of the solver',
+    '%s: the user hook enters the context by its command, its runs reach the observer, the catacomb hook is no hook of the solver',
     async ([, recording], { expect, onTestFinished }) => {
       const { store, run, context } = await play(recording, onTestFinished)
 
@@ -164,7 +164,7 @@ describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () 
       expect(entriesOf(context, 'agent_definition')).toEqual([
         entry(
           'agent_definition',
-          listedRef('aang-kit:reviewer', session),
+          listedRef('catacomb-kit:reviewer', session),
           [
             'Reviews the project notes and reports what it checked. Use it to review the notes. (Tools: Bash)',
             'You review the project notes. Run the command from the task with the Bash tool and report its output.',
@@ -174,7 +174,7 @@ describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () 
       expect(entriesOf(context, 'skill')).toEqual([
         entry(
           'skill',
-          listedRef('aang-kit:greeting', session),
+          listedRef('catacomb-kit:greeting', session),
           'Chooses the greeting of the project notes. Use it when asked which greeting the notes use.',
         ),
       ])
@@ -226,7 +226,7 @@ describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () 
           `${join(roots.codex, 'config.toml')} [agents.reviewer]`,
           [
             'description: Reviews the project notes and reports what it checked.',
-            'developer_instructions: You are the notes reviewer of the aang recording. Run the command from your task and report its output.',
+            'developer_instructions: You are the notes reviewer of the catacomb recording. Run the command from your task and report its output.',
           ].join('\n'),
         ),
       ])

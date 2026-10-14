@@ -1,6 +1,6 @@
-import { AttentionItemId, type ModelEntityRef, ModelVersion } from '@aang/contract'
-import { applyChangeSet, type ChangeSet, InvalidChangeSetError } from '@aang/engine'
-import type { ModelReader, Store, Transaction } from '@aang/store'
+import { AttentionItemId, type ModelEntityRef, ModelVersion } from '@catacomb/contract'
+import { applyChangeSet, type ChangeSet, InvalidChangeSetError } from '@catacomb/engine'
+import type { ModelReader, Store, Transaction } from '@catacomb/store'
 import { expect, test, type TestContext } from 'vitest'
 import { createHome, type Home } from './home.js'
 import {

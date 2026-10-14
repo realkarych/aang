@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { HookInstallation, Runtime, StatusResponse, SupportKey, SupportStatus, Surface } from '@aang/contract'
+import type { HookInstallation, Runtime, StatusResponse, SupportKey, SupportStatus, Surface } from '@catacomb/contract'
 import { z } from 'zod'
-import type { ApiClient } from './aang.js'
+import type { ApiClient } from './catacomb.js'
 
 export type Counts = Readonly<Record<string, number>>
 

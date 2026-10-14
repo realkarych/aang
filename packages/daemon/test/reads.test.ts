@@ -17,10 +17,10 @@ import {
   type RunSnapshot,
   TempId,
   endpoints,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import { applyObserverResponse, beginObserverCall } from '@aang/engine'
-import { openStore, type Store } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import { applyObserverResponse, beginObserverCall } from '@catacomb/engine'
+import { openStore, type Store } from '@catacomb/store'
 import { describe, test } from 'vitest'
 import type { z } from 'zod'
 import { bearer, createHome, type Home, missingCli, startDaemon, testVersion } from './daemon.js'
@@ -472,7 +472,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
     const run = runId(claudeSession(session))
     const collecting = await startDaemon(home, onTestFinished)
     const observerLines = transcriptLines('u1-observer', workspace, 32).map((line) =>
-      JSON.stringify({ ...(JSON.parse(line) as object), entrypoint: 'aang-observer' }),
+      JSON.stringify({ ...(JSON.parse(line) as object), entrypoint: 'catacomb-observer' }),
     )
     await claudeTranscript(home, '-work', 'u1-observer', observerLines)
     await claudeTranscript(home, '-work', session, transcriptLines(session, workspace, 32))
@@ -556,8 +556,8 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
     expect(initial.daemon.started_at).toBeGreaterThanOrEqual(launched)
     expect(initial.daemon.started_at).toBeLessThanOrEqual(BigInt(Date.now()) * 1_000_000n)
     expect(initial.database).toMatchObject({
-      path: join(home.paths.home, 'aang.db'),
-      schema_version: schemaVersionOf(join(home.paths.home, 'aang.db')),
+      path: join(home.paths.home, 'catacomb.db'),
+      schema_version: schemaVersionOf(join(home.paths.home, 'catacomb.db')),
     })
     expect(initial.database.size_bytes).toBeGreaterThan(0)
     expect(initial.runtimes).toEqual([

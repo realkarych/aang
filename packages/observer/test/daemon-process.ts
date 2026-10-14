@@ -1,8 +1,8 @@
 import { writeSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { setTimeout } from 'node:timers/promises'
-import { createClaudeLauncher, createObserverScheduler } from '@aang/observer'
-import { openStore } from '@aang/store'
+import { createClaudeLauncher, createObserverScheduler } from '@catacomb/observer'
+import { openStore } from '@catacomb/store'
 
 const [, , home, root, at, command, ...args] = process.argv
 if (home === undefined || root === undefined || at === undefined || command === undefined) {
@@ -12,7 +12,7 @@ const user = join(root, 'Όνομα Επώνυμο')
 const claude = createClaudeLauncher({
   temporaryDirectory: root,
   environment: { ...process.env, HOME: user, USERPROFILE: user },
-  windowsLauncher: resolve('packages/hook/bin/aang-hook.exe'),
+  windowsLauncher: resolve('packages/hook/bin/catacomb-hook.exe'),
   timeoutMs: 20_000,
   cli: { command, args },
   model: 'claude-opus-5-5',

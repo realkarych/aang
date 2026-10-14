@@ -1,15 +1,15 @@
 import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { type Config, EpochNs } from '@aang/contract'
+import { type Config, EpochNs } from '@catacomb/contract'
 import {
-  type AangHomePaths,
+  type CatacombHomePaths,
   leaseExpirySeconds,
   leaseFileName,
   readSpoolState,
   revokeLeases,
   type SpoolState,
-} from '@aang/contract/home'
-import type { GapDraft, Store } from '@aang/store'
+} from '@catacomb/contract/home'
+import type { GapDraft, Store } from '@catacomb/store'
 import { z } from 'zod'
 
 export interface OverThreshold {
@@ -24,7 +24,7 @@ export interface SpoolSupervisor {
 }
 
 interface SpoolSupervisorOptions {
-  readonly paths: AangHomePaths
+  readonly paths: CatacombHomePaths
   readonly settings: Config['spool']
   readonly store: Store
   readonly onThresholdChange: (over: OverThreshold | null) => Promise<void>
@@ -52,7 +52,7 @@ const exists = async (path: string): Promise<boolean> =>
     },
   )
 
-export const prepareSpool = async (paths: AangHomePaths): Promise<void> => {
+export const prepareSpool = async (paths: CatacombHomePaths): Promise<void> => {
   await rm(paths.stoppedMarker, { force: true })
   await mkdir(paths.spoolReady, { recursive: true, mode: 0o700 })
   await mkdir(paths.spoolTemporary, { recursive: true, mode: 0o700 })

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 import type { z } from 'zod'
 import { emit, isJsonObject, parseJson, readText } from './io.js'
 import type { CodexScenario } from './scenario.js'

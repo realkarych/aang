@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { CollectedRecord, StreamKey } from '@aang/contract'
+import { CollectedRecord, StreamKey } from '@catacomb/contract'
 import { expect, test, vi } from 'vitest'
 import { createSandbox, holdExclusively, prepareCollector, runCollector, type Sandbox, sleep } from './sandbox.js'
 

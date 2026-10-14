@@ -68,9 +68,9 @@ interface ClaudeRunOptions {
   readonly timeoutMs?: number
 }
 
-const marketplaceName = 'aang-local'
+const marketplaceName = 'catacomb-local'
 
-const aangClaudeHook = (context: CheckContext): ClaudeHook => ({
+const catacombClaudeHook = (context: CheckContext): ClaudeHook => ({
   type: 'command',
   command: context.profile.hook,
   args: ['claude', 'plugin', context.profile.spool],
@@ -91,7 +91,7 @@ const writePlugin = async (
   await writeJson(join(directory, '.claude-plugin', 'plugin.json'), {
     name,
     version: '0.0.0',
-    description: 'aang runtime check',
+    description: 'catacomb runtime check',
   })
   await writeJson(join(directory, 'hooks', 'hooks.json'), hooksFile(entries))
 }
@@ -164,17 +164,17 @@ const installClaudePlugin = async (
   configDir: string,
 ): Promise<Record<string, unknown>> => {
   const { profile, clis } = context
-  const root = join(profile.aangHome, 'claude-plugin')
+  const root = join(profile.catacombHome, 'claude-plugin')
   await writePlugin(
-    join(root, 'aang'),
-    'aang',
-    Object.fromEntries(claudeEvents.map((event) => [event, [aangClaudeHook(context)]])),
+    join(root, 'catacomb'),
+    'catacomb',
+    Object.fromEntries(claudeEvents.map((event) => [event, [catacombClaudeHook(context)]])),
   )
   await mkdir(join(root, '.claude-plugin'), { recursive: true })
   await writeJson(join(root, '.claude-plugin', 'marketplace.json'), {
     name: marketplaceName,
-    owner: { name: 'aang' },
-    plugins: [{ name: 'aang', source: './aang', description: 'aang runtime check' }],
+    owner: { name: 'catacomb' },
+    plugins: [{ name: 'catacomb', source: './catacomb', description: 'catacomb runtime check' }],
   })
   const options = {
     env: { ...runtimeEnv(profile, null), CLAUDE_CONFIG_DIR: configDir },
@@ -182,7 +182,7 @@ const installClaudePlugin = async (
     timeoutMs: 120_000,
   }
   const added = await run(clis.claude.command, ['plugin', 'marketplace', 'add', root], options)
-  const installed = await run(clis.claude.command, ['plugin', 'install', `aang@${marketplaceName}`], options)
+  const installed = await run(clis.claude.command, ['plugin', 'install', `catacomb@${marketplaceName}`], options)
   const listed = await run(clis.claude.command, ['plugin', 'list'], options)
   return {
     marketplace: root,
@@ -207,7 +207,7 @@ export const claudeDelivery = async (context: CheckContext): Promise<Record<stri
   const transcriptPath = payloadField(sessionStart?.payload, 'transcript_path')
   await clearDelivered(profile.spool)
   return {
-    hookCommand: aangClaudeHook(context),
+    hookCommand: catacombClaudeHook(context),
     install,
     session: claudeOutcome(session),
     modelRequests: context.anthropic.requests.length,
@@ -230,7 +230,7 @@ interface ClaudeLaunchers {
 
 export const claudeLaunchers = async (context: CheckContext): Promise<ClaudeLaunchers> => {
   const { profile, probe } = context
-  const shellSpool = join(profile.aangHome, 'spool-claude-shell')
+  const shellSpool = join(profile.catacombHome, 'spool-claude-shell')
   await createSpool(shellSpool)
   await clearProbeLog(probe)
   const pluginDirectory = join(profile.home, 'claude probe plugin')
@@ -243,7 +243,7 @@ export const claudeLaunchers = async (context: CheckContext): Promise<ClaudeLaun
     },
     { type: 'command', command: shellCommand([profile.hook, 'claude', 'plugin', shellSpool]), timeout: 10 },
   ]
-  await writePlugin(pluginDirectory, 'aang-probe', { SessionStart: probeHooks, PreToolUse: probeHooks })
+  await writePlugin(pluginDirectory, 'catacomb-probe', { SessionStart: probeHooks, PreToolUse: probeHooks })
   const session = await runClaude(context, { steps: 1, args: ['--plugin-dir', pluginDirectory] })
   const entries = await readProbeLog(probe)
   const delivered = await readDelivered(shellSpool)

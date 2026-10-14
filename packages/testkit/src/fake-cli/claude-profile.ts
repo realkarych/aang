@@ -1,4 +1,4 @@
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 import { isJsonObject, parseJson, readText, type TextRead } from './io.js'
 import { allValues, flag, lastValue, valued, type OptionSpec, type ParsedOptions } from './options.js'
 import {
@@ -90,8 +90,8 @@ const requirements: readonly Requirement<ClaudeProfileCall>[] = [
   { id: '--no-session-persistence', met: present('no-session-persistence') },
   { id: '--permission-mode dontAsk', met: equals('permission-mode', 'dontAsk') },
   { id: '--settings {"crossSessionInbound":"hold"}', met: ({ options }) => holdsCrossSessionInbound(options) },
-  environmentRequirement('CLAUDE_CODE_ENTRYPOINT', 'aang-observer'),
-  environmentRequirement('AANG_OBSERVER', '1'),
+  environmentRequirement('CLAUDE_CODE_ENTRYPOINT', 'catacomb-observer'),
+  environmentRequirement('CATACOMB_OBSERVER', '1'),
   environmentRequirement('CLAUDE_CODE_DISABLE_CLAUDE_MDS', '1'),
   environmentRequirement('CLAUDE_CODE_DISABLE_AUTO_MEMORY', '1'),
   environmentRequirement('ENABLE_CLAUDEAI_MCP_SERVERS', 'false'),

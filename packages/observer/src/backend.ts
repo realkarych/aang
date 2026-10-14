@@ -1,6 +1,6 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { ChatOutput, chatOutputJsonSchema, ObserverOutput, observerOutputJsonSchema, type CallUsage, type JsonValue, type LlmJsonSchema, type ObserverDisabledReason, type ObserverErrorClass, type ObserverState, type Runtime } from '@aang/contract'
+import { ChatOutput, chatOutputJsonSchema, ObserverOutput, observerOutputJsonSchema, type CallUsage, type JsonValue, type LlmJsonSchema, type ObserverDisabledReason, type ObserverErrorClass, type ObserverState, type Runtime } from '@catacomb/contract'
 import type { z } from 'zod'
 import { cleanEnvironment, prepareWorkspace, resolveCli, type InheritedEnvironment } from './environment.js'
 import { createProcessRunner, type CliCommand, type LaunchStatus, type ProcessRequest, type ProcessResult, type ProcessRunnerOptions } from './process.js'

@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { CallUsage } from '@aang/contract'
+import type { CallUsage } from '@catacomb/contract'
 import { authenticate, createBackend, events, failureClass, json, LaunchError, number, object, requireSuccess, resetTime, validateOutput, type BackendOptions, type CallOutcome, type CallProtocol, type Invocation, type JsonObject } from './backend.js'
 
 const disabledFeatures = ['hooks', 'plugins', 'apps', 'multi_agent', 'multi_agent_v2', 'shell_tool', 'unified_exec', 'browser_use', 'browser_use_external', 'computer_use', 'image_generation', 'view_image', 'goals', 'sleep_tool', 'tool_suggest', 'skill_search', 'recommended_plugins', 'shell_snapshot']
@@ -88,7 +88,7 @@ export const codexArguments = async <T>(directory: string, catalog: JsonObject, 
   ])
   return [
     'exec', '--json', '--ephemeral', '--ignore-user-config', '--ignore-rules', '--skip-git-repo-check', '-s', 'read-only',
-    '--thread-source', 'aang-observer', '-m', options.model, '--output-schema', schemaPath, '-o', lastPath,
+    '--thread-source', 'catacomb-observer', '-m', options.model, '--output-schema', schemaPath, '-o', lastPath,
     '-c', pathSetting('model_catalog_json', catalogPath), '-c', pathSetting('model_instructions_file', promptPath),
     ...(options.effort === undefined ? [] : ['-c', `model_reasoning_effort=${JSON.stringify(options.effort)}`]),
     ...settings.flatMap((setting) => ['-c', setting]), ...disabledFeatures.flatMap((feature) => ['--disable', feature]), '-',

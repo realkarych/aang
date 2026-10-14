@@ -9,7 +9,7 @@ import {
   ObserverCallId,
   type RunId,
   type Runtime,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import {
   answerChat,
   type ChatLimits,
@@ -19,8 +19,8 @@ import {
   failInterruptedChats,
   followUpChat,
   startChat,
-} from '@aang/engine'
-import type { ObserverCallVerdict, Store, Transaction } from '@aang/store'
+} from '@catacomb/engine'
+import type { ObserverCallVerdict, Store, Transaction } from '@catacomb/store'
 import type { ChatResult, LaunchFailure, ObserverRequest } from './backend.js'
 import { storedError } from './recovery.js'
 

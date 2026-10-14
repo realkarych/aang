@@ -1,4 +1,4 @@
-import type { Action, EpochNs, Evidence, Fact, FactOf, RawSeq } from '@aang/contract'
+import type { Action, EpochNs, Evidence, Fact, FactOf, RawSeq } from '@catacomb/contract'
 import type { Contract } from './catalog.js'
 import { commandLines, fieldOf } from './commands.js'
 

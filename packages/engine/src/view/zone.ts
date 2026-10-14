@@ -7,8 +7,8 @@ import type {
   RunId,
   Stage,
   StageId,
-} from '@aang/contract'
-import type { ModelReader } from '@aang/store'
+} from '@catacomb/contract'
+import type { ModelReader } from '@catacomb/store'
 import { compareText, grouped } from '../observations/evidence.js'
 
 export interface ZoneModel {

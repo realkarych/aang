@@ -1,4 +1,4 @@
-import { type Binding, endpoints } from '@aang/contract'
+import { type Binding, endpoints } from '@catacomb/contract'
 import {
   addViewRule,
   BindingError,
@@ -6,8 +6,8 @@ import {
   InvalidPositionError,
   revokeViewRule,
   ViewRuleError,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import type { Bindings } from './ingestion.js'
 import { ApiFailure, type ApiRoute, writeRoute } from './routes.js'
 import { epochNow } from './spool.js'

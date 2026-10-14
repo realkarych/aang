@@ -1,4 +1,4 @@
-import type { FactDraft, ParseResult, SpoolEnv } from '@aang/contract'
+import type { FactDraft, ParseResult, SpoolEnv } from '@catacomb/contract'
 import { z } from 'zod'
 import { type FactOrigin, parsed, schemaViolation } from './facts.js'
 import { name, optionalText } from './fields.js'

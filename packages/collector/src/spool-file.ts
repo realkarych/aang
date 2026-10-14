@@ -1,4 +1,4 @@
-import { RegistrationTag, Runtime, SpoolEnvKey, spoolFormat, type SpoolEnv, type SpoolHeader } from '@aang/contract'
+import { RegistrationTag, Runtime, SpoolEnvKey, spoolFormat, type SpoolEnv, type SpoolHeader } from '@catacomb/contract'
 
 export type SpoolFile =
   | { readonly header: SpoolHeader; readonly payload: string }

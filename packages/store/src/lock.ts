@@ -11,7 +11,7 @@ const sqliteBusy = 5
 const isBusy = (error: unknown): boolean => error instanceof Error && 'errcode' in error && error.errcode === sqliteBusy
 
 export const acquireWriterLock = (home: string): WriterLock => {
-  const lock = new DatabaseSync(join(home, 'aang.lock'))
+  const lock = new DatabaseSync(join(home, 'catacomb.lock'))
   try {
     lock.exec('BEGIN EXCLUSIVE')
   } catch (error) {

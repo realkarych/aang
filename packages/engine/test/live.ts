@@ -3,7 +3,7 @@ import { once } from 'node:events'
 import { appendFile, chmod, mkdir, mkdtemp, readdir, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { createCollector, type ReadRetry } from '@aang/collector'
+import { createCollector, type ReadRetry } from '@catacomb/collector'
 import {
   type CollectorBatch,
   Config,
@@ -14,9 +14,9 @@ import {
   spoolFormat,
   spoolLayout,
   type StreamKey,
-} from '@aang/contract'
-import type { Engine, IngestResult } from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import type { Engine, IngestResult } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { adapters, gapsOf } from './harness.js'
 import type { Register } from './workspace.js'
 
@@ -42,7 +42,7 @@ export interface Live {
 }
 
 export const createLiveRoots = async (register: Register): Promise<LiveRoots> => {
-  const base = await realpath(await mkdtemp(join(tmpdir(), 'aang-live-')))
+  const base = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-live-')))
   register(() => rm(base, { recursive: true, force: true, maxRetries: 5 }))
   const roots = { spool: join(base, 'spool'), claude: join(base, 'claude'), codex: join(base, 'codex') }
   await mkdir(join(roots.spool, spoolLayout.readyDirectory), { recursive: true })

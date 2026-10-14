@@ -10,10 +10,10 @@ import {
   type RunId,
   type StageId,
   TempId,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import { applyObserverResponse, beginObserverCall, createEngine, startChat, type ChatLimits } from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import { applyObserverResponse, beginObserverCall, createEngine, startChat, type ChatLimits } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import type { TestContext } from 'vitest'
 import { jsonlFile } from './batches.js'
 import { adapters, factsOf, sessionKey } from './harness.js'

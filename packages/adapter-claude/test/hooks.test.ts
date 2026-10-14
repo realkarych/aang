@@ -1,5 +1,5 @@
-import { claudeAdapter } from '@aang/adapter-claude'
-import { FactDraft, type FactKind, type JsonValue, type SpoolEnv } from '@aang/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { FactDraft, type FactKind, type JsonValue, type SpoolEnv } from '@catacomb/contract'
 import { describe, test } from 'vitest'
 import {
   cliEnv,
@@ -97,7 +97,7 @@ describe.concurrent('Claude hooks: tools and permissions', () => {
       },
       runtime_ids: { prompt_id: '129d79dc-0dd6-45cf-9fa4-dfec38585d0c' },
       runtime_env: {
-        cwd: '/tmp/aang-spike/cc-hooks/runs/A',
+        cwd: '/tmp/catacomb-spike/cc-hooks/runs/A',
         version: '2.1.286',
         entrypoint: 'sdk-cli',
         originator: null,
@@ -152,7 +152,7 @@ describe.concurrent('Claude hooks: tools and permissions', () => {
       urgent: true,
       payload: {
         outcome: 'error',
-        output: 'Exit code 1\nls: missing-aang-file: No such file or directory',
+        output: 'Exit code 1\nls: missing-catacomb-file: No such file or directory',
         exit_code: 1,
         duration_ms: 16,
         result: null,
@@ -190,7 +190,7 @@ describe.concurrent('Claude hooks: tools and permissions', () => {
       urgent: false,
       payload: {
         calls: [
-          { call_id: 'toolu_01BQ2R7qRobfqen21b28z5KR', tool: 'Bash', response: 'Denied by the human (aang probe).' },
+          { call_id: 'toolu_01BQ2R7qRobfqen21b28z5KR', tool: 'Bash', response: 'Denied by the human (catacomb probe).' },
         ],
       },
     })
@@ -371,11 +371,11 @@ describe.concurrent('Claude hooks: tools and permissions', () => {
 
   test('an observer session keeps its marker in the entrypoint', async ({ expect }) => {
     const [start] = await parseCliSample('PreToolUse.Bash.json', {
-      CLAUDE_CODE_ENTRYPOINT: 'aang-observer',
+      CLAUDE_CODE_ENTRYPOINT: 'catacomb-observer',
       AI_AGENT: 'claude-code_2-1-290_harness',
     })
 
-    expect(start?.runtime_env).toMatchObject({ entrypoint: 'aang-observer', version: '2.1.290' })
+    expect(start?.runtime_env).toMatchObject({ entrypoint: 'catacomb-observer', version: '2.1.290' })
   })
 
   test('an unrecognised AI_AGENT value gives no engine version', async ({ expect }) => {

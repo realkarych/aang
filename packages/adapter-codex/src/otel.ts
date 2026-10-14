@@ -6,7 +6,7 @@ import {
   type ParseResult,
   type PermissionDecision,
   type RecordOwner,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { z } from 'zod'
 import { qualifiedTool } from './calls.js'
 import { actionEntity, emptyEnv, emptyIds, fact, sessionEntity } from './facts.js'

@@ -1,5 +1,5 @@
-import { endpoints, type RunId } from '@aang/contract'
-import type { RunningDaemon } from '@aang/testkit'
+import { endpoints, type RunId } from '@catacomb/contract'
+import type { RunningDaemon } from '@catacomb/testkit'
 import { expect, type Locator, type Page } from '@playwright/test'
 
 export const healthDot = (page: Page): Locator =>

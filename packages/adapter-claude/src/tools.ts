@@ -1,4 +1,4 @@
-import type { ActionKind, JsonValue } from '@aang/contract'
+import type { ActionKind, JsonValue } from '@catacomb/contract'
 import { isJsonObject, stringField } from './json.js'
 
 const actionKinds: ReadonlyMap<string, ActionKind> = new Map([

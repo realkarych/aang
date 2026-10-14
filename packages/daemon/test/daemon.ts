@@ -6,14 +6,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
-import type { Placement } from '@aang/contract'
-import { type AangHomePaths, aangHomePaths } from '@aang/contract/home'
-import { type DaemonReady, type DaemonStopReason, runDaemon } from '@aang/daemon'
+import type { Placement } from '@catacomb/contract'
+import { type CatacombHomePaths, catacombHomePaths } from '@catacomb/contract/home'
+import { type DaemonReady, type DaemonStopReason, runDaemon } from '@catacomb/daemon'
 import type { TestContext } from 'vitest'
 
 export interface Home {
   readonly root: string
-  readonly paths: AangHomePaths
+  readonly paths: CatacombHomePaths
   readonly token: string
 }
 
@@ -46,9 +46,9 @@ export const createHome = async (
   onTestFinished: TestContext['onTestFinished'],
   config: Record<string, unknown> = {},
 ): Promise<Home> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-daemon-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-daemon-')))
   onTestFinished(() => rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }))
-  const paths = aangHomePaths(join(root, '.aang'))
+  const paths = catacombHomePaths(join(root, '.catacomb'))
   const token = randomBytes(32).toString('base64url')
   await mkdir(paths.home, { recursive: true })
   await writeFile(
@@ -74,7 +74,7 @@ export const startDaemon = async (
   const ready = Promise.withResolvers<DaemonReady>()
   const stopped = runDaemon({
     version: testVersion,
-    environment: { env: { ...env, AANG_HOME: home.paths.home }, homedir: home.root },
+    environment: { env: { ...env, CATACOMB_HOME: home.paths.home }, homedir: home.root },
     bind,
     staticRoot,
     supportMatrix,

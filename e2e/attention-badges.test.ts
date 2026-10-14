@@ -1,5 +1,5 @@
 import { appendFile, readFile } from 'node:fs/promises'
-import { endpoints, RunId, type RunSnapshot, type Runtime, type Stage } from '@aang/contract'
+import { endpoints, RunId, type RunSnapshot, type Runtime, type Stage } from '@catacomb/contract'
 import {
   checksBlockerText,
   checksStageTitle,
@@ -9,7 +9,7 @@ import {
   observerScenarios,
   type RunningDaemon,
   sampleScenarioManifest,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import type { Locator, Page } from '@playwright/test'
 import { expect, getWithoutKeepAlive, type HookFields, test } from './fixtures.js'
 import { hooksOnly, recording } from './recordings.js'

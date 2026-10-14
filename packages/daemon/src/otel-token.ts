@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import type { Listener } from '@aang/contract'
-import type { Store } from '@aang/store'
+import type { Listener } from '@catacomb/contract'
+import type { Store } from '@catacomb/store'
 import { z } from 'zod'
 import { epochNow } from './spool.js'
 

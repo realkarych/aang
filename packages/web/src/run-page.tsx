@@ -1,4 +1,4 @@
-import type { RunSnapshot } from '@aang/contract'
+import type { RunSnapshot } from '@catacomb/contract'
 import type { ReactElement } from 'react'
 import { ChatDock } from './chat-dock.js'
 import { ChatPanel } from './chat-panel.js'

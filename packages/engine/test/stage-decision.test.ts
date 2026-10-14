@@ -7,15 +7,15 @@ import {
   type ObserverOp,
   type Question,
   TempId,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import {
   applyChangeSet,
   applyObserverResponse,
   type AttentionItemDraft,
   refreshStageDecisions,
   refreshStageExecution,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { hookBatch } from './batches.js'
 import {

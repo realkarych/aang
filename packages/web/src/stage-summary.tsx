@@ -1,4 +1,4 @@
-import type { Stage } from '@aang/contract'
+import type { Stage } from '@catacomb/contract'
 import type { ReactElement } from 'react'
 import { BasisBadge, ExecutionBadge } from './badges.js'
 import { attentionKindLabel } from './labels.js'

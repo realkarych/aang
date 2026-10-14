@@ -1,4 +1,4 @@
-import { spoolEnvKeys } from '@aang/contract'
+import { spoolEnvKeys } from '@catacomb/contract'
 import type { SpoolRecord } from './spool.js'
 
 export type FieldValue = string | number | boolean | readonly BatchCall[]

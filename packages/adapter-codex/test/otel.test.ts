@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { codexAdapter } from '@aang/adapter-codex'
+import { codexAdapter } from '@catacomb/adapter-codex'
 import {
   type CollectedPosition,
   CollectedRecord,
@@ -8,7 +8,7 @@ import {
   type PermissionDecision,
   type Speaker,
   StreamKey,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
 import { factsOf, threadStream } from './rollout-records.js'
@@ -109,7 +109,7 @@ const policy = (originator: string): Decision => ({
   originator,
 })
 
-const probe = 'aang_otel_probe'
+const probe = 'catacomb_otel_probe'
 const execSubagentRoot = '01a0f7a9-0000-7000-8000-0000000000a1'
 
 const decisions: Readonly<Record<string, Decision>> = {
@@ -263,8 +263,8 @@ describe('decision values beyond the recorded ones', () => {
     })
   })
 
-  test('a decision taken in an aang observer session carries the observer originator', () => {
-    expect(decisionOf({ originator: 'aang_observer' })).toMatchObject({ runtime_env: { originator: 'aang_observer' } })
+  test('a decision taken in an catacomb observer session carries the observer originator', () => {
+    expect(decisionOf({ originator: 'catacomb_observer' })).toMatchObject({ runtime_env: { originator: 'catacomb_observer' } })
   })
 })
 

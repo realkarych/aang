@@ -1,4 +1,4 @@
-import type { CollectedRecord, JsonValue, ParseResult } from '@aang/contract'
+import type { CollectedRecord, JsonValue, ParseResult } from '@catacomb/contract'
 import { z } from 'zod'
 import { startedAgent } from './agents.js'
 import { fact, fileOrigin, invalid, parsed, schemaViolation, unknown } from './facts.js'

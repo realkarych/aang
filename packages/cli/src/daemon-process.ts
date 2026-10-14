@@ -1,4 +1,4 @@
-import type { Listener } from '@aang/contract'
+import type { Listener } from '@catacomb/contract'
 
 const wildcardHosts: Readonly<Record<string, string>> = { '0.0.0.0': '127.0.0.1', '::': '::1' }
 

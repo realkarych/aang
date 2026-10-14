@@ -82,7 +82,7 @@ const chatInput = (run: string): string =>
   })
 
 const recordCalls = (sandbox: Sandbox, run: string): void => {
-  const database = new DatabaseSync(join(sandbox.aangHome, 'aang.db'))
+  const database = new DatabaseSync(join(sandbox.catacombHome, 'catacomb.db'))
   try {
     const insert = database.prepare(
       `INSERT INTO observer_calls (id, kind, run_id, previous_id, backend, base_version, input, output, verdict, usage,
@@ -112,7 +112,7 @@ interface CollectedRun {
 
 const collected = async (sandbox: Sandbox, done: (runs: readonly CollectedRun[]) => boolean): Promise<readonly CollectedRun[]> => {
   const state = await sandbox.daemonState()
-  const token = (await readFile(join(sandbox.aangHome, 'token'), 'utf8')).trim()
+  const token = (await readFile(join(sandbox.catacombHome, 'token'), 'utf8')).trim()
   const deadline = Date.now() + 20_000
   for (;;) {
     const response = await fetch(`http://127.0.0.1:${String(state?.api.port ?? 0)}/api/admin/usage`, {
@@ -153,7 +153,7 @@ interface Watched {
 }
 
 const watching = async (sandbox: Sandbox): Promise<Watched> => {
-  const root = dirname(sandbox.aangHome)
+  const root = dirname(sandbox.catacombHome)
   const watched = {
     workspace: join(root, 'work'),
     projects: join(root, '.claude', 'projects', '-work'),
@@ -161,7 +161,7 @@ const watching = async (sandbox: Sandbox): Promise<Watched> => {
   }
   await Promise.all(Object.values(watched).map((directory) => mkdir(directory, { recursive: true })))
   await writeFile(
-    join(sandbox.aangHome, 'config.json'),
+    join(sandbox.catacombHome, 'config.json'),
     JSON.stringify({
       api: { port: 0 },
       otel: { port: 0 },
@@ -224,7 +224,7 @@ const inherited = 'includes the usage inherited from the parent session'
 const threadTotal = 'thread total 4,366 input, 38,656 cache read, 0 cache write, 38 output'
 const idleSolver = 'solver: 0 input, 0 cache read, 0 cache write, 0 output, 0 records'
 
-describe.concurrent('aang usage shows the three journals of the running daemon', () => {
+describe.concurrent('catacomb usage shows the three journals of the running daemon', () => {
   test('the report of a run, of all runs and of a period keeps the solver, observer and chat apart', async ({
     expect,
     onTestFinished,
@@ -232,22 +232,22 @@ describe.concurrent('aang usage shows the three journals of the running daemon',
     const sandbox = await createSandbox(onTestFinished)
     const { workspace, projects } = await watching(sandbox)
     await writeFile(join(projects, `${session}.jsonl`), lines(transcript(workspace)))
-    expect((await sandbox.aang('start')).code).toBe(0)
+    expect((await sandbox.catacomb('start')).code).toBe(0)
     const runs = await collected(sandbox, (runs) =>
       runs.some(({ solver }) => solver.totals.records === 2 && solver.sessions.some(reportsTotal)),
     )
-    expect((await sandbox.aang('stop')).code).toBe(0)
+    expect((await sandbox.catacomb('stop')).code).toBe(0)
     const { run, session: sessionId } = sessionOf(runs, reportsTotal)
     recordCalls(sandbox, run)
 
-    expect((await sandbox.aang('start')).code).toBe(0)
+    expect((await sandbox.catacomb('start')).code).toBe(0)
     const [ofRun, all, period, unknown] = await Promise.all([
-      sandbox.aang('usage', '--run', run),
-      sandbox.aang('usage'),
-      sandbox.aang('usage', '--from', '2026-10-02T13:00:00Z', '--to', '2026-10-02T14:00:00Z'),
-      sandbox.aang('usage', '--run', '0'.repeat(32)),
+      sandbox.catacomb('usage', '--run', run),
+      sandbox.catacomb('usage'),
+      sandbox.catacomb('usage', '--from', '2026-10-02T13:00:00Z', '--to', '2026-10-02T14:00:00Z'),
+      sandbox.catacomb('usage', '--run', '0'.repeat(32)),
     ])
-    expect((await sandbox.aang('stop')).code).toBe(0)
+    expect((await sandbox.catacomb('stop')).code).toBe(0)
 
     const sessionLine = `    session ${sessionId}: Claude Code reports 6 input, 2,000 cache read, 200 cache write, 100 output, $0.50; final`
     expect(ofRun).toEqual({
@@ -309,7 +309,7 @@ describe.concurrent('aang usage shows the three journals of the running daemon',
       ].join('\n'),
     })
     expect(unknown.code).toBe(1)
-    expect(unknown.stderr).toContain(`aang usage: no run ${'0'.repeat(32)}`)
+    expect(unknown.stderr).toContain(`catacomb usage: no run ${'0'.repeat(32)}`)
   })
 
   test('a fork says that its Claude Code total includes the inherited usage, and a Codex thread without usage records shows its thread total', async ({
@@ -325,7 +325,7 @@ describe.concurrent('aang usage shows the three journals of the running daemon',
       join(rollouts, 'rollout-legacy-fork.jsonl'),
       lines(codexWithoutRecords('legacy-fork', workspace, { forked_from_id: 'legacy', forked_from_ordinal_exclusive: 3 })),
     )
-    expect((await sandbox.aang('start')).code).toBe(0)
+    expect((await sandbox.catacomb('start')).code).toBe(0)
     const runs = await collected(
       sandbox,
       (runs) =>
@@ -336,12 +336,12 @@ describe.concurrent('aang usage shows the three journals of the running daemon',
     const fork = sessionOf(runs, inheritsTotal)
     const legacy = sessionOf(runs, hasThreadTotal).run
     const [all, ofFork, ofLegacy, period] = await Promise.all([
-      sandbox.aang('usage'),
-      sandbox.aang('usage', '--run', fork.run),
-      sandbox.aang('usage', '--run', legacy),
-      sandbox.aang('usage', '--from', '2000-01-01'),
+      sandbox.catacomb('usage'),
+      sandbox.catacomb('usage', '--run', fork.run),
+      sandbox.catacomb('usage', '--run', legacy),
+      sandbox.catacomb('usage', '--from', '2000-01-01'),
     ])
-    expect((await sandbox.aang('stop')).code).toBe(0)
+    expect((await sandbox.catacomb('stop')).code).toBe(0)
 
     expect(runWith(inherited, all.stdout)).toBe(fork.run)
     expect(runWith('thread total', all.stdout)).toBe(legacy)
@@ -379,13 +379,13 @@ describe.concurrent('aang usage shows the three journals of the running daemon',
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished)
-    const stopped = await sandbox.aang('usage')
-    expect((await sandbox.aang('start')).code).toBe(0)
-    const empty = await sandbox.aang('usage', '--from', '2026-10-01')
-    expect((await sandbox.aang('stop')).code).toBe(0)
+    const stopped = await sandbox.catacomb('usage')
+    expect((await sandbox.catacomb('start')).code).toBe(0)
+    const empty = await sandbox.catacomb('usage', '--from', '2026-10-01')
+    expect((await sandbox.catacomb('stop')).code).toBe(0)
 
     expect(stopped.code).toBe(1)
-    expect(stopped.stderr).toContain('aang usage: aang is not running; start it with `aang start`')
+    expect(stopped.stderr).toContain('catacomb usage: catacomb is not running; start it with `catacomb start`')
     expect(empty).toEqual({
       code: 0,
       stderr: '',
@@ -406,15 +406,15 @@ describe.concurrent('aang usage shows the three journals of the running daemon',
   })
 
   test.for([
-    { args: ['usage', 'extra'], message: 'aang usage takes no positional arguments' },
+    { args: ['usage', 'extra'], message: 'catacomb usage takes no positional arguments' },
     { args: ['usage', '--run', 'not-a-run'], message: "'not-a-run' is not a run id" },
     { args: ['usage', '--from', 'yesterday'], message: "--from takes a date, got 'yesterday'" },
     { args: ['usage', '--to', 'tomorrow'], message: "--to takes a date, got 'tomorrow'" },
     { args: ['usage', '--from', '2026-10-02', '--to', '2026-10-01'], message: '--from must precede --to' },
-  ])('aang $args is a usage error', async ({ args, message }, { expect, onTestFinished }) => {
+  ])('catacomb $args is a usage error', async ({ args, message }, { expect, onTestFinished }) => {
     const sandbox = await createSandbox(onTestFinished)
 
-    const result = await sandbox.aang(...args)
+    const result = await sandbox.catacomb(...args)
 
     expect(result.code).toBe(2)
     expect(result.stderr).toContain(message)

@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { type RawSeq, type RunId, RunKey, type SessionKey, type StreamKey } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+import { type RawSeq, type RunId, RunKey, type SessionKey, type StreamKey } from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
 import { decodeJson } from './codec.js'
 import { prepareStatement, type WriteContext } from './context.js'
 

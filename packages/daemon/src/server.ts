@@ -12,7 +12,7 @@ import {
   type ShutdownResponse,
   type StatusResponse,
   streamPath,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { z } from 'zod'
 import { AdminError } from './admin-error.js'
 import type { Authenticator } from './auth.js'
@@ -69,7 +69,7 @@ const sendError = (response: ServerResponse, code: ApiErrorCode, message: string
     response,
     statuses[code],
     body,
-    code === 'unauthorized' ? { 'www-authenticate': 'Bearer realm="aang"' } : {},
+    code === 'unauthorized' ? { 'www-authenticate': 'Bearer realm="catacomb"' } : {},
   )
 }
 
@@ -82,7 +82,7 @@ const isApiPath = (pathname: string): boolean => pathname === '/api' || pathname
 
 const authPrefix = '/auth/'
 
-const signedInPage = '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/"><title>aang</title>\n'
+const signedInPage = '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=/"><title>catacomb</title>\n'
 
 const readJson = async (request: IncomingMessage): Promise<unknown> => {
   const chunks: Buffer[] = []
@@ -251,7 +251,7 @@ export const startServer = async ({
     await auth.pruneExpiredCodes()
     const cookie = await auth.redeem(code)
     if (cookie === null) {
-      sendText(response, 401, 'This sign-in link has expired or was already used. Run `aang open` for a new one.')
+      sendText(response, 401, 'This sign-in link has expired or was already used. Run `catacomb open` for a new one.')
       return
     }
     response.writeHead(200, {
@@ -279,9 +279,9 @@ export const startServer = async ({
     const credential = await auth.credential(request)
     if (credential === null) {
       if (api) {
-        sendError(response, 'unauthorized', 'a bearer token or the aang session cookie is required')
+        sendError(response, 'unauthorized', 'a bearer token or the catacomb session cookie is required')
       } else {
-        sendText(response, 401, 'Not signed in. Run `aang open` to get a sign-in link.')
+        sendText(response, 401, 'Not signed in. Run `catacomb open` to get a sign-in link.')
       }
       return
     }
@@ -311,7 +311,7 @@ export const startServer = async ({
   server.on('request', (request: IncomingMessage, response: ServerResponse) => {
     response.setHeader('x-content-type-options', 'nosniff')
     handle(table, checkCookieWrite, request, response).catch((error: unknown) => {
-      process.stderr.write(`aang daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
+      process.stderr.write(`catacomb daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
       if (response.headersSent) {
         response.destroy()
       } else {

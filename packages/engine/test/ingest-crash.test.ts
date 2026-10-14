@@ -7,8 +7,8 @@ import { DatabaseSync } from 'node:sqlite'
 import type { Readable } from 'node:stream'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
-import { type SpoolEnv, spoolFormat } from '@aang/contract'
-import { openStore, type Store } from '@aang/store'
+import { type SpoolEnv, spoolFormat } from '@catacomb/contract'
+import { openStore, type Store } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { factsOf, recordsOf } from './harness.js'
 import { claudeHook, claudeHookEnv, claudeTranscript } from './samples.js'
@@ -51,9 +51,9 @@ const spoolFile = (payload: string, env: SpoolEnv): Buffer =>
   ])
 
 const prepareFixture = async (register: Register, root: string): Promise<Fixture> => {
-  const base = await realpath(await mkdtemp(join(tmpdir(), 'aang-ingest-')))
+  const base = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-ingest-')))
   register(() => rm(base, { recursive: true, force: true, maxRetries: 5 }))
-  const home = join(base, 'aang')
+  const home = join(base, 'catacomb')
   const spool = join(home, 'spool')
   const claude = join(base, 'claude')
   const session = { session: 's-crash', cwd: root }
@@ -113,7 +113,7 @@ const runIngest = (register: Register, fixture: Fixture, mode = 'drain'): Runnin
 
 const storedRecords = (fixture: Fixture): number => {
   try {
-    const database = new DatabaseSync(join(fixture.home, 'aang.db'), { readOnly: true })
+    const database = new DatabaseSync(join(fixture.home, 'catacomb.db'), { readOnly: true })
     try {
       return (database.prepare('SELECT count(*) AS records FROM raw_records').get() as { records: number }).records
     } finally {

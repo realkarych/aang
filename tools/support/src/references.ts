@@ -20,7 +20,7 @@ import {
   StageId,
   UsageRecordId,
   ViewRuleId,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { z } from 'zod'
 
 export type OnId = (id: string, path: string) => unknown

@@ -4,10 +4,10 @@ import { z } from 'zod'
 import { bash, check, type Definition, playerPath, present, sessionOf } from './definition.js'
 import { commandOf, findTranscript, named, readTranscript, toolResult, toolUses, type Transcript } from './transcripts.js'
 
-const agentPrompt = (key: string, word: string): string => `[aang:${key}] Run \`echo ${word}\` with the Bash tool and report its output.`
+const agentPrompt = (key: string, word: string): string => `[catacomb:${key}] Run \`echo ${word}\` with the Bash tool and report its output.`
 
 const workflowScript = [
-  "export const meta = { name: 'aang-echo', description: 'Echo words through workflow agents', phases: [{ title: 'Echo' }, { title: 'Report' }] }",
+  "export const meta = { name: 'catacomb-echo', description: 'Echo words through workflow agents', phases: [{ title: 'Echo' }, { title: 'Report' }] }",
   'const words = await parallel([',
   `  () => agent('${agentPrompt('wf-left', 'left')}', { label: 'left', phase: 'Echo' }),`,
   `  () => agent('${agentPrompt('wf-right', 'right')}', { label: 'right', phase: 'Echo' }),`,
@@ -38,19 +38,19 @@ export const workflow: Definition = {
   name: 'workflow',
   models: ['stub'],
   expectedFacts: [
-    'The root session runs the workflow aang-echo with the Workflow tool after the host approves it after ~0.5 s',
+    'The root session runs the workflow catacomb-echo with the Workflow tool after the host approves it after ~0.5 s',
     'Phase Echo runs the agents left and right in parallel, then phase Report runs the agent report; each agent runs one Bash action',
     'The workflow snapshot ends completed with three agents; its journal records the start and the result of every agent',
   ],
   script: () => ({
-    workflow: [[{ tool: 'Workflow', input: { script: workflowScript } }], [{ text: 'The workflow aang-echo is running.' }], [{ text: 'The workflow aang-echo is completed.' }]],
+    workflow: [[{ tool: 'Workflow', input: { script: workflowScript } }], [{ text: 'The workflow catacomb-echo is running.' }], [{ text: 'The workflow catacomb-echo is completed.' }]],
     'wf-left': [[bash('echo left', 'Print left')], [{ text: 'left' }]],
     'wf-right': [[bash('echo right', 'Print right')], [{ text: 'right' }]],
     'wf-report': [[bash('echo report', 'Print report')], [{ text: 'report' }]],
   }),
   run: async ({ session, stage }) => {
     const summary = await stage('workflow', {
-      turns: [{ prompt: `[aang:workflow] Run this workflow with the Workflow tool, passing the script verbatim, and reply with one sentence:\n${workflowScript}` }],
+      turns: [{ prompt: `[catacomb:workflow] Run this workflow with the Workflow tool, passing the script verbatim, and reply with one sentence:\n${workflowScript}` }],
       decisions: [{ tool: 'Workflow', behavior: 'allow', delayMs: 500 }],
     })
     check(summary.tools.includes('Workflow'), 'The engine offered no Workflow tool')
@@ -61,7 +61,7 @@ export const workflow: Definition = {
     const directory = sessionDirectory(transcript)
     const snapshotFile = present((await filesMatching(join(directory, 'workflows'), /^wf_.+\.json$/)).at(0), 'The session has no workflow snapshot')
     const snapshot = Snapshot.parse(JSON.parse(await readFile(snapshotFile, 'utf8')))
-    check(snapshot.workflowName === 'aang-echo' && snapshot.status === 'completed' && snapshot.agentCount === 3, `The workflow snapshot is not a completed aang-echo run with three agents: ${snapshot.workflowName} ${snapshot.status} ${String(snapshot.agentCount)}`)
+    check(snapshot.workflowName === 'catacomb-echo' && snapshot.status === 'completed' && snapshot.agentCount === 3, `The workflow snapshot is not a completed catacomb-echo run with three agents: ${snapshot.workflowName} ${snapshot.status} ${String(snapshot.agentCount)}`)
     check(snapshot.phases.map(({ title }) => title).join(',') === 'Echo,Report', 'The workflow snapshot does not list the phases Echo and Report')
     const runDirectory = join(directory, 'subagents', 'workflows', snapshot.runId)
     const journalFile = join(runDirectory, 'journal.jsonl')

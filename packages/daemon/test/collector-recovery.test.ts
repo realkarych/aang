@@ -3,10 +3,10 @@ import { appendFile, chmod, mkdir, mkdtemp, rename, rm, utimes, writeFile } from
 import { tmpdir, userInfo } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { codexAdapter } from '@aang/adapter-codex'
-import { createCollector } from '@aang/collector'
-import { ChangeSeq, type CollectedRecord, Config, StreamKey } from '@aang/contract'
-import { openStore } from '@aang/store'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { createCollector } from '@catacomb/collector'
+import { ChangeSeq, type CollectedRecord, Config, StreamKey } from '@catacomb/contract'
+import { openStore } from '@catacomb/store'
 import { expect, test, vi } from 'vitest'
 
 const setReadable = async (path: string, readable: boolean): Promise<void> => {
@@ -26,7 +26,7 @@ test.for([
   { operation: 'rescan', scenario: 'missing' },
   { operation: 'rescan', scenario: 'replaced' },
 ])('$operation relocation closes the persisted read_failed episode when its old path is $scenario', async ({ operation, scenario }, { onTestFinished }) => {
-  const root = await mkdtemp(join(tmpdir(), 'aang-read-recovery-'))
+  const root = await mkdtemp(join(tmpdir(), 'catacomb-read-recovery-'))
   const home = join(root, 'home')
   const codex = join(root, 'codex')
   const active = join(codex, 'sessions')
@@ -134,7 +134,7 @@ test.for([
 })
 
 test.for(['archived', 'still missing', 'replaced'] as const)('a persisted source_lost episode survives restart when the source is %s', async (scenario, { onTestFinished }) => {
-  const root = await mkdtemp(join(tmpdir(), 'aang-recovery-'))
+  const root = await mkdtemp(join(tmpdir(), 'catacomb-recovery-'))
   const home = join(root, 'home')
   const codex = join(root, 'codex')
   const active = join(codex, 'sessions')

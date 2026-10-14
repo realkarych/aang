@@ -1,6 +1,6 @@
-import { DedupeKey, NormalizerVersion } from '@aang/contract'
-import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
-import type { Transaction } from '@aang/store'
+import { DedupeKey, NormalizerVersion } from '@catacomb/contract'
+import { canonicalJson, contentHash, objectId } from '@catacomb/contract/ids'
+import type { Transaction } from '@catacomb/store'
 import type { TakenSnapshot } from './take.js'
 
 const daemonNormalizer = NormalizerVersion.parse(1)

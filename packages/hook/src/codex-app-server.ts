@@ -138,7 +138,7 @@ export const listCodexHooks = (
     }
     const command = windows ? windowsExecutable(codex.command) : codex.command
     const args = [...(codex.args ?? []), 'app-server']
-    const statusPath = windows ? join(mkdtempSync(join(tmpdir(), 'aang-app-server-')), 'status.json') : ''
+    const statusPath = windows ? join(mkdtempSync(join(tmpdir(), 'catacomb-app-server-')), 'status.json') : ''
     const options = { cwd: home, env: { ...process.env, CODEX_HOME: home }, stdio: 'pipe', windowsHide: true } as const
     const child = windows
       ? spawn(launcher, ['launch', statusPath, 'stream', command, ...args], options)
@@ -375,7 +375,7 @@ export const listCodexHooks = (
       id: requestId,
       method: 'initialize',
       params: {
-        clientInfo: { name: 'aang', title: 'aang hook installation', version: '0.0.0' },
+        clientInfo: { name: 'catacomb', title: 'catacomb hook installation', version: '0.0.0' },
         capabilities: { experimentalApi: true, requestAttestation: false },
       },
     })

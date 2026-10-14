@@ -1,6 +1,6 @@
 import { writeSync } from 'node:fs'
-import { applyChangeSet, type ChangeSet } from '@aang/engine'
-import { openStore, type Transaction } from '@aang/store'
+import { applyChangeSet, type ChangeSet } from '@catacomb/engine'
+import { openStore, type Transaction } from '@catacomb/store'
 import { history } from './model.ts'
 
 const [, , home] = process.argv

@@ -10,7 +10,7 @@ import type {
   PruneBoundary,
   Runtime,
   StreamKey,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { createAttachmentSource } from './attachments.js'
 import { createOtelReceiver, type OtelReceiverOptions } from './otel.js'
 import { createRetrier, type ReadRetry } from './retry.js'

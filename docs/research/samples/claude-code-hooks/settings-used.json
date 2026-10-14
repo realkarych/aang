@@ -1,7 +1,7 @@
 {
-  "_launch": "AANG_PROBE_LOG=<log> AANG_RUN=<run> claude -p '<prompt>' --settings <this file> --setting-sources project --plugin-dir <plugin-used dir> --output-format stream-json --verbose --include-hook-events --debug-file <log>",
+  "_launch": "CATACOMB_PROBE_LOG=<log> CATACOMB_RUN=<run> claude -p '<prompt>' --settings <this file> --setting-sources project --plugin-dir <plugin-used dir> --output-format stream-json --verbose --include-hook-events --debug-file <log>",
   "_recorders": {
-    "command": "bin/rec.py: reads stdin JSON, appends {recv_ts, env subset, payload} to $AANG_PROBE_LOG",
+    "command": "bin/rec.py: reads stdin JSON, appends {recv_ts, env subset, payload} to $CATACOMB_PROBE_LOG",
     "http": "bin/httprec.py 47811: ThreadingHTTPServer, appends {recv_ts, path, headers, payload}, replies 200 with empty body"
   },
   "_skipped_events": [
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -23,11 +23,11 @@
             "url": "http://127.0.0.1:47811/settings/PreToolUse",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -47,11 +47,11 @@
             "url": "http://127.0.0.1:47811/settings/PostToolUse",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -63,7 +63,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -71,11 +71,11 @@
             "url": "http://127.0.0.1:47811/settings/PostToolUseFailure",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -87,7 +87,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -95,11 +95,11 @@
             "url": "http://127.0.0.1:47811/settings/PostToolBatch",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -111,7 +111,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -119,11 +119,11 @@
             "url": "http://127.0.0.1:47811/settings/Notification",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -135,7 +135,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -143,11 +143,11 @@
             "url": "http://127.0.0.1:47811/settings/UserPromptSubmit",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -159,7 +159,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -167,11 +167,11 @@
             "url": "http://127.0.0.1:47811/settings/UserPromptExpansion",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -183,7 +183,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -191,11 +191,11 @@
             "url": "http://127.0.0.1:47811/settings/SessionStart",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -207,7 +207,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -215,11 +215,11 @@
             "url": "http://127.0.0.1:47811/settings/SessionEnd",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -231,7 +231,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -239,11 +239,11 @@
             "url": "http://127.0.0.1:47811/settings/Stop",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -255,7 +255,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -263,11 +263,11 @@
             "url": "http://127.0.0.1:47811/settings/StopFailure",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -279,7 +279,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -287,11 +287,11 @@
             "url": "http://127.0.0.1:47811/settings/SubagentStart",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -303,7 +303,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -311,11 +311,11 @@
             "url": "http://127.0.0.1:47811/settings/SubagentStop",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -327,7 +327,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -335,11 +335,11 @@
             "url": "http://127.0.0.1:47811/settings/PreCompact",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -351,7 +351,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -359,11 +359,11 @@
             "url": "http://127.0.0.1:47811/settings/PostCompact",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -375,7 +375,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -383,11 +383,11 @@
             "url": "http://127.0.0.1:47811/settings/PreModelSwitch",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -399,7 +399,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -407,11 +407,11 @@
             "url": "http://127.0.0.1:47811/settings/PostModelSwitch",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -423,7 +423,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -431,11 +431,11 @@
             "url": "http://127.0.0.1:47811/settings/PermissionRequest",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -447,7 +447,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -455,11 +455,11 @@
             "url": "http://127.0.0.1:47811/settings/PermissionDenied",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -471,7 +471,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -479,11 +479,11 @@
             "url": "http://127.0.0.1:47811/settings/Setup",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -495,7 +495,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -503,11 +503,11 @@
             "url": "http://127.0.0.1:47811/settings/TeammateIdle",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -519,7 +519,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -527,11 +527,11 @@
             "url": "http://127.0.0.1:47811/settings/TaskCreated",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -543,7 +543,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -551,11 +551,11 @@
             "url": "http://127.0.0.1:47811/settings/TaskCompleted",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -567,7 +567,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -575,11 +575,11 @@
             "url": "http://127.0.0.1:47811/settings/Elicitation",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -591,7 +591,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -599,11 +599,11 @@
             "url": "http://127.0.0.1:47811/settings/ElicitationResult",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -615,7 +615,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -623,11 +623,11 @@
             "url": "http://127.0.0.1:47811/settings/ConfigChange",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -639,7 +639,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -647,11 +647,11 @@
             "url": "http://127.0.0.1:47811/settings/InstructionsLoaded",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -663,7 +663,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -671,11 +671,11 @@
             "url": "http://127.0.0.1:47811/settings/CwdChanged",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -687,7 +687,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -695,11 +695,11 @@
             "url": "http://127.0.0.1:47811/settings/FileChanged",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -711,7 +711,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -719,11 +719,11 @@
             "url": "http://127.0.0.1:47811/settings/DirectoryAdded",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]
@@ -735,7 +735,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "command": "python3 /tmp/catacomb-spike/cc-hooks/bin/rec.py settings",
             "timeout": 10
           },
           {
@@ -743,11 +743,11 @@
             "url": "http://127.0.0.1:47811/settings/MessageDisplay",
             "timeout": 5,
             "headers": {
-              "X-Aang-Run": "$AANG_RUN",
-              "X-Aang-Unlisted": "$HOME"
+              "X-Catacomb-Run": "$CATACOMB_RUN",
+              "X-Catacomb-Unlisted": "$HOME"
             },
             "allowedEnvVars": [
-              "AANG_RUN"
+              "CATACOMB_RUN"
             ]
           }
         ]

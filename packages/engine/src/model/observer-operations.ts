@@ -10,7 +10,7 @@ import {
   type ObserverOp,
   StageId,
   type StageRef,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import type { AttentionItemDraft, ModelEntityDraft, StageDraft } from './journal.js'
 import { ObserverContext } from './observer-context.js'
 import { stageLinkKey } from './stage-links.js'

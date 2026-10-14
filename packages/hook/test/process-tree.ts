@@ -36,7 +36,7 @@ switch (mode) {
   case 'echo': {
     const [exitCode = '0', ...args] = rest
     const input = await buffer(process.stdin)
-    publish('report.json', JSON.stringify({ args, cwd: process.cwd(), probe: process.env.AANG_LAUNCH_PROBE ?? null }))
+    publish('report.json', JSON.stringify({ args, cwd: process.cwd(), probe: process.env.CATACOMB_LAUNCH_PROBE ?? null }))
     process.stderr.write('cli stderr')
     process.stdout.write(input)
     process.exitCode = Number(exitCode)

@@ -2,8 +2,8 @@ import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { type RegistrationTag, type Runtime, SpoolHeader, spoolFormat, spoolLayout } from '@aang/contract'
-import { leaseFileName } from '@aang/contract/home'
+import { type RegistrationTag, type Runtime, SpoolHeader, spoolFormat, spoolLayout } from '@catacomb/contract'
+import { leaseFileName } from '@catacomb/contract/home'
 import { type Environment, hookEnvironment, type InheritedEnvironment } from '../profile/environment.js'
 
 export interface HookTarget {
@@ -58,7 +58,7 @@ export const invokeHook = async ({ binary, spool, env = process.env }: HookTarge
   const [code, signal] = await closed
   if (code !== 0 || stdout() !== '' || stderr() !== '') {
     throw new HookContractError(
-      `aang-hook ${event.runtime} ${event.registration} broke its contract: exit ${String(code ?? signal)}, stdout ${JSON.stringify(stdout())}, stderr ${JSON.stringify(stderr())}`,
+      `catacomb-hook ${event.runtime} ${event.registration} broke its contract: exit ${String(code ?? signal)}, stdout ${JSON.stringify(stdout())}, stderr ${JSON.stringify(stderr())}`,
     )
   }
 }

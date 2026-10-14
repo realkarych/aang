@@ -1,4 +1,4 @@
-import type { EpochNs } from '@aang/contract'
+import type { EpochNs } from '@catacomb/contract'
 
 export interface UsagePeriod {
   readonly from: EpochNs | null

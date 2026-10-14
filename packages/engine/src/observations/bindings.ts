@@ -8,9 +8,9 @@ import type {
   Session,
   SessionId,
   SessionKey,
-} from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import type { Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
+import type { Transaction } from '@catacomb/store'
 import { applyChangeSet } from '../model/journal.js'
 import { isFork, type Lineage } from './lineage.js'
 import { activeForkParent, refreshForkedFrom, runLineage } from './origins.js'

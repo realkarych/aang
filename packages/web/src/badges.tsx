@@ -3,7 +3,7 @@ import type {
   ActionOutcome,
   Basis,
   Execution,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import type { ReactElement } from 'react'
 import {
   BasisGlyph,

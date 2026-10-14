@@ -7,8 +7,8 @@ import {
   type ViewRuleSource,
   ViewRuleSpec,
   type ViewSelector,
-} from '@aang/contract'
-import type { Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import type { Transaction } from '@catacomb/store'
 import { viewScene } from './scene.js'
 import { selectedElements } from './selectors.js'
 

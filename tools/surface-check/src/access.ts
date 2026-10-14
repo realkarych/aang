@@ -1,4 +1,4 @@
-import { signIn } from './aang.js'
+import { signIn } from './catacomb.js'
 
 export type AccessResult = 'passed' | 'failed' | 'not_run'
 

@@ -1,5 +1,5 @@
 {
-  "name": "@aang/hook",
+  "name": "@catacomb/hook",
   "private": true,
   "type": "module",
   "exports": {
@@ -10,10 +10,10 @@
     "./bin/*": "./bin/*"
   },
   "dependencies": {
-    "@aang/contract": "workspace:*",
+    "@catacomb/contract": "workspace:*",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@aang/testkit": "workspace:*"
+    "@catacomb/testkit": "workspace:*"
   }
 }

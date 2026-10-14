@@ -8,8 +8,8 @@ import {
   type RunSummary,
   type Session,
   type StatusResponse,
-} from '@aang/contract'
-import { aangHomePaths } from '@aang/contract/home'
+} from '@catacomb/contract'
+import { catacombHomePaths } from '@catacomb/contract/home'
 import {
   type ClaudeStubScript,
   type CodexStubScript,
@@ -17,8 +17,8 @@ import {
   type ResponsesStub,
   startModelStub,
   startResponsesStub,
-} from '@aang/record'
-import { type ConfigInput, createProfile, type Profile, type RunningDaemon } from '@aang/testkit'
+} from '@catacomb/record'
+import { type ConfigInput, createProfile, type Profile, type RunningDaemon } from '@catacomb/testkit'
 import type { Clis } from './clis.js'
 import { writeGate } from './gate.js'
 import type { Journal } from './journal.js'
@@ -37,7 +37,7 @@ export interface Scripts {
 
 export interface LabOptions {
   readonly clis: Clis
-  readonly aangEntry: string
+  readonly catacombEntry: string
   readonly journal: Journal
   readonly scripts?: (paths: LabPaths) => Scripts
   readonly config?: ConfigInput
@@ -69,7 +69,7 @@ export interface Lab {
   readonly startDaemon: () => Promise<RunningDaemon>
   readonly killDaemon: () => Promise<void>
   readonly stopDaemon: () => Promise<void>
-  readonly aang: (...args: readonly string[]) => Promise<Finished>
+  readonly catacomb: (...args: readonly string[]) => Promise<Finished>
   readonly claude: (args: readonly string[], options?: CliOptions) => Launched
   readonly codex: (args: readonly string[], options?: CliOptions) => Launched
   readonly gate: (name: string) => Gate
@@ -85,7 +85,7 @@ export interface Lab {
   readonly dispose: (keep: boolean) => Promise<void>
 }
 
-const stubApiKey = 'sk-ant-api03-aang-resilience-stub'
+const stubApiKey = 'sk-ant-api03-catacomb-resilience-stub'
 
 const cliTimeoutMs = 120_000
 
@@ -93,7 +93,7 @@ const hangLimitMs = 60_000
 
 const strayKillLimitMs = 30_000
 
-const strippedVariables = /^(?:ANTHROPIC_|OPENAI_|CLAUDE|CODEX_|AANG_|AI_AGENT$)/i
+const strippedVariables = /^(?:ANTHROPIC_|OPENAI_|CLAUDE|CODEX_|CATACOMB_|AI_AGENT$)/i
 
 const cleanEnvironment = (env: Readonly<Record<string, string>>): Record<string, string> =>
   Object.fromEntries(Object.entries(env).filter(([name]) => !strippedVariables.test(name)))
@@ -110,7 +110,7 @@ const gateScript = [
 
 const codexConfig = (provider: string): string =>
   [
-    'model_provider = "aang_stub"',
+    'model_provider = "catacomb_stub"',
     'approval_policy = "never"',
     'sandbox_mode = "danger-full-access"',
     'check_for_update_on_startup = false',
@@ -118,8 +118,8 @@ const codexConfig = (provider: string): string =>
     '[features]',
     'plugins = false',
     '',
-    '[model_providers.aang_stub]',
-    'name = "aang stub"',
+    '[model_providers.catacomb_stub]',
+    'name = "catacomb stub"',
     `base_url = ${JSON.stringify(provider.replaceAll('\\', '/'))}`,
     'wire_api = "responses"',
     'requires_openai_auth = false',
@@ -157,7 +157,7 @@ export const waitFor = async <T>(
 }
 
 export const createLab = async (options: LabOptions): Promise<Lab> => {
-  const { clis, aangEntry, journal } = options
+  const { clis, catacombEntry, journal } = options
   const profile = await createProfile({ homeName: 'Όνομα Επώνυμο' })
   const project = join(profile.home, 'έργο q4')
   const work = join(profile.root, 'work')
@@ -167,7 +167,7 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
   for (const root of [join(profile.claude, 'projects'), join(profile.codex, 'sessions')]) {
     await mkdir(root, { recursive: true })
   }
-  await writeFile(join(project, 'notes.txt'), 'aang Q.4 resilience project\n')
+  await writeFile(join(project, 'notes.txt'), 'catacomb Q.4 resilience project\n')
   await writeFile(join(work, 'gate.mjs'), gateScript)
   const gateCommand = (name: string): string => `node ${shellPath(join(work, 'gate.mjs'))} ${shellPath(join(gates, name))}`
   const scripts = options.scripts?.({ project, gate: gateCommand }) ?? {}
@@ -242,7 +242,7 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
 
   const spoolFiles = async (): Promise<readonly string[]> => {
     try {
-      return (await readdir(aangHomePaths(profile.aangHome).spoolReady)).sort()
+      return (await readdir(catacombHomePaths(profile.catacombHome).spoolReady)).sort()
     } catch {
       return []
     }
@@ -306,7 +306,7 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
   }
 
   const startDaemon = async (): Promise<RunningDaemon> => {
-    current = await profile.startDaemon({ entry: aangEntry })
+    current = await profile.startDaemon({ entry: catacombEntry })
     daemons.push(current)
     journal.step('daemon started', { pid: current.pid })
     return current
@@ -366,15 +366,15 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
     journal.step('daemon shut down through the API', exit)
   }
 
-  const aang = async (...args: readonly string[]): Promise<Finished> => {
-    const child = launch(process.execPath, [aangEntry, ...args], {
+  const catacomb = async (...args: readonly string[]): Promise<Finished> => {
+    const child = launch(process.execPath, [catacombEntry, ...args], {
       cwd: profile.home,
       env: profile.env,
       timeoutMs: cliTimeoutMs,
     })
     launched.push(child)
     const result = await child.done
-    journal.step(`aang ${args.join(' ')}`, { code: result.code, stdout: tail(result.stdout), stderr: tail(result.stderr) })
+    journal.step(`catacomb ${args.join(' ')}`, { code: result.code, stdout: tail(result.stdout), stderr: tail(result.stderr) })
     return result
   }
 
@@ -385,7 +385,7 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
       timeoutMs: cliOptions.timeoutMs ?? cliTimeoutMs,
     })
     launched.push(child)
-    journal.step(`${cli} started`, { pid: child.pid, args: args.filter((arg) => !arg.includes('[aang:')) })
+    journal.step(`${cli} started`, { pid: child.pid, args: args.filter((arg) => !arg.includes('[catacomb:')) })
     return child
   }
 
@@ -418,7 +418,7 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
     startDaemon,
     killDaemon,
     stopDaemon,
-    aang,
+    catacomb,
     claude: (args, cliOptions) => start('claude', args, cliOptions),
     codex: (args, cliOptions) => start('codex', args, cliOptions),
     gate,

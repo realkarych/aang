@@ -1,4 +1,4 @@
-import type { JsonValue, Runtime } from '@aang/contract'
+import type { JsonValue, Runtime } from '@catacomb/contract'
 import { environment, finish, isJsonObject, say } from './io.js'
 import { scenarioMessage } from './profile.js'
 import { fakeCliExitCodes, type FakeCall, type FakeCommand, type FakePurpose } from './scenario.js'

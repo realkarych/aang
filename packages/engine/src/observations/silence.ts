@@ -1,4 +1,4 @@
-import type { EpochNs, Fact } from '@aang/contract'
+import type { EpochNs, Fact } from '@catacomb/contract'
 import { byTime, type Evidence, isFile } from './evidence.js'
 
 export interface HooksSilence {

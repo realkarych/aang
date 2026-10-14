@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { createPlayer, loadManifest, type SampleScenario, sampleScenarioManifest } from '@aang/testkit'
+import { createPlayer, loadManifest, type SampleScenario, sampleScenarioManifest } from '@catacomb/testkit'
 
 const required = (name: string): string => {
   const value = process.env[name]
@@ -26,12 +26,12 @@ const roots = { home: required('HOME'), claude: required('CLAUDE_CONFIG_DIR'), c
 const samples = resolve(import.meta.dirname, '../../../docs/research/samples')
 const session = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
 const bashCall = 'toolu_017B7FeHZ4yDzFdvKQMwDJB8'
-const cwd = '/tmp/aang-spike/cc-transcripts/run'
-const transcript = join(roots.claude, 'projects', '-tmp-aang-spike-cc-transcripts-run', `${session}.jsonl`)
-const movedTranscript = join(roots.claude, 'projects', '-tmp-aang-spike-cc-transcripts-run-moved', `${session}.jsonl`)
+const cwd = '/tmp/catacomb-spike/cc-transcripts/run'
+const transcript = join(roots.claude, 'projects', '-tmp-catacomb-spike-cc-transcripts-run', `${session}.jsonl`)
+const movedTranscript = join(roots.claude, 'projects', '-tmp-catacomb-spike-cc-transcripts-run-moved', `${session}.jsonl`)
 const registry = join(roots.claude, 'sessions', '60263.json')
 const capturePauseMs = 250
-const toolResult = join(roots.claude, 'projects', '-tmp-aang-spike-cc-transcripts-run', session, 'tool-results', 'output.jsonl')
+const toolResult = join(roots.claude, 'projects', '-tmp-catacomb-spike-cc-transcripts-run', session, 'tool-results', 'output.jsonl')
 
 const sessionVariables: readonly string[] = [
   'AI_AGENT',

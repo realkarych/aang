@@ -276,7 +276,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "850dee7fcd31e839311c9fa27bcff8dd856836152d7a5929e00e9ba7da3e3874",
+      "redelivery_key": "ca51a58bdcebcea05892f594d3704bc60e4b28a1a6f3bc095facc141058f6097",
       "payload": {}
     },
     {
@@ -286,7 +286,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "59e239bb-aef6-44e8-a6b4-7fd702e8640f",
-        "call": "toolu_aang_fork-base_0_0"
+        "call": "toolu_catacomb_fork-base_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -300,7 +300,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_fork-base_0_0",
+        "call_id": "toolu_catacomb_fork-base_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -311,7 +311,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "fd197b3df8ec760371d1e5c0966b0d6b2c1a6289c3b58ec17885c95e55e4c66c",
+      "redelivery_key": "9913b7925939cee596594417fcb08fdc8c919035edaeae3ba7b6220e7346b68e",
       "payload": {
         "tool": "Bash",
         "action_kind": "command",
@@ -357,7 +357,7 @@
       "redelivery_key": null,
       "payload": {
         "operation": "enqueue",
-        "content": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output."
+        "content": "[catacomb:fork-base] Run `echo base` with the Bash tool and reply with its output."
       }
     },
     {
@@ -431,7 +431,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
+        "text": "[catacomb:fork-base] Run `echo base` with the Bash tool and reply with its output.",
         "origin": "human",
         "origin_raw": "sdk"
       }
@@ -591,7 +591,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "59e239bb-aef6-44e8-a6b4-7fd702e8640f",
-        "call": "toolu_aang_fork-base_0_0"
+        "call": "toolu_catacomb_fork-base_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -604,8 +604,8 @@
         "prompt_id": null,
         "record_uuid": "564b7061-dc11-430d-b519-8e5477bdd7a4",
         "parent_uuid": "b9620859-450c-4b59-88e1-48782a9892dc",
-        "message_id": "msg_aang_1",
-        "call_id": "toolu_aang_fork-base_0_0",
+        "message_id": "msg_catacomb_1",
+        "call_id": "toolu_catacomb_fork-base_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -635,7 +635,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "59e239bb-aef6-44e8-a6b4-7fd702e8640f",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -648,7 +648,7 @@
         "prompt_id": null,
         "record_uuid": "564b7061-dc11-430d-b519-8e5477bdd7a4",
         "parent_uuid": "b9620859-450c-4b59-88e1-48782a9892dc",
-        "message_id": "msg_aang_1",
+        "message_id": "msg_catacomb_1",
         "call_id": null,
         "ordinal": null
       },
@@ -681,7 +681,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "59e239bb-aef6-44e8-a6b4-7fd702e8640f",
-        "call": "toolu_aang_fork-base_0_0"
+        "call": "toolu_catacomb_fork-base_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -695,7 +695,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_fork-base_0_0",
+        "call_id": "toolu_catacomb_fork-base_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -706,7 +706,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "e30ef3ae94687abc903dcc2d73a723c966536e69dac82ce1001a41f7f484bf4e",
+      "redelivery_key": "6a817e8dff1067d0425d5b457bfc566d35330be546e841b3c44dec440998aa9a",
       "payload": {
         "outcome": "ok",
         "output": "base",
@@ -753,11 +753,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "707da4cd28254a496b0cc8a405a2bb4965ca660189e498d40d5c720573cd40c5",
+      "redelivery_key": "98a01af6d3b036b4ce2dd2bc785fc5c380895e7074bdbb03f52e0ed11b8fd30f",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_fork-base_0_0",
+            "call_id": "toolu_catacomb_fork-base_0_0",
             "tool": "Bash",
             "response": "base"
           }
@@ -810,7 +810,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "59e239bb-aef6-44e8-a6b4-7fd702e8640f",
-        "call": "toolu_aang_fork-base_0_0"
+        "call": "toolu_catacomb_fork-base_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -824,7 +824,7 @@
         "record_uuid": "e5df8076-c621-4e80-a35d-31012e9f4007",
         "parent_uuid": "564b7061-dc11-430d-b519-8e5477bdd7a4",
         "message_id": null,
-        "call_id": "toolu_aang_fork-base_0_0",
+        "call_id": "toolu_catacomb_fork-base_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -871,7 +871,7 @@
         "prompt_id": null,
         "record_uuid": "369a713d-fed2-40cd-8036-92b0bda6dbf1",
         "parent_uuid": "92fbbb26-77ef-4208-82cd-c22be0cbfca9",
-        "message_id": "msg_aang_2",
+        "message_id": "msg_catacomb_2",
         "call_id": null,
         "ordinal": null
       },
@@ -898,7 +898,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "59e239bb-aef6-44e8-a6b4-7fd702e8640f",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -911,7 +911,7 @@
         "prompt_id": null,
         "record_uuid": "369a713d-fed2-40cd-8036-92b0bda6dbf1",
         "parent_uuid": "92fbbb26-77ef-4208-82cd-c22be0cbfca9",
-        "message_id": "msg_aang_2",
+        "message_id": "msg_catacomb_2",
         "call_id": null,
         "ordinal": null
       },
@@ -1195,7 +1195,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "52aab0a935dca46dec463e93477889bf8efe3fa29576af9e89b03346d7951a36",
+      "redelivery_key": "59f88b12c1841836508582f941192b3a9efe20a10d2b0eab5e53fe1ef4755d49",
       "payload": {}
     },
     {
@@ -1205,7 +1205,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "call": "toolu_aang_fork-branch_0_0"
+        "call": "toolu_catacomb_fork-branch_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1219,7 +1219,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_fork-branch_0_0",
+        "call_id": "toolu_catacomb_fork-branch_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1230,7 +1230,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "1804dae52e63f36bbdfca0d9e770482daa8083ff51f8ae3e90aed3298a140059",
+      "redelivery_key": "da70b63ff7dd096789dccba1f5677b5bdf9959c9f13e5359b8c963981d78b0fc",
       "payload": {
         "tool": "Bash",
         "action_kind": "command",
@@ -1276,7 +1276,7 @@
       "redelivery_key": null,
       "payload": {
         "operation": "enqueue",
-        "content": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output."
+        "content": "[catacomb:fork-branch] Run `echo branch` with the Bash tool and reply with its output."
       }
     },
     {
@@ -1350,7 +1350,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
+        "text": "[catacomb:fork-base] Run `echo base` with the Bash tool and reply with its output.",
         "origin": "human",
         "origin_raw": "sdk"
       }
@@ -1510,7 +1510,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "call": "toolu_aang_fork-base_0_0"
+        "call": "toolu_catacomb_fork-base_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1523,8 +1523,8 @@
         "prompt_id": null,
         "record_uuid": "564b7061-dc11-430d-b519-8e5477bdd7a4",
         "parent_uuid": "b9620859-450c-4b59-88e1-48782a9892dc",
-        "message_id": "msg_aang_1",
-        "call_id": "toolu_aang_fork-base_0_0",
+        "message_id": "msg_catacomb_1",
+        "call_id": "toolu_catacomb_fork-base_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1554,7 +1554,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1567,7 +1567,7 @@
         "prompt_id": null,
         "record_uuid": "564b7061-dc11-430d-b519-8e5477bdd7a4",
         "parent_uuid": "b9620859-450c-4b59-88e1-48782a9892dc",
-        "message_id": "msg_aang_1",
+        "message_id": "msg_catacomb_1",
         "call_id": null,
         "ordinal": null
       },
@@ -1600,7 +1600,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "call": "toolu_aang_fork-base_0_0"
+        "call": "toolu_catacomb_fork-base_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1614,7 +1614,7 @@
         "record_uuid": "e5df8076-c621-4e80-a35d-31012e9f4007",
         "parent_uuid": "564b7061-dc11-430d-b519-8e5477bdd7a4",
         "message_id": null,
-        "call_id": "toolu_aang_fork-base_0_0",
+        "call_id": "toolu_catacomb_fork-base_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1661,7 +1661,7 @@
         "prompt_id": null,
         "record_uuid": "369a713d-fed2-40cd-8036-92b0bda6dbf1",
         "parent_uuid": "92fbbb26-77ef-4208-82cd-c22be0cbfca9",
-        "message_id": "msg_aang_2",
+        "message_id": "msg_catacomb_2",
         "call_id": null,
         "ordinal": null
       },
@@ -1688,7 +1688,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1701,7 +1701,7 @@
         "prompt_id": null,
         "record_uuid": "369a713d-fed2-40cd-8036-92b0bda6dbf1",
         "parent_uuid": "92fbbb26-77ef-4208-82cd-c22be0cbfca9",
-        "message_id": "msg_aang_2",
+        "message_id": "msg_catacomb_2",
         "call_id": null,
         "ordinal": null
       },
@@ -1761,7 +1761,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
+        "text": "[catacomb:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
         "origin": "human",
         "origin_raw": "sdk"
       }
@@ -1773,7 +1773,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "call": "toolu_aang_fork-branch_0_0"
+        "call": "toolu_catacomb_fork-branch_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1786,8 +1786,8 @@
         "prompt_id": null,
         "record_uuid": "c56f87c8-7718-42aa-b611-5410e8493282",
         "parent_uuid": "f5aa51c3-6ff9-4113-99d8-1b333bb1470c",
-        "message_id": "msg_aang_3",
-        "call_id": "toolu_aang_fork-branch_0_0",
+        "message_id": "msg_catacomb_3",
+        "call_id": "toolu_catacomb_fork-branch_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1817,7 +1817,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "usage": "msg_aang_3"
+        "usage": "msg_catacomb_3"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1830,7 +1830,7 @@
         "prompt_id": null,
         "record_uuid": "c56f87c8-7718-42aa-b611-5410e8493282",
         "parent_uuid": "f5aa51c3-6ff9-4113-99d8-1b333bb1470c",
-        "message_id": "msg_aang_3",
+        "message_id": "msg_catacomb_3",
         "call_id": null,
         "ordinal": null
       },
@@ -1863,7 +1863,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "call": "toolu_aang_fork-branch_0_0"
+        "call": "toolu_catacomb_fork-branch_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1877,7 +1877,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_fork-branch_0_0",
+        "call_id": "toolu_catacomb_fork-branch_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1888,7 +1888,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "04187eda326dc73d496be982b019b7f8705638852f37ac60ec0f67435a323c8d",
+      "redelivery_key": "b0ef89484b4374e9aad0e684cb92b4e2af3cf81e72a6310f8a293dd9f2d8f528",
       "payload": {
         "outcome": "ok",
         "output": "branch",
@@ -1935,11 +1935,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "7a288495839dc32bbd64fb4a7a45674a0f8cffb4c7fd7b2f485b8ed2fdfb36bb",
+      "redelivery_key": "52aee171860e08638e41ade142f614c5df1b49a5693efd343ca22e7fddc20b39",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_fork-branch_0_0",
+            "call_id": "toolu_catacomb_fork-branch_0_0",
             "tool": "Bash",
             "response": "branch"
           }
@@ -2028,7 +2028,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "call": "toolu_aang_fork-branch_0_0"
+        "call": "toolu_catacomb_fork-branch_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -2042,7 +2042,7 @@
         "record_uuid": "d2084ad8-158d-4e85-94d5-40b5cc3f4ab0",
         "parent_uuid": "c56f87c8-7718-42aa-b611-5410e8493282",
         "message_id": null,
-        "call_id": "toolu_aang_fork-branch_0_0",
+        "call_id": "toolu_catacomb_fork-branch_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2089,7 +2089,7 @@
         "prompt_id": null,
         "record_uuid": "d6bc69e5-a832-422e-98c2-de08b1ebb1c2",
         "parent_uuid": "74527c1c-8c24-4a21-b1f0-bda22e9489cd",
-        "message_id": "msg_aang_4",
+        "message_id": "msg_catacomb_4",
         "call_id": null,
         "ordinal": null
       },
@@ -2116,7 +2116,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "usage": "msg_aang_4"
+        "usage": "msg_catacomb_4"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -2129,7 +2129,7 @@
         "prompt_id": null,
         "record_uuid": "d6bc69e5-a832-422e-98c2-de08b1ebb1c2",
         "parent_uuid": "74527c1c-8c24-4a21-b1f0-bda22e9489cd",
-        "message_id": "msg_aang_4",
+        "message_id": "msg_catacomb_4",
         "call_id": null,
         "ordinal": null
       },
@@ -2373,7 +2373,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "59e239bb-aef6-44e8-a6b4-7fd702e8640f",
-        "call": "toolu_aang_fork-base_0_0"
+        "call": "toolu_catacomb_fork-base_0_0"
       },
       "session": "#47",
       "agent": "#51",
@@ -2406,7 +2406,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "call": "toolu_aang_fork-base_0_0"
+        "call": "toolu_catacomb_fork-base_0_0"
       },
       "session": "#49",
       "agent": "#52",
@@ -2439,7 +2439,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "call": "toolu_aang_fork-branch_0_0"
+        "call": "toolu_catacomb_fork-branch_0_0"
       },
       "session": "#49",
       "agent": "#52",
@@ -2475,7 +2475,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "59e239bb-aef6-44e8-a6b4-7fd702e8640f",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "session": "#47",
       "agent": "#51",
@@ -2499,7 +2499,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "59e239bb-aef6-44e8-a6b4-7fd702e8640f",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "session": "#47",
       "agent": "#51",
@@ -2523,7 +2523,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "session": "#49",
       "agent": "#52",
@@ -2547,7 +2547,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "session": "#49",
       "agent": "#52",
@@ -2571,7 +2571,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "usage": "msg_aang_3"
+        "usage": "msg_catacomb_3"
       },
       "session": "#49",
       "agent": "#52",
@@ -2595,7 +2595,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d3b328c2-5db1-4461-bee0-6b5cff1b1bf0",
-        "usage": "msg_aang_4"
+        "usage": "msg_catacomb_4"
       },
       "session": "#49",
       "agent": "#52",
@@ -2624,7 +2624,7 @@
         "runtime": "claude",
         "root_session": "#47",
         "goal": {
-          "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
+          "text": "[catacomb:fork-base] Run `echo base` with the Bash tool and reply with its output.",
           "fact": "#8"
         },
         "brief": null,
@@ -2640,7 +2640,7 @@
             "runtime": "claude",
             "root_session": "#47",
             "goal": {
-              "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
+              "text": "[catacomb:fork-base] Run `echo base` with the Bash tool and reply with its output.",
               "fact": "#8"
             },
             "brief": null,
@@ -2664,7 +2664,7 @@
         "runtime": "claude",
         "root_session": "#49",
         "goal": {
-          "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
+          "text": "[catacomb:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
           "fact": "#36"
         },
         "brief": null,
@@ -2700,7 +2700,7 @@
             "runtime": "claude",
             "root_session": "#49",
             "goal": {
-              "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
+              "text": "[catacomb:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
               "fact": "#36"
             },
             "brief": null,

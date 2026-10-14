@@ -1,6 +1,6 @@
 import { type FSWatcher, statSync, watch } from 'node:fs'
 import { basename, dirname, resolve } from 'node:path'
-import type { RunId } from '@aang/contract'
+import type { RunId } from '@catacomb/contract'
 import { contains } from '../ingest/scope.js'
 
 export interface TreeWatch {

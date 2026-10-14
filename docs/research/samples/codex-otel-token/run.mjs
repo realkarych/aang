@@ -14,7 +14,7 @@ import { createCollector } from '../../../../packages/collector/dist/index.js'
 
 const run = promisify(execFile)
 const binary = process.argv[2] ?? 'codex'
-const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-a5-otel-')))
+const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-a5-otel-')))
 const profile = join(root, 'codex')
 const workspace = join(root, 'workspace')
 const originalProfile = join(homedir(), '.codex')
@@ -31,8 +31,8 @@ const fingerprints = async () => Object.fromEntries(await Promise.all(
 ))
 const before = await fingerprints()
 const token = randomBytes(32).toString('hex')
-const callId = 'aang_a5_exec'
-const marker = 'aang-a5-otel-token'
+const callId = 'catacomb_a5_exec'
+const marker = 'catacomb-a5-otel-token'
 const model = 'gpt-6-astra'
 const requests = []
 const backgroundRequests = []
@@ -90,10 +90,10 @@ const stub = createServer(async (request, response) => {
       input: `const result = await tools.exec_command({cmd:"printf ${marker}",login:false});text(result)`,
       status: 'completed',
     }] : [{
-      type: 'message', id: 'aang_a5_final', role: 'assistant', status: 'completed',
+      type: 'message', id: 'catacomb_a5_final', role: 'assistant', status: 'completed',
       content: [{ type: 'output_text', text: 'A5_OK' }],
     }]
-    const id = `resp_aang_a5_${round}`
+    const id = `resp_catacomb_a5_${round}`
     const events = [
       { type: 'response.created', response: { id, status: 'in_progress', output: [] } },
       ...items.map((item, index) => ({ type: 'response.output_item.done', output_index: index, item })),
@@ -144,7 +144,7 @@ try {
     'approval_policy="never"',
     'analytics.enabled=false',
     'check_for_update_on_startup=false',
-    'otel.environment="aang-a5-token-live"',
+    'otel.environment="catacomb-a5-token-live"',
     'otel.log_user_prompt=false',
     `otel.exporter.otlp-http.endpoint="${endpoint}"`,
     'otel.exporter.otlp-http.protocol="json"',

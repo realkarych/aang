@@ -1,5 +1,5 @@
-import type { ActionStartPayload, Execution, Fact, SessionState } from '@aang/contract'
-import { canonicalJson } from '@aang/contract/ids'
+import type { ActionStartPayload, Execution, Fact, SessionState } from '@catacomb/contract'
+import { canonicalJson } from '@catacomb/contract/ids'
 import { agentKey, byTime, type Evidence } from './evidence.js'
 
 interface TurnState {

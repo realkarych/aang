@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
-import type { ObserverState } from '@aang/contract'
+import type { ObserverState } from '@catacomb/contract'
 
 export interface CliCommand {
   readonly command: string
@@ -92,7 +92,7 @@ export const createProcessRunner = (options: ProcessRunnerOptions = {}) => {
     if (!isAbsolute(request.command) || /\.(cmd|bat|ps1)$/i.test(request.command)) return refused('cli_missing')
     const windows = process.platform === 'win32'
     if (windows && (options.windowsLauncher === undefined || !isAbsolute(options.windowsLauncher))) return refused('launcher_unavailable')
-    const root = join(options.temporaryDirectory ?? tmpdir(), 'aang-observer')
+    const root = join(options.temporaryDirectory ?? tmpdir(), 'catacomb-observer')
     mkdirSync(root, { recursive: true, mode: 0o700 })
     const directory = mkdtempSync(join(root, 'process-'))
     const statusPath = join(directory, 'status.json')

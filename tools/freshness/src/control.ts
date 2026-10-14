@@ -1,7 +1,7 @@
 import { join } from 'node:path'
-import { ChangeSeq, type FactId, type RawRecord, type RawSeq, type RunId } from '@aang/contract'
-import type { Store } from '@aang/store'
-import { type PlayedStep, type PlayerRoots, type RecordShift, shifted, type Target } from '@aang/testkit'
+import { ChangeSeq, type FactId, type RawRecord, type RawSeq, type RunId } from '@catacomb/contract'
+import type { Store } from '@catacomb/store'
+import { type PlayedStep, type PlayerRoots, type RecordShift, shifted, type Target } from '@catacomb/testkit'
 import type { Recording } from './recording.js'
 
 export interface Played {

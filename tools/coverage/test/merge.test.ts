@@ -22,7 +22,7 @@ const run = (cwd: string, args: readonly string[], env: NodeJS.ProcessEnv = {}):
   })
 
 const workspace = async (files: Readonly<Record<string, string>>): Promise<string> => {
-  const base = await realpath(await mkdtemp(join(tmpdir(), 'aang-coverage-')))
+  const base = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-coverage-')))
   onTestFinished(() => rm(base, { recursive: true, force: true, maxRetries: 3 }))
   for (const [path, text] of Object.entries(files)) {
     await mkdir(dirname(join(base, path)), { recursive: true })

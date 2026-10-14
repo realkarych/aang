@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net'
 import { json, LaunchError, object, type JsonObject } from './backend.js'
 
 const calls = [
-  { type: 'custom_tool_call', namespace: 'functions', name: 'exec', input: 'text("aang-admission")', call_id: 'probe_exec' },
+  { type: 'custom_tool_call', namespace: 'functions', name: 'exec', input: 'text("catacomb-admission")', call_id: 'probe_exec' },
   { type: 'function_call', namespace: 'collaboration', name: 'spawn_agent', arguments: '{"task_name":"probe","message":"Finish immediately","fork_turns":"none"}', call_id: 'probe_spawn' },
   { type: 'function_call', namespace: 'functions', name: 'request_user_input', arguments: '{"questions":[]}', call_id: 'probe_input' },
   { type: 'function_call', namespace: 'functions', name: 'request_user_input_async', arguments: '{"questions":[]}', call_id: 'probe_async' },

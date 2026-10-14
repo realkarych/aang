@@ -1,4 +1,4 @@
-import type { EpochNs } from '@aang/contract'
+import type { EpochNs } from '@catacomb/contract'
 
 const locale = 'en-US'
 

@@ -1,0 +1,24 @@
+{
+  "name": "@catacomb/catacomb",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "catacomb": "./dist/main.js",
+    "catacomb-hook": "./dist/hook.js"
+  },
+  "imports": {
+    "#web": "@catacomb/web",
+    "#catacomb-hook-win32-*": "@catacomb/hook/bin/catacomb-hook.exe",
+    "#catacomb-hook-*": "@catacomb/hook/bin/catacomb-hook"
+  },
+  "dependencies": {
+    "@catacomb/cli": "workspace:*",
+    "@catacomb/daemon": "workspace:*",
+    "@catacomb/hook": "workspace:*",
+    "@catacomb/web": "workspace:*"
+  },
+  "devDependencies": {
+    "@catacomb/testkit": "workspace:*"
+  }
+}

@@ -6,7 +6,7 @@ import type {
   ObservationObjects,
   Session,
   SessionId,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { serviceAgentLabel } from './labels.js'
 
 const shortSession = ({ key }: Pick<Session, 'key'>): string => key.session.slice(0, 8)

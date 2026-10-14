@@ -6,7 +6,7 @@ import { expect, test } from 'vitest'
 import { inspectCodexPersistence } from '../dist/persistence.js'
 
 test('ephemeral admission rejects session rows in either SQLite database even without rollout files', async () => {
-  const home = await mkdtemp(join(tmpdir(), 'aang-persistence-'))
+  const home = await mkdtemp(join(tmpdir(), 'catacomb-persistence-'))
   try {
     expect(inspectCodexPersistence(home).clean).toBe(true)
     for (const [name, schema, insert] of [

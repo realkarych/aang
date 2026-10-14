@@ -9,6 +9,6 @@ const built = (relative: string): string => {
   return path
 }
 
-export const daemonEntry = built('../../aang/dist/main.js')
+export const daemonEntry = built('../../catacomb/dist/main.js')
 
-export const hookBinary = built(`../../hook/bin/aang-hook${process.platform === 'win32' ? '.exe' : ''}`)
+export const hookBinary = built(`../../hook/bin/catacomb-hook${process.platform === 'win32' ? '.exe' : ''}`)

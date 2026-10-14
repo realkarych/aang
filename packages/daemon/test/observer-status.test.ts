@@ -10,9 +10,9 @@ import {
   type SessionKey,
   type SseEvent,
   type StatusResponse,
-} from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import { installFakeClaude, installFakeCodex } from '@aang/testkit'
+} from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
+import { installFakeClaude, installFakeCodex } from '@catacomb/testkit'
 import { test } from 'vitest'
 import type { z } from 'zod'
 import { bearer, type Home, type RunningDaemon, startDaemon } from './daemon.js'

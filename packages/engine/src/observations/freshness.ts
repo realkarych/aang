@@ -1,5 +1,5 @@
-import { EpochNs, type Freshness, type Session, SessionId } from '@aang/contract'
-import type { SettingReader, Transaction } from '@aang/store'
+import { EpochNs, type Freshness, type Session, SessionId } from '@catacomb/contract'
+import type { SettingReader, Transaction } from '@catacomb/store'
 import { silenceDeadline } from './silence.js'
 import { sourceGaps } from './sources.js'
 

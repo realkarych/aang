@@ -9,10 +9,10 @@ import {
   type ObserverOutput,
   StageId,
   TempId,
-} from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
-import { applyChangeSet, beginObserverCall } from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
+import { applyChangeSet, beginObserverCall } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import type { TestContext } from 'vitest'
 import { jsonlFile } from './batches.js'
 import { factsOf, startEngine } from './harness.js'

@@ -10,8 +10,8 @@ import {
   ModelVersion,
   type RunId,
   type SessionKey,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
 import {
   applyChangeSet,
   applyObserverResponse,
@@ -20,8 +20,8 @@ import {
   type Engine,
   type ModelChangeDraft,
   type WatchedRoot,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { type HookDelivery, hookBatch, jsonlFile } from './batches.js'
 import { adapters, factsOf, sessionKey } from './harness.js'

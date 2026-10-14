@@ -4,7 +4,7 @@ set -euo pipefail
 out="$(mkdir -p "$1" && cd "$1" && pwd)"
 work="$(mktemp -d)"
 check="node tools/surface-check/dist/main.js"
-image_url="${AANG_VM_IMAGE:-https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img}"
+image_url="${CATACOMB_VM_IMAGE:-https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img}"
 port=4280
 other=4380
 ssh_port=2222
@@ -21,25 +21,25 @@ cleanup() {
 trap cleanup EXIT
 
 vm() {
-  ssh "${ssh_options[@]}" aang@127.0.0.1 "$@"
+  ssh "${ssh_options[@]}" catacomb@127.0.0.1 "$@"
 }
 
 bundle="$work/bundle"
-mkdir -p "$bundle/opt/aang/support" "$bundle/opt/aang-hook"
-pnpm --filter=@aang/aang --prod deploy "$bundle/opt/aang/packages/aang"
-cp support/matrix.json "$bundle/opt/aang/support/"
-pnpm --filter=@aang/surface-check --prod deploy "$bundle/opt/surface-check"
+mkdir -p "$bundle/opt/catacomb/support" "$bundle/opt/catacomb-hook"
+pnpm --filter=@catacomb/catacomb --prod deploy "$bundle/opt/catacomb/packages/catacomb"
+cp support/matrix.json "$bundle/opt/catacomb/support/"
+pnpm --filter=@catacomb/surface-check --prod deploy "$bundle/opt/surface-check"
 cp -R support "$bundle/opt/surface-check/support"
-cp packages/hook/bin/aang-hook "$bundle/opt/aang-hook/aang-hook"
+cp packages/hook/bin/catacomb-hook "$bundle/opt/catacomb-hook/catacomb-hook"
 tar -C "$bundle" -czf "$work/bundle.tgz" opt
 
 curl -fsSL --retry 3 -o "$work/base.img" "$image_url"
 qemu-img create -q -f qcow2 -F qcow2 -b "$work/base.img" "$work/vm.qcow2" 20G
-ssh-keygen -q -t ed25519 -N '' -C aang-surface-check -f "$key"
+ssh-keygen -q -t ed25519 -N '' -C catacomb-surface-check -f "$key"
 cat > "$work/user-data" <<CLOUD
 #cloud-config
 users:
-  - name: aang
+  - name: catacomb
     shell: /bin/bash
     sudo: ALL=(ALL) NOPASSWD:ALL
     ssh_authorized_keys:
@@ -59,20 +59,20 @@ done
 vm cloud-init status --wait >/dev/null || true
 
 node_version="$(node --version)"
-scp "${scp_options[@]}" "$work/bundle.tgz" aang@127.0.0.1:/tmp/bundle.tgz
-vm bash -euo pipefail -s -- "$node_version" "$AANG_CLAUDE_CODE_VERSION" "$AANG_CODEX_VERSION" \
-  "$AANG_CLAUDE_AGENT_SDK_VERSION" "$AANG_CODEX_SDK_VERSION" <<'SETUP'
+scp "${scp_options[@]}" "$work/bundle.tgz" catacomb@127.0.0.1:/tmp/bundle.tgz
+vm bash -euo pipefail -s -- "$node_version" "$CATACOMB_CLAUDE_CODE_VERSION" "$CATACOMB_CODEX_VERSION" \
+  "$CATACOMB_CLAUDE_AGENT_SDK_VERSION" "$CATACOMB_CODEX_SDK_VERSION" <<'SETUP'
 node_version="$1"
 sudo apt-get update -qq
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq expect git libatomic1 >/dev/null
 curl -fsSL --retry 3 "https://nodejs.org/dist/$node_version/node-$node_version-linux-x64.tar.xz" | sudo tar -xJ -C /usr/local --strip-components=1
 sudo tar -xzf /tmp/bundle.tgz -C /
-sudo install -m 0755 /opt/aang-hook/aang-hook /usr/local/bin/aang-hook
-sudo chmod 755 /opt/aang/packages/aang/dist/main.js
-sudo ln -sf /opt/aang/packages/aang/dist/main.js /usr/local/bin/aang
-hook="$(realpath /opt/aang/packages/aang/node_modules/@aang/hook)"
+sudo install -m 0755 /opt/catacomb-hook/catacomb-hook /usr/local/bin/catacomb-hook
+sudo chmod 755 /opt/catacomb/packages/catacomb/dist/main.js
+sudo ln -sf /opt/catacomb/packages/catacomb/dist/main.js /usr/local/bin/catacomb
+hook="$(realpath /opt/catacomb/packages/catacomb/node_modules/@catacomb/hook)"
 sudo mkdir -p "$hook/bin"
-sudo ln -sf /usr/local/bin/aang-hook "$hook/bin/aang-hook"
+sudo ln -sf /usr/local/bin/catacomb-hook "$hook/bin/catacomb-hook"
 sudo npm install --global --allow-scripts=@anthropic-ai/claude-code "@anthropic-ai/claude-code@$2" "@openai/codex@$3" >/dev/null
 sudo npm install --prefix /opt/sdk "@anthropic-ai/claude-agent-sdk@$4" "@openai/codex-sdk@$5" >/dev/null
 SETUP
@@ -81,9 +81,9 @@ status=0
 run_check() {
   local name="$1"
   shift
-  vm env AANG_RECORD_CLAUDE_SDK=/opt/sdk/node_modules/@anthropic-ai/claude-agent-sdk \
-    AANG_RECORD_CODEX_SDK=/opt/sdk/node_modules/@openai/codex-sdk \
-    node /opt/surface-check/dist/main.js run --aang aang --hook /usr/local/bin/aang-hook \
+  vm env CATACOMB_RECORD_CLAUDE_SDK=/opt/sdk/node_modules/@anthropic-ai/claude-agent-sdk \
+    CATACOMB_RECORD_CODEX_SDK=/opt/sdk/node_modules/@openai/codex-sdk \
+    node /opt/surface-check/dist/main.js run --catacomb catacomb --hook /usr/local/bin/catacomb-hook \
     --support /opt/surface-check/support --port "$port" --keep-daemon "/tmp/$name-kept.json" --out "/tmp/$name" "$@" || status=$?
   mkdir -p "$out/$name"
   vm tar -C "/tmp/$name" -cf - . | tar -C "$out/$name" -xf -
@@ -95,19 +95,19 @@ kept() {
   fi
 }
 open_link() {
-  vm "AANG_HOME='$(kept "$1" aang_home)' HOME='$(kept "$1" home)' aang open"
+  vm "CATACOMB_HOME='$(kept "$1" catacomb_home)' HOME='$(kept "$1" home)' catacomb open"
 }
 stop_daemon() {
-  vm "AANG_HOME='$(kept "$1" aang_home)' HOME='$(kept "$1" home)' aang stop" >/dev/null || true
+  vm "CATACOMB_HOME='$(kept "$1" catacomb_home)' HOME='$(kept "$1" home)' catacomb stop" >/dev/null || true
 }
 tunnel() {
-  ssh "${ssh_options[@]}" -N -L "127.0.0.1:$1:127.0.0.1:$port" aang@127.0.0.1 &
+  ssh "${ssh_options[@]}" -N -L "127.0.0.1:$1:127.0.0.1:$port" catacomb@127.0.0.1 &
   tunnels+=("$!")
   sleep 2
 }
 
-run_check vm --placement vm --require "${AANG_SURFACE_REQUIRE:-}"
-if [ -n "$(kept vm aang_home)" ]; then
+run_check vm --placement vm --require "${CATACOMB_SURFACE_REQUIRE:-}"
+if [ -n "$(kept vm catacomb_home)" ]; then
   tunnel "$port"
   $check access --link "$(open_link vm)" --origin "http://127.0.0.1:$port" --into "$out/vm/report.json" || status=1
   tunnel "$other"
@@ -120,7 +120,7 @@ else
 fi
 
 run_check desktop-ssh --placement desktop_ssh --surfaces claude_desktop,codex_desktop --emulate-desktop
-if [ -n "$(kept desktop-ssh aang_home)" ]; then
+if [ -n "$(kept desktop-ssh catacomb_home)" ]; then
   tunnel "$port"
   $check access --link "$(open_link desktop-ssh)" --origin "http://127.0.0.1:$port" --into "$out/desktop-ssh/report.json" || status=1
   stop_daemon desktop-ssh

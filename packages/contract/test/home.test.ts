@@ -2,9 +2,9 @@ import { randomBytes } from 'node:crypto'
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { EpochNs } from '@aang/contract'
+import { EpochNs } from '@catacomb/contract'
 import {
-  aangHomePaths,
+  catacombHomePaths,
   type DaemonState,
   leaseFileName,
   readDaemonState,
@@ -12,13 +12,13 @@ import {
   readUiToken,
   revokeLeases,
   writeDaemonState,
-} from '@aang/contract/home'
+} from '@catacomb/contract/home'
 import { describe, test, type TestContext } from 'vitest'
 
-const temporaryAangHome = async (onTestFinished: TestContext['onTestFinished']): Promise<string> => {
-  const root = await mkdtemp(join(tmpdir(), 'aang-home-'))
+const temporaryCatacombHome = async (onTestFinished: TestContext['onTestFinished']): Promise<string> => {
+  const root = await mkdtemp(join(tmpdir(), 'catacomb-home-'))
   onTestFinished(() => rm(root, { recursive: true, force: true }))
-  return join(root, '.aang')
+  return join(root, '.catacomb')
 }
 
 const place = async (path: string, content = ''): Promise<void> => {
@@ -26,12 +26,12 @@ const place = async (path: string, content = ''): Promise<void> => {
   await writeFile(path, content)
 }
 
-describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () => {
+describe.concurrent('files shared by the CLI and the daemon in CATACOMB_HOME', () => {
   test('a spool that does not exist yet has no queue, no lease and no stop marker', async ({
     expect,
     onTestFinished,
   }) => {
-    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    const paths = catacombHomePaths(await temporaryCatacombHome(onTestFinished))
 
     expect(await readSpoolState(paths.spool)).toEqual({ files: 0, bytes: 0, leaseExpiresAt: null, stopped: false })
   })
@@ -40,7 +40,7 @@ describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () =>
     expect,
     onTestFinished,
   }) => {
-    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    const paths = catacombHomePaths(await temporaryCatacombHome(onTestFinished))
     await place(join(paths.spoolReady, 'first'), 'abc')
     await place(join(paths.spoolReady, 'second'), 'abcde')
     await place(join(paths.spoolTemporary, 'partial'), 'ab')
@@ -62,7 +62,7 @@ describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () =>
     expect,
     onTestFinished,
   }) => {
-    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    const paths = catacombHomePaths(await temporaryCatacombHome(onTestFinished))
     await place(join(paths.spool, leaseFileName(1_900_000_000)))
     await place(join(paths.spool, leaseFileName(1_900_003_600)))
     await place(join(paths.spool, 'lease-x'))
@@ -76,14 +76,14 @@ describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () =>
   })
 
   test('a spool path that is not a directory is an error, not an empty spool', async ({ expect, onTestFinished }) => {
-    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    const paths = catacombHomePaths(await temporaryCatacombHome(onTestFinished))
     await place(paths.spool, 'not a directory')
 
     await expect(readSpoolState(paths.spool)).rejects.toThrow()
   })
 
   test('revoking leases of a spool that does not exist succeeds', async ({ expect, onTestFinished }) => {
-    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    const paths = catacombHomePaths(await temporaryCatacombHome(onTestFinished))
 
     await expect(revokeLeases(paths.spool)).resolves.toBeUndefined()
   })
@@ -92,7 +92,7 @@ describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () =>
     expect,
     onTestFinished,
   }) => {
-    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    const paths = catacombHomePaths(await temporaryCatacombHome(onTestFinished))
     await mkdir(paths.home, { recursive: true })
     const started: DaemonState = {
       pid: 4242,
@@ -117,7 +117,7 @@ describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () =>
     expect,
     onTestFinished,
   }) => {
-    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    const paths = catacombHomePaths(await temporaryCatacombHome(onTestFinished))
     await mkdir(paths.home, { recursive: true })
     const states = Array.from(
       { length: 4 },
@@ -140,7 +140,7 @@ describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () =>
     expect,
     onTestFinished,
   }) => {
-    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    const paths = catacombHomePaths(await temporaryCatacombHome(onTestFinished))
     await mkdir(paths.daemonState, { recursive: true })
     const state: DaemonState = {
       pid: 4242,
@@ -158,7 +158,7 @@ describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () =>
   })
 
   test('a malformed daemon state file is an error, not an absent daemon', async ({ expect, onTestFinished }) => {
-    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    const paths = catacombHomePaths(await temporaryCatacombHome(onTestFinished))
     await place(paths.daemonState, '{"pid": 0}')
 
     await expect(readDaemonState(paths.daemonState)).rejects.toThrow()
@@ -168,7 +168,7 @@ describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () =>
     expect,
     onTestFinished,
   }) => {
-    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    const paths = catacombHomePaths(await temporaryCatacombHome(onTestFinished))
     const token = randomBytes(32).toString('base64url')
 
     expect(await readUiToken(paths.uiToken)).toBeNull()

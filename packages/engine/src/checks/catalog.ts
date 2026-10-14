@@ -1,6 +1,6 @@
 import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { type CheckContract, compilePattern } from '@aang/contract'
+import { type CheckContract, compilePattern } from '@catacomb/contract'
 import { contains, type WatchedRoots } from '../ingest/scope.js'
 
 export interface Contract {

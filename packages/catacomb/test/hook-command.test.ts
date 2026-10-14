@@ -1,19 +1,19 @@
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { fileURLToPath } from 'node:url'
-import { createProfile, leaseSpool, readSpool } from '@aang/testkit'
+import { createProfile, leaseSpool, readSpool } from '@catacomb/testkit'
 import { test } from 'vitest'
 
 const hookCommand = fileURLToPath(new URL('../dist/hook.js', import.meta.url))
 
-test('aang-hook hands its arguments and stdin to the aang-hook binary of this platform and keeps the hook contract', async ({
+test('catacomb-hook hands its arguments and stdin to the catacomb-hook binary of this platform and keeps the hook contract', async ({
   expect,
   onTestFinished,
 }) => {
   const profile = await createProfile()
   onTestFinished(() => profile.dispose())
   await leaseSpool(profile.spool)
-  const payload = JSON.stringify({ hook_event_name: 'Notification', session_id: 'aang-hook-command' })
+  const payload = JSON.stringify({ hook_event_name: 'Notification', session_id: 'catacomb-hook-command' })
   const child = spawn(process.execPath, [hookCommand, 'claude', 'plugin', profile.spool], {
     env: profile.env,
     stdio: 'pipe',

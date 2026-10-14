@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { Runtime, ScopeDecision, type SessionKey, StreamKey } from '@aang/contract'
+import { Runtime, ScopeDecision, type SessionKey, StreamKey } from '@catacomb/contract'
 import { prepareStatement, upsertInto, type WriteContext } from './context.js'
 
 export interface StreamScope {

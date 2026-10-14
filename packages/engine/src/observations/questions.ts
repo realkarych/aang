@@ -15,8 +15,8 @@ import type {
   QuestionActionLink,
   QuestionKey,
   RuntimeWait,
-} from '@aang/contract'
-import { canonicalJson, objectId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { canonicalJson, objectId } from '@catacomb/contract/ids'
 import { agentKey, byContent, byTime, type Evidence, grouped, type KindEvidence, ofKind } from './evidence.js'
 import type { ProcessExit } from './exits.js'
 

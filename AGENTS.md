@@ -1,4 +1,4 @@
-# aang — project rules
+# catacomb — project rules
 
 The source of requirements is `rfc.md` (approved). Architectural decisions are recorded in `docs/adr/` and take effect only after approval by the project owner.
 

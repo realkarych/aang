@@ -8,8 +8,8 @@ import type {
   ContentHash,
   EpochNs,
   Runtime,
-} from '@aang/contract'
-import { contentHash } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { contentHash } from '@catacomb/contract/ids'
 import { absent, errorCode, isMissing } from './errors.js'
 import type { Backoff, Failure, Retrier } from './retry.js'
 import { epochNs, millisecondsToNs, nowNs } from './time.js'

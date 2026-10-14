@@ -1,5 +1,5 @@
-import type { Fact, FactId, RunId, SessionId } from '@aang/contract'
-import type { Transaction } from '@aang/store'
+import type { Fact, FactId, RunId, SessionId } from '@catacomb/contract'
+import type { Transaction } from '@catacomb/store'
 import { factSession } from '../input/scope.js'
 
 const runContextKinds: ReadonlySet<Fact['kind']> = new Set([

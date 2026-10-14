@@ -1,7 +1,7 @@
 import { writeSync } from 'node:fs'
-import { createCollector } from '@aang/collector'
-import { Config } from '@aang/contract'
-import { openStore } from '@aang/store'
+import { createCollector } from '@catacomb/collector'
+import { Config } from '@catacomb/contract'
+import { openStore } from '@catacomb/store'
 import { adapters, gapsOf, startEngine } from './harness.ts'
 
 const [, , home, spool, claude, codex, root, mode] = process.argv

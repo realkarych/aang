@@ -18,7 +18,7 @@ import type {
   SupportStatus,
   VersionKey,
   VersionRetention,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { clockTime, plural } from './format.js'
 
 export const runtimeLabel: Readonly<Record<Runtime, string>> = {
@@ -150,7 +150,7 @@ export const observerStateLabel = (state: ObserverState): string => {
 export const basisLabel: Readonly<Record<BasisKind, string>> = {
   observed: 'observed event',
   claimed: 'solver claim',
-  interpreted: 'aang interpretation',
+  interpreted: 'catacomb interpretation',
 }
 
 export const interpreterLabel = (interpreter: Interpreter): string =>

@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readdir, readFile, realpath, rm, utimes, writeFile } fr
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spoolEnvKeys } from '@aang/contract'
+import { spoolEnvKeys } from '@catacomb/contract'
 import { inject, type TestContext } from 'vitest'
 
 export interface Sandbox {
@@ -49,7 +49,7 @@ export const hookBinary = inject('checklistHookBinary')
 export const baseTime = Date.UTC(2026, 9, 3, 10, 0, 0)
 
 export const createSandbox = async (onTestFinished: TestContext['onTestFinished']): Promise<Sandbox> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-d7-test-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-d7-test-')))
   onTestFinished(() => rm(root, { recursive: true, force: true, maxRetries: 5 }))
   const home = join(root, 'Όνομα Επώνυμο')
   const claudeConfigDir = join(home, '.claude')
@@ -73,7 +73,7 @@ const strippedEnvironment = (overrides: Readonly<Record<string, string>>): NodeJ
   ...Object.fromEntries(
     Object.entries(process.env).filter(
       ([name]) =>
-        ![...spoolEnvKeys, 'AANG_OBSERVER', 'CLAUDE_CODE_SESSION_ATTENDED'].includes(name.toUpperCase()) &&
+        ![...spoolEnvKeys, 'CATACOMB_OBSERVER', 'CLAUDE_CODE_SESSION_ATTENDED'].includes(name.toUpperCase()) &&
         !name.toUpperCase().startsWith('GIT_'),
     ),
   ),
@@ -142,7 +142,7 @@ export const record = async (spoolReady: string, invoke: Invoke, steps: readonly
     const before = new Set(await spoolNames(spoolReady))
     const result = await invoke(step.payload)
     if (result.status !== 0 || result.stdout !== '' || result.stderr !== '') {
-      throw new Error(`aang-hook failed: ${JSON.stringify(result)}`)
+      throw new Error(`catacomb-hook failed: ${JSON.stringify(result)}`)
     }
     const added = (await spoolNames(spoolReady)).filter((name) => !before.has(name))
     if (added.length !== 1 || added[0] === undefined) {

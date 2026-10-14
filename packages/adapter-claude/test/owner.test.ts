@@ -1,5 +1,5 @@
-import { claudeAdapter } from '@aang/adapter-claude'
-import type { JsonValue, RecordOwner, SpoolEnv } from '@aang/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import type { JsonValue, RecordOwner, SpoolEnv } from '@catacomb/contract'
 import { describe, expect, test } from 'vitest'
 import {
   field,
@@ -87,7 +87,7 @@ describe('the owner of a hook event', () => {
   test('carries the observer entrypoint of the spool envelope', async () => {
     const payload = await readJsonSample('claude-code-hooks/PreToolUse.Bash.json')
 
-    expect(ownerOfHook(payload, { CLAUDE_CODE_ENTRYPOINT: 'aang-observer' })?.observer).toBe(true)
+    expect(ownerOfHook(payload, { CLAUDE_CODE_ENTRYPOINT: 'catacomb-observer' })?.observer).toBe(true)
     expect(ownerOfHook(payload, { CLAUDE_CODE_ENTRYPOINT: 'cli' })?.observer).toBe(false)
   })
 
@@ -133,7 +133,7 @@ describe('the owner of a transcript line', () => {
     const line = JSON.parse(first ?? '{}') as JsonObject
 
     expect(
-      claudeAdapter.owner(lineRecord({ payload: JSON.stringify({ ...line, entrypoint: 'aang-observer' }), line: 1 })),
+      claudeAdapter.owner(lineRecord({ payload: JSON.stringify({ ...line, entrypoint: 'catacomb-observer' }), line: 1 })),
     ).toMatchObject({ thread: 'root', observer: true })
     expect(claudeAdapter.owner(lineRecord({ payload: '{"type":"summary"}', line: 1 }))).toBeNull()
     expect(

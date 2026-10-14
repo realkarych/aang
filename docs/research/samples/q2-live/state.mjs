@@ -20,7 +20,7 @@ const annotated = annotations.events.find((candidate) => keyOf(candidate) === ke
 if (event === undefined || annotated === undefined || event.observed_at === null) throw new Error(`${key} is not an annotated event`)
 
 const results = new Map(measurement.calls.flatMap(({ id, result_version: last }) => (last === null ? [] : [[id, last]])))
-const store = openStore({ home: join(directory, 'aang') })
+const store = openStore({ home: join(directory, 'catacomb') })
 const states = new Map(event.runs.map((run) => [run, versionStates(store, run, results)]))
 const start = BigInt(event.observed_at) * 1_000_000n
 

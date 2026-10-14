@@ -13,7 +13,7 @@ export interface ConfigEnvironment {
 }
 
 export interface LoadedConfig {
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly path: string
   readonly exists: boolean
   readonly config: Config
@@ -34,8 +34,8 @@ export const processEnvironment = (): ConfigEnvironment => ({ env: process.env, 
 
 const variable = (value: string | undefined): string | undefined => (value === '' ? undefined : value)
 
-export const resolveAangHome = ({ env, homedir }: ConfigEnvironment): string =>
-  resolve(variable(env.AANG_HOME) ?? join(homedir, '.aang'))
+export const resolveCatacombHome = ({ env, homedir }: ConfigEnvironment): string =>
+  resolve(variable(env.CATACOMB_HOME) ?? join(homedir, '.catacomb'))
 
 export const resolveRuntimeRoots = (config: Config, { env, homedir }: ConfigEnvironment): Record<Runtime, string> => ({
   claude: config.runtimes.claude.configDir ?? resolve(variable(env.CLAUDE_CONFIG_DIR) ?? join(homedir, '.claude')),
@@ -93,12 +93,12 @@ const parseConfig = (path: string, source: string): Config => {
 }
 
 export const loadConfig = async (environment: ConfigEnvironment): Promise<LoadedConfig> => {
-  const aangHome = resolveAangHome(environment)
-  const path = join(aangHome, configFileName)
+  const catacombHome = resolveCatacombHome(environment)
+  const path = join(catacombHome, configFileName)
   const source = await readSource(path)
   const config = source === undefined ? defaultConfig() : parseConfig(path, source)
   return {
-    aangHome,
+    catacombHome,
     path,
     exists: source !== undefined,
     config,

@@ -7,7 +7,7 @@ import type {
   ModelEntityRef,
   ObservationObjects,
   RunSnapshot,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import type { FeedEvent } from './stream.js'
 
 interface Identified {

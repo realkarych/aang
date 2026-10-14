@@ -1,12 +1,12 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { type Surface, SupportKey, supportKeyText } from '@aang/contract'
+import { type Surface, SupportKey, supportKeyText } from '@catacomb/contract'
 import { z } from 'zod'
 import { parseFile, readOptional } from './files.js'
 
-export const verificationFormat = 'aang-support-verification/1'
+export const verificationFormat = 'catacomb-support-verification/1'
 
-export const surfaceCheckFormat = 'aang-surface-check/1'
+export const surfaceCheckFormat = 'catacomb-surface-check/1'
 
 const Verdict = z.enum(['passed', 'failed'])
 

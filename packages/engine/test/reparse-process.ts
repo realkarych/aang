@@ -1,5 +1,5 @@
 import { writeSync } from 'node:fs'
-import { openStore } from '@aang/store'
+import { openStore } from '@catacomb/store'
 import { startEngine } from './harness.ts'
 
 const [, , home] = process.argv

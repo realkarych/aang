@@ -13,7 +13,7 @@ import {
   type StatusResponse,
   type ViewRule,
   type ViewRuleId,
-} from '@aang/contract'
+} from '@catacomb/contract'
 
 export class SignedOut extends Error {
   override readonly name = 'SignedOut'
@@ -46,7 +46,7 @@ const failureMessage = async (response: Response): Promise<string> => {
 
 export const ensureSignedIn = (response: Response): Response => {
   if (response.status === 401) {
-    throw new SignedOut('the aang session cookie is missing or no longer valid')
+    throw new SignedOut('the catacomb session cookie is missing or no longer valid')
   }
   return response
 }

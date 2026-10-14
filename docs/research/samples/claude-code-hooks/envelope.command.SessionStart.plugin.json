@@ -5,10 +5,10 @@
   "argv": [
     "plugin"
   ],
-  "proc_cwd": "/tmp/aang-spike/cc-hooks/runs/D-subagent",
+  "proc_cwd": "/tmp/catacomb-spike/cc-hooks/runs/D-subagent",
   "env": {
-    "AANG_PROBE_LOG": "/tmp/aang-spike/cc-hooks/logs/D-subagent-cmd.jsonl",
-    "AANG_RUN": "D-subagent",
+    "CATACOMB_PROBE_LOG": "/tmp/catacomb-spike/cc-hooks/logs/D-subagent-cmd.jsonl",
+    "CATACOMB_RUN": "D-subagent",
     "AI_AGENT": "claude-code_2-1-286_harness",
     "CLAUDECODE": "1",
     "CLAUDE_CODE_CHILD_SESSION": "1",
@@ -19,9 +19,9 @@
     "CLAUDE_CODE_SESSION_ID": "2efd7dbe-c696-49b2-8c6e-3827c5256a01",
     "CLAUDE_ENV_FILE": "/Users/USER/.claude/session-env/2efd7dbe-c696-49b2-8c6e-3827c5256a01/sessionstart-hook-1.sh",
     "CLAUDE_PID": "59532",
-    "CLAUDE_PLUGIN_DATA": "/Users/USER/.claude/plugins/data/aang-probe-inline",
-    "CLAUDE_PLUGIN_ROOT": "/tmp/aang-spike/cc-hooks/plugin/aang-probe",
-    "CLAUDE_PROJECT_DIR": "/tmp/aang-spike/cc-hooks/runs/D-subagent"
+    "CLAUDE_PLUGIN_DATA": "/Users/USER/.claude/plugins/data/catacomb-probe-inline",
+    "CLAUDE_PLUGIN_ROOT": "/tmp/catacomb-spike/cc-hooks/plugin/catacomb-probe",
+    "CLAUDE_PROJECT_DIR": "/tmp/catacomb-spike/cc-hooks/runs/D-subagent"
   },
   "note": "recorder envelope: env vars seen by a plugin command hook (values of *TOKEN*/*KEY* names redacted by the recorder); payload omitted, see SessionStart.startup.json"
 }

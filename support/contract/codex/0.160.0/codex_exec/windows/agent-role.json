@@ -321,7 +321,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "60e5eed887392d3613a5b216f3ea1a1a28b98462a2a927617a0a3dd33374d7a9",
+      "redelivery_key": "24c6392e500dfad1d508d93057db422f72bb20d10f9b27a197fdb944076f0ab2",
       "payload": {}
     },
     {
@@ -356,9 +356,9 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "60e5eed887392d3613a5b216f3ea1a1a28b98462a2a927617a0a3dd33374d7a9",
+      "redelivery_key": "24c6392e500dfad1d508d93057db422f72bb20d10f9b27a197fdb944076f0ab2",
       "payload": {
-        "text": "[aang:agent-role] Spawn the reviewer agent notes_review and the default agent notes_scan, wait for them, then reply done.",
+        "text": "[catacomb:agent-role] Spawn the reviewer agent notes_review and the default agent notes_scan, wait for them, then reply done.",
         "origin": "human",
         "origin_raw": null
       }
@@ -397,7 +397,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:agent-role] Spawn the reviewer agent notes_review and the default agent notes_scan, wait for them, then reply done.",
+        "text": "[catacomb:agent-role] Spawn the reviewer agent notes_review and the default agent notes_scan, wait for them, then reply done.",
         "origin": "human",
         "origin_raw": null
       }
@@ -409,7 +409,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_1_0"
+        "call": "call_catacomb_1_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -423,7 +423,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_1_0",
+        "call_id": "call_catacomb_1_0",
         "ordinal": 10
       },
       "runtime_env": {
@@ -455,7 +455,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_1_1"
+        "call": "call_catacomb_1_1"
       },
       "speaker": "solver",
       "urgent": false,
@@ -469,7 +469,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_1_1",
+        "call_id": "call_catacomb_1_1",
         "ordinal": 11
       },
       "runtime_env": {
@@ -500,7 +500,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_aang_1"
+        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_catacomb_1"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -513,7 +513,7 @@
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "resp_aang_1",
+        "message_id": "resp_catacomb_1",
         "call_id": null,
         "ordinal": 12
       },
@@ -589,7 +589,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_1_0"
+        "call": "call_catacomb_1_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -603,7 +603,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_1_0",
+        "call_id": "call_catacomb_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -614,7 +614,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "b110742378309b12b14751d3f6264fd4b1ba334bd4e61bd4d0173ec567ca2bb4",
+      "redelivery_key": "97c568998bb54fc89b159a8537c60458f8f776fc421710c33eda2fb630d85300",
       "payload": {
         "tool": "collaborationspawn_agent",
         "action_kind": "agent",
@@ -674,7 +674,7 @@
         "parent": {
           "kind": "main"
         },
-        "spawned_by_call": "call_aang_1_0",
+        "spawned_by_call": "call_catacomb_1_0",
         "background": null,
         "depth": null
       }
@@ -818,7 +818,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_1_0"
+        "call": "call_catacomb_1_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -832,7 +832,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_1_0",
+        "call_id": "call_catacomb_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -843,7 +843,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "454842a453f87bf12499dd26518574f6cae5704c8090a4613aaae90275b37f10",
+      "redelivery_key": "c891da390b86a89f37c88ac45702dddca4a3db5206e23fd9c5563f8526369b45",
       "payload": {
         "outcome": "unknown",
         "output": "{\"task_name\":\"/root/notes_review\"}",
@@ -909,7 +909,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_1_0"
+        "call": "call_catacomb_1_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -923,7 +923,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_1_0",
+        "call_id": "call_catacomb_1_0",
         "ordinal": 14
       },
       "runtime_env": {
@@ -991,7 +991,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_2_0"
+        "call": "call_catacomb_2_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1005,7 +1005,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_2_0",
+        "call_id": "call_catacomb_2_0",
         "ordinal": 10
       },
       "runtime_env": {
@@ -1034,7 +1034,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-d921-7cb2-b0b4-72904e599f8f:resp_aang_2"
+        "usage": "01a10df8-d921-7cb2-b0b4-72904e599f8f:resp_catacomb_2"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1047,7 +1047,7 @@
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "resp_aang_2",
+        "message_id": "resp_catacomb_2",
         "call_id": null,
         "ordinal": 11
       },
@@ -1127,7 +1127,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_1_1"
+        "call": "call_catacomb_1_1"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1141,7 +1141,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_1_1",
+        "call_id": "call_catacomb_1_1",
         "ordinal": null
       },
       "runtime_env": {
@@ -1152,7 +1152,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "fdcab2957cfa0713b55227751bb048fedb7807828172eb831dd22255a93cb05a",
+      "redelivery_key": "bc72483c39224f4e36272f04e48f228ca77e2c02c1501a1ef96e6f3244dd8fe0",
       "payload": {
         "tool": "collaborationspawn_agent",
         "action_kind": "agent",
@@ -1172,7 +1172,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_2_0"
+        "call": "call_catacomb_2_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1186,7 +1186,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_2_0",
+        "call_id": "call_catacomb_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1197,7 +1197,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "0c0fbe1f137a995b0c96d0bdf27a4871d2430b945ed69db157e87b6ee61de0bb",
+      "redelivery_key": "242ec089572d7472eb4aeacac20656600eb09e17a4758431d7c3c850a46b06ff",
       "payload": {
         "tool": "Bash",
         "action_kind": "command",
@@ -1254,7 +1254,7 @@
         "parent": {
           "kind": "main"
         },
-        "spawned_by_call": "call_aang_1_1",
+        "spawned_by_call": "call_catacomb_1_1",
         "background": null,
         "depth": null
       }
@@ -1398,7 +1398,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_2_0"
+        "call": "call_catacomb_2_0"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1412,7 +1412,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_2_0",
+        "call_id": "call_catacomb_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1437,7 +1437,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_1_1"
+        "call": "call_catacomb_1_1"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1451,7 +1451,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_1_1",
+        "call_id": "call_catacomb_1_1",
         "ordinal": null
       },
       "runtime_env": {
@@ -1462,7 +1462,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "4cae0a8bf55dca66030efa03241e0679c6ed26409d51dcfd5cf6c1aa8606f2a1",
+      "redelivery_key": "694d2454b0f05199dd98ce585fa6b28f0fcc6bc021b219befc47d272817a1bcf",
       "payload": {
         "outcome": "unknown",
         "output": "{\"task_name\":\"/root/notes_scan\"}",
@@ -1528,7 +1528,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_1_1"
+        "call": "call_catacomb_1_1"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1542,7 +1542,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_1_1",
+        "call_id": "call_catacomb_1_1",
         "ordinal": 16
       },
       "runtime_env": {
@@ -1653,7 +1653,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_3_0"
+        "call": "call_catacomb_3_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1667,7 +1667,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_3_0",
+        "call_id": "call_catacomb_3_0",
         "ordinal": 10
       },
       "runtime_env": {
@@ -1696,7 +1696,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-dc80-7c53-ad05-29bb1b741d79:resp_aang_3"
+        "usage": "01a10df8-dc80-7c53-ad05-29bb1b741d79:resp_catacomb_3"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1709,7 +1709,7 @@
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "resp_aang_3",
+        "message_id": "resp_catacomb_3",
         "call_id": null,
         "ordinal": 11
       },
@@ -1789,7 +1789,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_2_0"
+        "call": "call_catacomb_2_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1803,7 +1803,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_2_0",
+        "call_id": "call_catacomb_2_0",
         "ordinal": 12
       },
       "runtime_env": {
@@ -1837,7 +1837,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_2_0"
+        "call": "call_catacomb_2_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1851,7 +1851,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_2_0",
+        "call_id": "call_catacomb_2_0",
         "ordinal": 12
       },
       "runtime_env": {
@@ -1879,7 +1879,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_3_0"
+        "call": "call_catacomb_3_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1893,7 +1893,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_3_0",
+        "call_id": "call_catacomb_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1904,7 +1904,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "4d2619b9f2d9e26124058ef8eabd95184989ce0488cf9ed8c20b36382fb6fca5",
+      "redelivery_key": "eaf221076cde90e572cfe9134b4b4fc36a2fb1ea9efe50ce273f67f5b5ccfa6e",
       "payload": {
         "tool": "Bash",
         "action_kind": "command",
@@ -1922,7 +1922,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_3_0"
+        "call": "call_catacomb_3_0"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1936,7 +1936,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_3_0",
+        "call_id": "call_catacomb_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1961,7 +1961,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_2_0"
+        "call": "call_catacomb_2_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1975,7 +1975,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_2_0",
+        "call_id": "call_catacomb_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1986,7 +1986,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "ec4cb1587294cc1e3c8915ef0fdf44dfaccb5901cbca07f5a8ddb1c2509dbaf5",
+      "redelivery_key": "44119e30d4a0e8e5ca0ffe776377acc96d50c1988eb137d75aaca63c83b03745",
       "payload": {
         "outcome": "unknown",
         "output": "reviewed\r\n",
@@ -2003,7 +2003,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_2_0"
+        "call": "call_catacomb_2_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -2017,7 +2017,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_2_0",
+        "call_id": "call_catacomb_2_0",
         "ordinal": 13
       },
       "runtime_env": {
@@ -2105,7 +2105,7 @@
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "msg_aang_4",
+        "message_id": "msg_catacomb_4",
         "call_id": null,
         "ordinal": 15
       },
@@ -2132,7 +2132,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-d921-7cb2-b0b4-72904e599f8f:resp_aang_4"
+        "usage": "01a10df8-d921-7cb2-b0b4-72904e599f8f:resp_catacomb_4"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -2145,7 +2145,7 @@
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "resp_aang_4",
+        "message_id": "resp_catacomb_4",
         "call_id": null,
         "ordinal": 17
       },
@@ -2401,7 +2401,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_3_0"
+        "call": "call_catacomb_3_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -2415,7 +2415,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_3_0",
+        "call_id": "call_catacomb_3_0",
         "ordinal": 12
       },
       "runtime_env": {
@@ -2449,7 +2449,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_3_0"
+        "call": "call_catacomb_3_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -2463,7 +2463,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_3_0",
+        "call_id": "call_catacomb_3_0",
         "ordinal": 12
       },
       "runtime_env": {
@@ -2491,7 +2491,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_3_0"
+        "call": "call_catacomb_3_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -2505,7 +2505,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_3_0",
+        "call_id": "call_catacomb_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2516,7 +2516,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "f69d228007ac2844b67378bcda7a2a1543d9f30e25372735ece38810eaeecf66",
+      "redelivery_key": "fbaa150c0ebbf7a4b51cf4f427b6de4f0030ad77e19c467807c8c61f3896a3ee",
       "payload": {
         "outcome": "unknown",
         "output": "scanned\r\n",
@@ -2533,7 +2533,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_3_0"
+        "call": "call_catacomb_3_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -2547,7 +2547,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_3_0",
+        "call_id": "call_catacomb_3_0",
         "ordinal": 13
       },
       "runtime_env": {
@@ -2635,7 +2635,7 @@
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "msg_aang_5",
+        "message_id": "msg_catacomb_5",
         "call_id": null,
         "ordinal": 15
       },
@@ -2662,7 +2662,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-dc80-7c53-ad05-29bb1b741d79:resp_aang_5"
+        "usage": "01a10df8-dc80-7c53-ad05-29bb1b741d79:resp_catacomb_5"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -2675,7 +2675,7 @@
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "resp_aang_5",
+        "message_id": "resp_catacomb_5",
         "call_id": null,
         "ordinal": 17
       },
@@ -2888,7 +2888,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_6_0"
+        "call": "call_catacomb_6_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -2902,7 +2902,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_6_0",
+        "call_id": "call_catacomb_6_0",
         "ordinal": 21
       },
       "runtime_env": {
@@ -2974,7 +2974,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_aang_6"
+        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_catacomb_6"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -2987,7 +2987,7 @@
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "resp_aang_6",
+        "message_id": "resp_catacomb_6",
         "call_id": null,
         "ordinal": 22
       },
@@ -3063,7 +3063,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_6_0"
+        "call": "call_catacomb_6_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -3077,7 +3077,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_6_0",
+        "call_id": "call_catacomb_6_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -3088,7 +3088,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "1503bccff616553e68150720e3216a4de2aac64d91ce4ddb008f7eed7aaf2d2c",
+      "redelivery_key": "e6de0c82d93c837fd9fd8db203f00d29d16fddd05afd90345ea1fc28eff11f71",
       "payload": {
         "tool": "collaborationwait_agent",
         "action_kind": "agent",
@@ -3106,7 +3106,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_6_0"
+        "call": "call_catacomb_6_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -3120,7 +3120,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_6_0",
+        "call_id": "call_catacomb_6_0",
         "ordinal": 23
       },
       "runtime_env": {
@@ -3152,7 +3152,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_6_0"
+        "call": "call_catacomb_6_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -3166,7 +3166,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_6_0",
+        "call_id": "call_catacomb_6_0",
         "ordinal": 23
       },
       "runtime_env": {
@@ -3194,7 +3194,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_6_0"
+        "call": "call_catacomb_6_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -3208,7 +3208,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_6_0",
+        "call_id": "call_catacomb_6_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -3219,7 +3219,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "1b956048d0becf074dfa142529371f39b3a1df95efc31811adcee8431c4e3076",
+      "redelivery_key": "a697a1156fbd0f9e67f30a69272761ca8eab2e7053ffa9b7113e0eb7de4189a7",
       "payload": {
         "outcome": "unknown",
         "output": "{\"message\":\"Wait completed.\",\"timed_out\":false}",
@@ -3236,7 +3236,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_6_0"
+        "call": "call_catacomb_6_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -3250,7 +3250,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_aang_6_0",
+        "call_id": "call_catacomb_6_0",
         "ordinal": 24
       },
       "runtime_env": {
@@ -3414,7 +3414,7 @@
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "msg_aang_7",
+        "message_id": "msg_catacomb_7",
         "call_id": null,
         "ordinal": 30
       },
@@ -3441,7 +3441,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_aang_7"
+        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_catacomb_7"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -3454,7 +3454,7 @@
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "resp_aang_7",
+        "message_id": "resp_catacomb_7",
         "call_id": null,
         "ordinal": 32
       },
@@ -3815,7 +3815,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_1_0"
+        "call": "call_catacomb_1_0"
       },
       "session": "#83",
       "agent": "#85",
@@ -3848,7 +3848,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_1_1"
+        "call": "call_catacomb_1_1"
       },
       "session": "#83",
       "agent": "#85",
@@ -3881,7 +3881,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_2_0"
+        "call": "call_catacomb_2_0"
       },
       "session": "#83",
       "agent": "#86",
@@ -3914,7 +3914,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_3_0"
+        "call": "call_catacomb_3_0"
       },
       "session": "#83",
       "agent": "#88",
@@ -3947,7 +3947,7 @@
         "kind": "action",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "call": "call_aang_6_0"
+        "call": "call_catacomb_6_0"
       },
       "session": "#83",
       "agent": "#85",
@@ -3983,7 +3983,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_aang_1"
+        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_catacomb_1"
       },
       "session": "#83",
       "agent": "#85",
@@ -4007,7 +4007,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_aang_6"
+        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_catacomb_6"
       },
       "session": "#83",
       "agent": "#85",
@@ -4031,7 +4031,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_aang_7"
+        "usage": "01a10df8-d47e-7f43-a381-39e16befb49f:resp_catacomb_7"
       },
       "session": "#83",
       "agent": "#85",
@@ -4055,7 +4055,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-d921-7cb2-b0b4-72904e599f8f:resp_aang_2"
+        "usage": "01a10df8-d921-7cb2-b0b4-72904e599f8f:resp_catacomb_2"
       },
       "session": "#83",
       "agent": "#86",
@@ -4079,7 +4079,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-d921-7cb2-b0b4-72904e599f8f:resp_aang_4"
+        "usage": "01a10df8-d921-7cb2-b0b4-72904e599f8f:resp_catacomb_4"
       },
       "session": "#83",
       "agent": "#86",
@@ -4103,7 +4103,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-dc80-7c53-ad05-29bb1b741d79:resp_aang_3"
+        "usage": "01a10df8-dc80-7c53-ad05-29bb1b741d79:resp_catacomb_3"
       },
       "session": "#83",
       "agent": "#88",
@@ -4127,7 +4127,7 @@
         "kind": "usage",
         "runtime": "codex",
         "session": "01a10df8-d47e-7f43-a381-39e16befb49f",
-        "usage": "01a10df8-dc80-7c53-ad05-29bb1b741d79:resp_aang_5"
+        "usage": "01a10df8-dc80-7c53-ad05-29bb1b741d79:resp_catacomb_5"
       },
       "session": "#83",
       "agent": "#88",
@@ -4172,7 +4172,7 @@
         "runtime": "codex",
         "root_session": "#83",
         "goal": {
-          "text": "[aang:agent-role] Spawn the reviewer agent notes_review and the default agent notes_scan, wait for them, then reply done.",
+          "text": "[catacomb:agent-role] Spawn the reviewer agent notes_review and the default agent notes_scan, wait for them, then reply done.",
           "fact": "#6"
         },
         "brief": null,
@@ -4224,7 +4224,7 @@
             "runtime": "codex",
             "root_session": "#83",
             "goal": {
-              "text": "[aang:agent-role] Spawn the reviewer agent notes_review and the default agent notes_scan, wait for them, then reply done.",
+              "text": "[catacomb:agent-role] Spawn the reviewer agent notes_review and the default agent notes_scan, wait for them, then reply done.",
               "fact": "#6"
             },
             "brief": null,

@@ -1,5 +1,5 @@
-import { codexAdapter } from '@aang/adapter-codex'
-import type { CollectedRecord, FactDraft, TokenUsage } from '@aang/contract'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import type { CollectedRecord, FactDraft, TokenUsage } from '@catacomb/contract'
 import { expect, test } from 'vitest'
 import {
   archivedPath,
@@ -121,7 +121,7 @@ test('the real rollout yields the session, both turns, the code-mode cell and it
   expect(
     facts.map((fact) => [fact.runtime_ids.ordinal, fact.kind, fact.runtime_ids.turn_id, describeFact(fact)]),
   ).toEqual([
-    [0, 'session_start', null, 'startup in /tmp/aang-spike/codex-cli/run1'],
+    [0, 'session_start', null, 'startup in /tmp/catacomb-spike/codex-cli/run1'],
     [1, 'turn_start', firstTurn, ''],
     [7, 'turn_settings', firstTurn, 'gpt-6.1-sol never read-only'],
     [9, 'prompt', firstTurn, 'Run the shell command `echo hi` exactly once, then reply with just: OK'],

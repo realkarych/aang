@@ -6,7 +6,7 @@ const run = promisify(execFile)
 const windowsProcessControl = (pid: number, operation: 'NtSuspendProcess' | 'NtResumeProcess'): string =>
   [
     "$signature = '[DllImport(\"ntdll.dll\")] public static extern int NtSuspendProcess(IntPtr handle); [DllImport(\"ntdll.dll\")] public static extern int NtResumeProcess(IntPtr handle);'",
-    '$ntdll = Add-Type -MemberDefinition $signature -Name Ntdll -Namespace AangTest -PassThru',
+    '$ntdll = Add-Type -MemberDefinition $signature -Name Ntdll -Namespace CatacombTest -PassThru',
     `$process = [System.Diagnostics.Process]::GetProcessById(${String(pid)})`,
     `$status = $ntdll::${operation}($process.Handle)`,
     'if ($status -ne 0) { exit 1 }',

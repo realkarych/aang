@@ -1,4 +1,4 @@
-import type { TokenUsage, UsageTotals } from '@aang/contract'
+import type { TokenUsage, UsageTotals } from '@catacomb/contract'
 
 export const noTokens: TokenUsage = {
   uncached_input_tokens: 0,

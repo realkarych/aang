@@ -1,6 +1,6 @@
 import { expect, onTestFinished, test } from 'vitest'
-import { EpochNs, type GapId, type JsonValue, type Runtime } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+import { EpochNs, type GapId, type JsonValue, type Runtime } from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
 import { batchOf, joinBatches, jsonlFile } from './batches.js'
 import { createHome } from './home.js'
 import { streamOf } from './harness.js'

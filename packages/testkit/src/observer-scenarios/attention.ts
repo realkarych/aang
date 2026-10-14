@@ -7,7 +7,7 @@ import {
   type SnapshotAttentionItem,
   type StageRef,
   TempId,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { z } from 'zod'
 import { createStage, finalSolverTexts, mainStageTitle, planMap, sentFacts } from './observer.js'
 

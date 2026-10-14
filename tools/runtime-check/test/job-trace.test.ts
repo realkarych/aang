@@ -10,17 +10,17 @@ import { collectProcessTrace, type HarnessResult, traceEvidence } from '../dist/
 import { describeProcessTrace, StartedProcess } from '../dist/process-trace.js'
 
 const root = { pid: 10, ppid: 1, name: 'codex.exe', parentName: null, createdAt: '134354340829078202' }
-const child = { pid: 20, ppid: 10, name: 'aang-hook.exe', parentName: null, createdAt: '134354340829078203' }
+const child = { pid: 20, ppid: 10, name: 'catacomb-hook.exe', parentName: null, createdAt: '134354340829078203' }
 const first: HarnessResult = {
   harnessPid: 1,
   job: { Error: null, RootPid: 10, RootExitCode: 0, RootTimedOut: false, TotalProcesses: 2,
-    Seen: [{ Pid: 10, Name: 'codex' }, { Pid: 20, Name: 'aang-hook' }], RemainingAfterRootExit: [],
+    Seen: [{ Pid: 10, Name: 'codex' }, { Pid: 20, Name: 'catacomb-hook' }], RemainingAfterRootExit: [],
     ActiveAfterTerminate: 0, StopConfirmedMs: 1, DurationMs: 100 },
   started: [root], traceError: null, traceVersion: 1, traceState: 'collecting', traceElapsedMs: 1500, traceSnapshots: [],
 }
 
 const publish = async (next: HarnessResult, finalEvent?: typeof child, initial = first, rootName = 'codex.exe', observerPid = 2) => {
-  const directory = await mkdtemp(join(tmpdir(), 'aang-trace-'))
+  const directory = await mkdtemp(join(tmpdir(), 'catacomb-trace-'))
   try {
     const specPath = join(directory, 'spec.json')
     const resultPath = join(directory, 'result.json')

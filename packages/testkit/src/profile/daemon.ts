@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { endpoints, type Listener, ShutdownResponse } from '@aang/contract'
-import { type AangHomePaths, type DaemonState, readDaemonState, readUiToken } from '@aang/contract/home'
+import { endpoints, type Listener, ShutdownResponse } from '@catacomb/contract'
+import { type CatacombHomePaths, type DaemonState, readDaemonState, readUiToken } from '@catacomb/contract/home'
 import type { Environment } from './environment.js'
 
 export interface DaemonLaunch {
@@ -44,7 +44,7 @@ const urlOf = ({ host, port }: Listener): string => {
   return `http://${reachable.includes(':') ? `[${reachable}]` : reachable}:${String(port)}`
 }
 
-const stateOf = async (paths: AangHomePaths): Promise<DaemonState | null> => {
+const stateOf = async (paths: CatacombHomePaths): Promise<DaemonState | null> => {
   try {
     return await readDaemonState(paths.daemonState)
   } catch {
@@ -67,7 +67,7 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, failure: (
 }
 
 export const launchDaemon = async (
-  paths: AangHomePaths,
+  paths: CatacombHomePaths,
   env: Environment,
   { entry, args = [], readyTimeoutMs = defaultReadyTimeoutMs }: DaemonLaunch,
 ): Promise<RunningDaemon> => {

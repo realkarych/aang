@@ -1,6 +1,6 @@
-import { type Fact, FactDraft, NormalizerVersion, type RawRecord } from '@aang/contract'
-import { canonicalJson } from '@aang/contract/ids'
-import type { Store } from '@aang/store'
+import { type Fact, FactDraft, NormalizerVersion, type RawRecord } from '@catacomb/contract'
+import { canonicalJson } from '@catacomb/contract/ids'
+import type { Store } from '@catacomb/store'
 import { adapters, recordsOf } from './harness.js'
 
 export const anotherVersion = NormalizerVersion.parse(

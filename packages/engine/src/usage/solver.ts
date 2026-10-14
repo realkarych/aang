@@ -15,9 +15,9 @@ import {
   type ThreadTotal,
   type UsageRecord,
   type UsageTotals,
-} from '@aang/contract'
-import { canonicalJson, objectId } from '@aang/contract/ids'
-import type { FactReader, ModelReader, Observation, ObservationReader, RawRecordReader } from '@aang/store'
+} from '@catacomb/contract'
+import { canonicalJson, objectId } from '@catacomb/contract/ids'
+import type { FactReader, ModelReader, Observation, ObservationReader, RawRecordReader } from '@catacomb/store'
 import { byTime, compareText, type Evidence, grouped, type KindEvidence, ofKind } from '../observations/evidence.js'
 import { byAccumulation, lastCostState } from '../observations/usage.js'
 import { assignedStages, readSession, type SessionReading, stageAttribution, type StageOf } from './attribution.js'

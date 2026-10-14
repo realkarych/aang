@@ -8,9 +8,9 @@ import {
   FactId,
   type GitSnapshotKey,
   RunId,
-} from '@aang/contract'
-import { contentHash, objectId } from '@aang/contract/ids'
-import type { ArtifactVersionDraft, GitSnapshotDraft, Store } from '@aang/store'
+} from '@catacomb/contract'
+import { contentHash, objectId } from '@catacomb/contract/ids'
+import type { ArtifactVersionDraft, GitSnapshotDraft, Store } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { createHome } from './home.js'
 

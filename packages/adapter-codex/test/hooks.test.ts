@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
-import { codexAdapter } from '@aang/adapter-codex'
-import { CollectedRecord, EpochNs, type FactDraft, type JsonValue, type SpoolEnv } from '@aang/contract'
-import { canonicalJson, contentHash } from '@aang/contract/ids'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { CollectedRecord, EpochNs, type FactDraft, type JsonValue, type SpoolEnv } from '@catacomb/contract'
+import { canonicalJson, contentHash } from '@catacomb/contract/ids'
 import { describe, expect, test } from 'vitest'
 import { factsOf, parseFacts, sampleLine, streamFrom, threadStream } from './rollout-records.js'
 
@@ -10,7 +10,7 @@ const cliHooks = new URL('codex-cli/hooks/', samplesRoot)
 const desktopHooks = new URL('desktop/exp-codex-desktop-appserver-hooks.jsonl', samplesRoot)
 const hookConfig = 'hooks.json.logger-config.json'
 const observedAt = EpochNs.parse(1_790_856_592_228_739_000n)
-const cliEnv: SpoolEnv = { CODEX_HOME: '/tmp/aang-spike/codex-cli/home' }
+const cliEnv: SpoolEnv = { CODEX_HOME: '/tmp/catacomb-spike/codex-cli/home' }
 
 const codexHookEvents = [
   'SessionStart',
@@ -86,7 +86,7 @@ const compactSession = '01a0f75c-caa3-7032-aff1-44dbbf58a79b'
 const codeModeSession = '01a0f765-13c3-7170-8bc6-732d6a94bd8a'
 const nestedCommand = 'exec-ec1259ae-952d-41b8-aafe-a810132cc20b'
 const childRollout =
-  '/tmp/aang-spike/codex-cli/home/sessions/2026/10/01/rollout-2026-10-01T15-06-54-01a0f75c-46d2-7430-92a2-c3b0cd5d85b6.jsonl'
+  '/tmp/catacomb-spike/codex-cli/home/sessions/2026/10/01/rollout-2026-10-01T15-06-54-01a0f75c-46d2-7430-92a2-c3b0cd5d85b6.jsonl'
 
 const session = (id: string) => ({ kind: 'session', runtime: 'codex', session: id })
 const action = (id: string, call: string) => ({ kind: 'action', runtime: 'codex', session: id, call })
@@ -123,7 +123,7 @@ const expectations: Readonly<Record<string, readonly Record<string, unknown>[]>>
       runtime_ids: { turn_id: '01a0f75b-8065-7f92-8294-0a64a7930991', call_id: null },
       payload: {
         tool: 'Bash',
-        input: { command: 'touch /tmp/aang-spike-escalate-probe' },
+        input: { command: 'touch /tmp/catacomb-spike-escalate-probe' },
       },
     },
   ],
@@ -264,11 +264,11 @@ const expectations: Readonly<Record<string, readonly Record<string, unknown>[]>>
       speaker: 'runtime',
       urgent: false,
       runtime_ids: { session_id: askSession, thread_id: askSession, turn_id: null },
-      runtime_env: { cwd: '/tmp/aang-spike/codex-cli/m_ask', version: null, originator: null },
+      runtime_env: { cwd: '/tmp/catacomb-spike/codex-cli/m_ask', version: null, originator: null },
       payload: {
         launch: 'startup',
         surface: null,
-        cwd: '/tmp/aang-spike/codex-cli/m_ask',
+        cwd: '/tmp/catacomb-spike/codex-cli/m_ask',
         forked_from: null,
         observer_marker: false,
       },
@@ -550,7 +550,7 @@ test('hook variants keep unobserved values open instead of guessing', () => {
     hookFacts(withSample('PreToolUse.Bash.json', { tool_name: tool, tool_input: input }))[0]
   expect(toolKind('multi_agent_v1spawn_agent')).toMatchObject({ payload: { action_kind: 'agent' } })
   expect(toolKind('mcp__cua_repl__js')).toMatchObject({ payload: { action_kind: 'mcp' } })
-  expect(toolKind('web_search', { query: 'aang', description: 'look it up' })).toMatchObject({
+  expect(toolKind('web_search', { query: 'catacomb', description: 'look it up' })).toMatchObject({
     payload: { action_kind: 'other', description: 'look it up' },
   })
 })
@@ -591,12 +591,12 @@ test('a hook delivered twice keeps two episodes that share one redelivery key', 
   ).not.toBe(firstFact?.redelivery_key)
 })
 
-test('a session started by the aang observer is marked from the originator in its hook environment', () => {
+test('a session started by the catacomb observer is marked from the originator in its hook environment', () => {
   expect(
     hookFacts(unwrapCliSample('SessionStart.startup.json'), 'observer.spool', {
-      CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer',
+      CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'catacomb_observer',
     }),
-  ).toMatchObject([{ runtime_env: { originator: 'aang_observer' }, payload: { observer_marker: true } }])
+  ).toMatchObject([{ runtime_env: { originator: 'catacomb_observer' }, payload: { observer_marker: true } }])
 })
 
 test('the originator override in the hook environment names Desktop and the TUI only as assumed surfaces', () => {
@@ -613,6 +613,6 @@ test('the originator override in the hook environment names Desktop and the TUI 
   })
   expect(surfaceWith('codex-tui')).toMatchObject({ surface: { surface: 'codex_tui', basis: 'assumed' } })
   expect(surfaceWith('codex_exec')).toMatchObject({ surface: null })
-  expect(surfaceWith('aang_observer')).toMatchObject({ surface: null, observer_marker: true })
+  expect(surfaceWith('catacomb_observer')).toMatchObject({ surface: null, observer_marker: true })
   expect(surfaceWith()).toMatchObject({ surface: null, observer_marker: false })
 })

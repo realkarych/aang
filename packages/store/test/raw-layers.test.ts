@@ -1,6 +1,6 @@
-import { ChangeSeq, EpochNs, FactId, type PruneBoundary, RawSeq, type SessionKey, StreamKey } from '@aang/contract'
-import { contentHash, factIds } from '@aang/contract/ids'
-import { MissingRawRecordError, type Store, type Transaction } from '@aang/store'
+import { ChangeSeq, EpochNs, FactId, type PruneBoundary, RawSeq, type SessionKey, StreamKey } from '@catacomb/contract'
+import { contentHash, factIds } from '@catacomb/contract/ids'
+import { MissingRawRecordError, type Store, type Transaction } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { createHome } from './home.js'
 import {

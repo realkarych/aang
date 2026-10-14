@@ -8,8 +8,8 @@ import {
   type SupportRow,
   supportRowOf,
   supportStatusOf,
-} from '@aang/contract'
-import { readSupportMatrix, SupportMatrixError } from '@aang/contract/support-file'
+} from '@catacomb/contract'
+import { readSupportMatrix, SupportMatrixError } from '@catacomb/contract/support-file'
 import { describe, test, type TestContext } from 'vitest'
 import { z } from 'zod'
 
@@ -92,7 +92,7 @@ const limitedRow: SupportRow = {
 }
 
 const matrixDirectory = async ({ onTestFinished }: TestContext): Promise<string> => {
-  const directory = await mkdtemp(join(tmpdir(), 'aang-support-matrix-'))
+  const directory = await mkdtemp(join(tmpdir(), 'catacomb-support-matrix-'))
   onTestFinished(() => rm(directory, { recursive: true, force: true }))
   return directory
 }

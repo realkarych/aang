@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { open } from 'node:fs/promises'
-import type { ContentHash } from '@aang/contract'
+import type { ContentHash } from '@catacomb/contract'
 import { isMissing } from './errors.js'
 
 export interface Prefix {

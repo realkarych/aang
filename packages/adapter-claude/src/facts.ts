@@ -8,7 +8,7 @@ import type {
   ParseResult,
   RuntimeEnv,
   RuntimeIds,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { z } from 'zod'
 
 export interface FactOrigin {

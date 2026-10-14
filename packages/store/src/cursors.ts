@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { FileCursor } from '@aang/contract'
+import { FileCursor } from '@catacomb/contract'
 import { prepareStatement, upsertInto, type WriteContext } from './context.js'
 
 export interface CursorReader {

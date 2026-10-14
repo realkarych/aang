@@ -1,5 +1,5 @@
 import { relative, resolve, sep } from 'node:path'
-import type { EpochNs, GitSnapshotPayload, RunId, SessionKey, SnapshotTrigger } from '@aang/contract'
+import type { EpochNs, GitSnapshotPayload, RunId, SessionKey, SnapshotTrigger } from '@catacomb/contract'
 import { readGit } from '../ingest/git.js'
 import { contains } from '../ingest/scope.js'
 

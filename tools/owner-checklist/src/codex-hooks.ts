@@ -139,7 +139,7 @@ export const planCodexHooks = async (codexHome: string, command: string): Promis
       command,
       createdFile: file.original === null,
       createdEvents,
-      backup: file.original === null ? null : `${file.target}.aang-d7-backup-${backupStamp()}`,
+      backup: file.original === null ? null : `${file.target}.catacomb-d7-backup-${backupStamp()}`,
     },
     file,
     text: documentText(root),
@@ -147,7 +147,7 @@ export const planCodexHooks = async (codexHome: string, command: string): Promis
 }
 
 const replaceContent = async (file: HooksFile, text: string | Buffer): Promise<void> => {
-  const staged = `${file.target}.aang-d7-${String(process.pid)}.tmp`
+  const staged = `${file.target}.catacomb-d7-${String(process.pid)}.tmp`
   try {
     await writeFile(staged, text, { flag: 'wx', mode: newFileMode })
     await chmod(staged, file.mode)

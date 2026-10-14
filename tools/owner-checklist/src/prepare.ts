@@ -3,7 +3,7 @@ import { mkdir, readdir, realpath, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { leaseFileName } from '@aang/contract/home'
+import { leaseFileName } from '@catacomb/contract/home'
 import {
   type ClaudeCli,
   claudePluginId,
@@ -11,7 +11,7 @@ import {
   deployHookBinary,
   installClaudePlugin,
   writeClaudePlugin,
-} from '@aang/hook'
+} from '@catacomb/hook'
 import { applyCodexHooks, codexHookCommand, planCodexHooks } from './codex-hooks.js'
 import { type ChecklistLayout, checklistLayout, outsideProbeDir } from './layout.js'
 import { consoleCommand } from './shell.js'
@@ -55,7 +55,7 @@ const requireHookSource = async (path: string): Promise<void> => {
     () => false,
   )
   if (!isFile) {
-    throw new Error(`aang-hook not found: ${path}; build the repository with pnpm build or pass --hook`)
+    throw new Error(`catacomb-hook not found: ${path}; build the repository with pnpm build or pass --hook`)
   }
 }
 
@@ -131,7 +131,7 @@ const writeProbes = async (layout: ChecklistLayout): Promise<void> => {
         probeHandler(
           ['hang', String(hangingHookSeconds)],
           hangingHookTimeoutSeconds,
-          'aang D.7: hook hangs longer than its 2 s timeout',
+          'catacomb D.7: hook hangs longer than its 2 s timeout',
         ),
       ],
     }),
@@ -143,16 +143,16 @@ const gitEnvironment = (): NodeJS.ProcessEnv =>
 
 const createProbeRepo = async (repo: string): Promise<void> => {
   await mkdir(repo, { recursive: true })
-  await writeFile(join(repo, 'README.md'), '# aang D.7 probe repository\n')
+  await writeFile(join(repo, 'README.md'), '# catacomb D.7 probe repository\n')
   const git = (args: readonly string[]): Promise<unknown> =>
     execFileAsync('git', args, { cwd: repo, env: gitEnvironment(), windowsHide: true })
   await git(['init', '--quiet', '--initial-branch=main'])
   await git(['add', 'README.md'])
   await git([
     '-c',
-    'user.name=aang D.7',
+    'user.name=catacomb D.7',
     '-c',
-    'user.email=aang-d7@localhost',
+    'user.email=catacomb-d7@localhost',
     '-c',
     'commit.gpgsign=false',
     'commit',
@@ -182,7 +182,7 @@ const registerClaude = async (
   }
   const registered: ChecklistState = { ...state, claude: { ...state.claude, configDir: cli.configDir, registered: true } }
   await writeState(layout, registered)
-  await installClaudePlugin({ aangHome: layout.aangHome, hookBinarySource: options.hookSource, claude: cli })
+  await installClaudePlugin({ catacombHome: layout.catacombHome, hookBinarySource: options.hookSource, claude: cli })
   return registered
 }
 
@@ -226,13 +226,13 @@ const memo = (layout: ChecklistLayout, state: ChecklistState): string[] => {
     ...(state.claude.mode === 'marketplace'
       ? ['Claude Desktop: restart the app and open a new Code session in the probe repository.']
       : []),
-    ...(codex === null ? [] : ['Codex Desktop: restart the app and confirm trust for the aang hooks in its UI.']),
+    ...(codex === null ? [] : ['Codex Desktop: restart the app and confirm trust for the catacomb hooks in its UI.']),
     `Collect results: ${tool('collect')}`,
     `Roll back: ${tool('cleanup')} (with --keep-results the results/ directory stays)`,
   ]
   return [
     `Checklist working directory prepared: ${layout.dir}`,
-    `- aang-hook: ${layout.hookBinary}`,
+    `- catacomb-hook: ${layout.hookBinary}`,
     `- spool: ${layout.spool}, lease until ${state.leaseExpiresAt}`,
     `- Claude plugin: ${layout.pluginDir}`,
     `- probe repository: ${layout.probeRepo}`,
@@ -243,7 +243,7 @@ const memo = (layout: ChecklistLayout, state: ChecklistState): string[] => {
     ...(codex === null
       ? []
       : [
-          `- Codex: aang entries appended to the arrays of ${codex.hooksFile}; ${codex.backup === null ? 'file created from scratch' : `backup ${codex.backup}`}`,
+          `- Codex: catacomb entries appended to the arrays of ${codex.hooksFile}; ${codex.backup === null ? 'file created from scratch' : `backup ${codex.backup}`}`,
           `- directory for step 8a: ${state.outsideDir ?? ''}`,
         ]),
     '',
@@ -271,7 +271,7 @@ export const prepare = async (options: PrepareOptions): Promise<string[]> => {
   await writeState(layout, state)
   try {
     await createSpool(layout, expiresAtSeconds)
-    const hookBinary = await deployHookBinary({ aangHome: layout.aangHome, hookBinarySource: options.hookSource })
+    const hookBinary = await deployHookBinary({ catacombHome: layout.catacombHome, hookBinarySource: options.hookSource })
     await writeClaudePlugin({ directory: layout.pluginDir, hookBinary, spool: layout.spool })
     await writeProbes(layout)
     await createProbeRepo(layout.probeRepo)

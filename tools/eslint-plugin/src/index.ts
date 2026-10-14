@@ -7,7 +7,7 @@ export interface CompatiblePlugin {
 }
 
 const plugin = {
-  meta: { name: '@aang/eslint-plugin' },
+  meta: { name: '@catacomb/eslint-plugin' },
   rules: { 'dependency-direction': dependencyDirection, 'esm-only': esmOnly },
 } satisfies TSESLint.FlatConfig.Plugin
 

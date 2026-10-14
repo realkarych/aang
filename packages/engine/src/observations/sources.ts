@@ -7,9 +7,9 @@ import {
   type Session,
   type StreamKey,
   type SupportMode,
-} from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
-import type { RawRecordReader, Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
+import type { RawRecordReader, Transaction } from '@catacomb/store'
 import { type Adapters, collectedFields } from '../ingest/records.js'
 import { isSilent, type SessionSilence } from './silence.js'
 

@@ -5,7 +5,7 @@ import { check, type Definition, present, sessionOf } from './definition.js'
 import { agentCall, checkDefinedAgent, childScript, listedSkill } from './listings.js'
 import { findTranscript, named, toolResult, toolUses } from './transcripts.js'
 
-const pluginName = 'aang-kit'
+const pluginName = 'catacomb-kit'
 const skill = `${pluginName}:greeting`
 const agentType = `${pluginName}:reviewer`
 const skillDescription = 'Chooses the greeting of the project notes. Use it when asked which greeting the notes use.'
@@ -13,7 +13,7 @@ const skillRule = 'The project notes greet the reader with Hello.'
 const agentDescription = 'Reviews the project notes and reports what it checked. Use it to review the notes.'
 
 const pluginFiles: readonly (readonly [string, string])[] = [
-  ['.claude-plugin/plugin.json', `${JSON.stringify({ name: pluginName, version: '1.0.0', description: 'An agent and a skill for the aang plugin recording', author: { name: 'aang' } }, null, 2)}\n`],
+  ['.claude-plugin/plugin.json', `${JSON.stringify({ name: pluginName, version: '1.0.0', description: 'An agent and a skill for the catacomb plugin recording', author: { name: 'catacomb' } }, null, 2)}\n`],
   ['agents/reviewer.md', ['---', 'name: reviewer', `description: ${agentDescription}`, 'tools: Bash', '---', '', 'You review the project notes. Run the command from the task with the Bash tool and report its output.', ''].join('\n')],
   ['skills/greeting/SKILL.md', ['---', 'name: greeting', `description: ${skillDescription}`, '---', '', skillRule, ''].join('\n')],
 ]
@@ -49,7 +49,7 @@ export const plugin: Definition = {
     await writePlugin(directory)
     const summary = await stage('plugin', {
       plugins: [directory],
-      turns: [{ prompt: `[aang:plugin] Use the ${skill} skill with the Skill tool to choose the greeting of the project notes, then ask the ${agentType} subagent with the Agent tool to run \`echo reviewed\`. Reply with one sentence.` }],
+      turns: [{ prompt: `[catacomb:plugin] Use the ${skill} skill with the Skill tool to choose the greeting of the project notes, then ask the ${agentType} subagent with the Agent tool to run \`echo reviewed\`. Reply with one sentence.` }],
       decisions: [{ tool: 'Skill', behavior: 'allow', delayMs: 500, optional: true }],
     })
     check(summary.tools.includes('Skill'), 'The engine offered no Skill tool')

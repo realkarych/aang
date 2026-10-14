@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ChatOutput, observerOutputJsonSchema, ObserverOutput } from '@aang/contract'
-import { fakeCliExitCodes, installFakeClaude, type ClaudeScenario, type FakeCli } from '@aang/testkit'
+import { ChatOutput, observerOutputJsonSchema, ObserverOutput } from '@catacomb/contract'
+import { fakeCliExitCodes, installFakeClaude, type ClaudeScenario, type FakeCli } from '@catacomb/testkit'
 import { describe, expect, test } from 'vitest'
 import {
   cleanEnvironment,
@@ -53,8 +53,8 @@ const isolationProfile = (systemPromptFile: string): ProfilePart[] => [
   { id: '--no-session-persistence', args: ['--no-session-persistence'] },
   { id: '--permission-mode dontAsk', args: ['--permission-mode', 'dontAsk'] },
   { id: '--settings {"crossSessionInbound":"hold"}', args: ['--settings', '{"crossSessionInbound":"hold"}'] },
-  { id: 'CLAUDE_CODE_ENTRYPOINT=aang-observer', env: { CLAUDE_CODE_ENTRYPOINT: 'aang-observer' } },
-  { id: 'AANG_OBSERVER=1', env: { AANG_OBSERVER: '1' } },
+  { id: 'CLAUDE_CODE_ENTRYPOINT=catacomb-observer', env: { CLAUDE_CODE_ENTRYPOINT: 'catacomb-observer' } },
+  { id: 'CATACOMB_OBSERVER=1', env: { CATACOMB_OBSERVER: '1' } },
   { id: 'CLAUDE_CODE_DISABLE_CLAUDE_MDS=1', env: { CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1' } },
   { id: 'CLAUDE_CODE_DISABLE_AUTO_MEMORY=1', env: { CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' } },
   { id: 'ENABLE_CLAUDEAI_MCP_SERVERS=false', env: { ENABLE_CLAUDEAI_MCP_SERVERS: 'false' } },
@@ -202,7 +202,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
         command: 'print',
         argv: observer.args(),
         cwd: observer.workspace.cwd,
-        env: expect.objectContaining({ CLAUDE_CODE_ENTRYPOINT: 'aang-observer', AANG_OBSERVER: '1' }) as unknown,
+        env: expect.objectContaining({ CLAUDE_CODE_ENTRYPOINT: 'catacomb-observer', CATACOMB_OBSERVER: '1' }) as unknown,
         pid: expect.any(Number) as unknown,
         prompt,
         systemPrompt,
@@ -235,7 +235,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
     { id: '--permission-mode dontAsk', args: ['--permission-mode', 'default'] },
     { id: '--settings {"crossSessionInbound":"hold"}', args: ['--settings', '{"crossSessionInbound":"accept"}'] },
     { id: systemPromptPart, args: ['--system-prompt', ''] },
-    { id: 'CLAUDE_CODE_ENTRYPOINT=aang-observer', env: { CLAUDE_CODE_ENTRYPOINT: 'cli' } },
+    { id: 'CLAUDE_CODE_ENTRYPOINT=catacomb-observer', env: { CLAUDE_CODE_ENTRYPOINT: 'cli' } },
   ])('a weakened $id is a violation too', async (weakened, { onTestFinished }) => {
     const observer = await setUp(onTestFinished, { replies: [answer('Must not appear')] })
 

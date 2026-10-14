@@ -10,16 +10,16 @@ import {
   type TokenUsage,
   type UsageQuery,
   type UsageTotals,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
 import {
   applyObserverResponse,
   beginObserverCall,
   beginObserverFollowUp,
   createReadQueries,
   failObserverCall,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { jsonlFile } from './batches.js'
 import { sessionKey, startEngine } from './harness.js'

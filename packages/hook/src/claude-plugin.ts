@@ -1,6 +1,6 @@
 import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { RegistrationTag, Runtime } from '@aang/contract'
+import type { RegistrationTag, Runtime } from '@catacomb/contract'
 import { deployHookBinary } from './binary.js'
 import { type ClaudeCli, type ClaudeCompleted, listPlugins, type PluginListing, pluginListingOf, runPluginCommand } from './claude-cli.js'
 import { jsonText, readIfReadable, replaceFile } from './files.js'
@@ -42,10 +42,10 @@ const runtime: Runtime = 'claude'
 const registration: RegistrationTag = 'plugin'
 const hookTimeoutSeconds = 2
 const scope = 'user'
-export const claudePluginName = 'aang'
-const marketplaceName = 'aang'
-const author = { name: 'aang' }
-const description = 'Records Claude Code hook events into the aang spool'
+export const claudePluginName = 'catacomb'
+const marketplaceName = 'catacomb'
+const author = { name: 'catacomb' }
+const description = 'Records Claude Code hook events into the catacomb spool'
 
 export const claudePluginId = `${claudePluginName}@${marketplaceName}`
 
@@ -56,13 +56,13 @@ export interface ClaudePluginFiles {
 }
 
 export interface ClaudePluginInstallOptions {
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly hookBinarySource: string
   readonly claude: ClaudeCli
 }
 
 export interface ClaudePluginUninstallOptions {
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly claude: ClaudeCli
 }
 
@@ -118,22 +118,22 @@ export const writeClaudePlugin = async (files: ClaudePluginFiles): Promise<void>
 }
 
 export const installClaudePlugin = async ({
-  aangHome,
+  catacombHome,
   hookBinarySource,
   claude,
 }: ClaudePluginInstallOptions): Promise<ClaudePluginInstallation> => {
-  const paths = hookInstallPaths(aangHome)
-  const binary = await deployHookBinary({ aangHome, hookBinarySource })
+  const paths = hookInstallPaths(catacombHome)
+  const binary = await deployHookBinary({ catacombHome, hookBinarySource })
   await writeClaudePlugin({ directory: paths.claudePlugin, hookBinary: binary, spool: paths.spool })
   await runPluginCommand(claude, ['marketplace', 'add', paths.claudePlugin, '--scope', scope])
   await runPluginCommand(claude, ['install', claudePluginId, '--scope', scope])
   return { binary, plugin: paths.claudePlugin }
 }
 
-export const uninstallClaudePlugin = async ({ aangHome, claude }: ClaudePluginUninstallOptions): Promise<void> => {
+export const uninstallClaudePlugin = async ({ catacombHome, claude }: ClaudePluginUninstallOptions): Promise<void> => {
   await runPluginCommand(claude, ['uninstall', claudePluginId, '--scope', scope], ['not_installed'])
   await runPluginCommand(claude, ['marketplace', 'remove', marketplaceName, '--scope', scope], ['not_configured'])
-  await rm(hookInstallPaths(aangHome).claudePlugin, { recursive: true, force: true })
+  await rm(hookInstallPaths(catacombHome).claudePlugin, { recursive: true, force: true })
 }
 
 const pluginStateIn = (listing: PluginListing): ClaudePluginState => {

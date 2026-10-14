@@ -12,9 +12,9 @@ import {
   type RunId,
   type Runtime,
   runtimes,
-} from '@aang/contract'
-import { defaultChatLimits, type ObserverRunStatus } from '@aang/engine'
-import { hookInstallPaths } from '@aang/hook'
+} from '@catacomb/contract'
+import { defaultChatLimits, type ObserverRunStatus } from '@catacomb/engine'
+import { hookInstallPaths } from '@catacomb/hook'
 import {
   type AdmissionStatus,
   type ChatSlot,
@@ -23,13 +23,13 @@ import {
   createCodexBackend,
   createObserverScheduler,
   type ObserverScheduler,
-} from '@aang/observer'
-import type { Store } from '@aang/store'
+} from '@catacomb/observer'
+import type { Store } from '@catacomb/store'
 
 export interface ObserverOptions {
   readonly store: Store
   readonly config: Config
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly claudeConfigDir: string
   readonly codexHome: string
   readonly environment: Readonly<Partial<Record<string, string>>>
@@ -52,10 +52,10 @@ const versionCheckMs = 10_000
 
 const deferredAdmissions: ReadonlySet<string | null> = new Set(['admission_busy', 'process_stuck'])
 
-const admissionStatusPath = (aangHome: string, runtime: Runtime): string =>
-  join(aangHome, 'support', `${runtime}-observer.json`)
+const admissionStatusPath = (catacombHome: string, runtime: Runtime): string =>
+  join(catacombHome, 'support', `${runtime}-observer.json`)
 
-const backendOptions = ({ config, aangHome, environment }: ObserverOptions, runtime: Runtime) => {
+const backendOptions = ({ config, catacombHome, environment }: ObserverOptions, runtime: Runtime) => {
   const effort = config.observer.effort[runtime]
   return {
     cli: config.cli[runtime] ?? runtime,
@@ -63,8 +63,8 @@ const backendOptions = ({ config, aangHome, environment }: ObserverOptions, runt
     ...(effort === null ? {} : { effort }),
     timeoutMs: config.observer.timeoutMs[runtime],
     environment,
-    windowsLauncher: hookInstallPaths(aangHome).binary,
-    admissionStatusPath: admissionStatusPath(aangHome, runtime),
+    windowsLauncher: hookInstallPaths(catacombHome).binary,
+    admissionStatusPath: admissionStatusPath(catacombHome, runtime),
   }
 }
 

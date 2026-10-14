@@ -16,8 +16,8 @@ import {
   ViewRuleId,
   type ViewRuleSource,
   type ViewRuleSpec,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
 import {
   addViewRule,
   answerChat,
@@ -27,8 +27,8 @@ import {
   stageUsage,
   startChat,
   ViewRuleError,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { jsonlFile, snapshotBatch } from './batches.js'
 import { sessionKey } from './harness.js'

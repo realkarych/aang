@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { type CallUsage, ChangeAuthor, JournalRates, ObserverCallId, RunId, Runtime } from '@aang/contract'
+import { type CallUsage, ChangeAuthor, JournalRates, ObserverCallId, RunId, Runtime } from '@catacomb/contract'
 import { z } from 'zod'
 import {
   type AnnotatedEvent,
@@ -118,7 +118,7 @@ export const BackendSpending = z.strictObject({
 export type BackendSpending = z.infer<typeof BackendSpending>
 
 export const Report = z.strictObject({
-  format: z.literal('aang-freshness-report/1'),
+  format: z.literal('catacomb-freshness-report/1'),
   profile: z.string().min(1),
   fixed_at: z.iso.datetime(),
   measured_at: z.iso.datetime(),
@@ -385,7 +385,7 @@ export const buildReport = (fixed: FixedProfile, measurement: Measurement, annot
     reportEvent(event, byKey.get(keyOf(event)), measurement.calls, fixed.profile.window_ms),
   )
   return {
-    format: 'aang-freshness-report/1',
+    format: 'catacomb-freshness-report/1',
     profile: fixed.profile.name,
     fixed_at: fixed.fixed_at,
     measured_at: new Date(measurement.started_at).toISOString(),

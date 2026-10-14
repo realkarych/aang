@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { CollectedRecord, EpochNs, FactDraft, type JsonValue, type ParseResult } from '@aang/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { CollectedRecord, EpochNs, FactDraft, type JsonValue, type ParseResult } from '@catacomb/contract'
 import { describe, test } from 'vitest'
 import {
   factsOf,
@@ -162,7 +162,7 @@ describe.concurrent('Claude transcript: records', () => {
           ordinal: null,
         },
         runtime_env: {
-          cwd: '/tmp/aang-spike/cc-transcripts/run',
+          cwd: '/tmp/catacomb-spike/cc-transcripts/run',
           version: '2.1.286',
           entrypoint: 'sdk-cli',
           originator: null,

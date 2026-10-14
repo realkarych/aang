@@ -1,4 +1,4 @@
-import type { ActionOutcome, EpochNs, FactDraft } from '@aang/contract'
+import type { ActionOutcome, EpochNs, FactDraft } from '@catacomb/contract'
 import { z } from 'zod'
 import {
   actionEnded,

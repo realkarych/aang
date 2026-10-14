@@ -1,5 +1,5 @@
-import { ChangeSeq, type EpochNs } from '@aang/contract'
-import type { SettingReader, SettingWriter } from '@aang/store'
+import { ChangeSeq, type EpochNs } from '@catacomb/contract'
+import type { SettingReader, SettingWriter } from '@catacomb/store'
 
 const reparseBoundarySetting = 'reparse_boundary'
 

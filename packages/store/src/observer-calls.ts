@@ -12,7 +12,7 @@ import {
   RunId,
   type JsonValue,
   type Runtime,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { decodeJson, encodeJson } from './codec.js'
 import { prepareStatement, type WriteContext } from './context.js'
 

@@ -1,4 +1,4 @@
-module github.com/realkarych/aang/packages/hook
+module github.com/realkarych/catacomb/packages/hook
 
 go 1.27
 

@@ -5,8 +5,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
 import { promisify } from 'node:util'
-import { endpoints } from '@aang/contract'
-import { hookInstallPaths } from '@aang/hook'
+import { endpoints } from '@catacomb/contract'
+import { hookInstallPaths } from '@catacomb/hook'
 import {
   type ClaudeScenario,
   type CodexScenario,
@@ -23,7 +23,7 @@ import {
   type PlayerOptions,
   type Profile,
   type RunningDaemon,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import { type APIRequestContext, type APIResponse, test as base, expect } from '@playwright/test'
 
 export type PlayerSettings = Pick<PlayerOptions, 'timeScale' | 'recordTime' | 'otlp'>
@@ -35,19 +35,19 @@ export interface HookSamples {
   readonly codex: (sample: string, fields: HookFields) => Promise<void>
 }
 
-export interface AangOptions {
+export interface CatacombOptions {
   readonly config: ConfigInput
   readonly claudeScenario: ClaudeScenario
   readonly codexScenario: CodexScenario
   readonly signedIn: boolean
 }
 
-export interface AangFixtures {
+export interface CatacombFixtures {
   readonly profile: Profile
   readonly fakeClaude: FakeCli<ClaudeScenario>
   readonly fakeCodex: FakeCli<CodexScenario>
   readonly daemon: RunningDaemon
-  readonly aang: (...args: readonly string[]) => Promise<string>
+  readonly catacomb: (...args: readonly string[]) => Promise<string>
   readonly signInLink: () => Promise<string>
   readonly player: (manifest: string | LoadedManifest, settings?: PlayerSettings) => Promise<Player>
   readonly otelEndpoint: () => Promise<string>
@@ -58,9 +58,9 @@ const runFile = promisify(execFile)
 
 const repository = (relative: string): string => fileURLToPath(new URL(`../${relative}`, import.meta.url))
 
-export const aangEntry = repository('packages/aang/dist/main.js')
+export const catacombEntry = repository('packages/catacomb/dist/main.js')
 
-export const hookBinary = repository(`packages/hook/bin/aang-hook${process.platform === 'win32' ? '.exe' : ''}`)
+export const hookBinary = repository(`packages/hook/bin/catacomb-hook${process.platform === 'win32' ? '.exe' : ''}`)
 
 const webAssets = repository('packages/web/dist/')
 
@@ -103,7 +103,7 @@ const admissionMs = 1000
 const withLongAdmission = (scenario: ClaudeScenario): ClaudeScenario => ({ admissionMs, ...scenario })
 
 const installLauncher = async (profile: Profile): Promise<void> => {
-  const { binary } = hookInstallPaths(profile.aangHome)
+  const { binary } = hookInstallPaths(profile.catacombHome)
   await mkdir(dirname(binary), { recursive: true })
   await copyFile(hookBinary, binary)
 }
@@ -116,7 +116,7 @@ export const getWithoutKeepAlive = (
   options: GetOptions = {},
 ): Promise<APIResponse> => request.get(url, { ...options, headers: { ...options.headers, connection: 'close' } })
 
-export const test = base.extend<AangOptions & AangFixtures>({
+export const test = base.extend<CatacombOptions & CatacombFixtures>({
   config: [{}, { option: true }],
   claudeScenario: [{}, { option: true }],
   codexScenario: [{}, { option: true }],
@@ -148,7 +148,7 @@ export const test = base.extend<AangOptions & AangFixtures>({
       ...withScannedRoots(config),
       cli: { claude: fakeClaude.path, codex: fakeCodex.path, ...config.cli },
     })
-    const daemon = await profile.startDaemon({ entry: aangEntry })
+    const daemon = await profile.startDaemon({ entry: catacombEntry })
     await use(daemon)
     if (daemon.running()) {
       expect(await daemon.stop(), daemon.output()).toEqual({ code: 0, signal: null })
@@ -159,9 +159,9 @@ export const test = base.extend<AangOptions & AangFixtures>({
     await use(daemon.url)
   },
 
-  aang: async ({ profile }, use) => {
+  catacomb: async ({ profile }, use) => {
     await use(async (...args) => {
-      const { stdout } = await runFile(process.execPath, [aangEntry, ...args], {
+      const { stdout } = await runFile(process.execPath, [catacombEntry, ...args], {
         cwd: profile.home,
         env: profile.env,
         windowsHide: true,
@@ -170,9 +170,9 @@ export const test = base.extend<AangOptions & AangFixtures>({
     })
   },
 
-  signInLink: async ({ aang, daemon }, use) => {
+  signInLink: async ({ catacomb, daemon }, use) => {
     await use(async () => {
-      const link = (await aang('open')).trim()
+      const link = (await catacomb('open')).trim()
       expect(link.startsWith(`${daemon.url}/auth/`), link).toBe(true)
       return link
     })

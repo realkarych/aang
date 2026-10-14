@@ -1,5 +1,5 @@
-import type { Runtime } from '@aang/contract'
-import { loadConfig, processEnvironment } from '@aang/contract/config-file'
+import type { Runtime } from '@catacomb/contract'
+import { loadConfig, processEnvironment } from '@catacomb/contract/config-file'
 import {
   type ClaudeCli,
   claudePluginId,
@@ -11,14 +11,14 @@ import {
   installCodexHooks,
   uninstallClaudePlugin,
   uninstallCodexHooks,
-} from '@aang/hook'
+} from '@catacomb/hook'
 import { describeError, type Output } from './output.js'
 import { codexHookSlowdown, codexHooksOffByDefault, onWindows } from './windows.js'
 
 export type HookBinaryLocator = () => string
 
 interface Connection {
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly claude: ClaudeCli
   readonly codex: CodexCli
   readonly codexHome: string
@@ -40,9 +40,9 @@ const codexHooksNotes: Readonly<Record<CodexHooksStatus, string>> = {
 }
 
 const connect = async (): Promise<Connection> => {
-  const { aangHome, config, runtimeRoots } = await loadConfig(processEnvironment())
+  const { catacombHome, config, runtimeRoots } = await loadConfig(processEnvironment())
   return {
-    aangHome,
+    catacombHome,
     claude: { command: config.cli.claude ?? 'claude', configDir: config.runtimes.claude.configDir },
     codex: { command: config.cli.codex ?? 'codex' },
     codexHome: runtimeRoots.codex,
@@ -62,7 +62,7 @@ const runSteps = async (
         failed = true
       }
     } catch (error) {
-      output.error(`aang ${command}: ${runtime}: ${describeError(error)}`)
+      output.error(`catacomb ${command}: ${runtime}: ${describeError(error)}`)
       failed = true
     }
   }
@@ -71,8 +71,8 @@ const runSteps = async (
 
 const installClaude =
   (hookBinarySource: string): Step =>
-  async ({ aangHome, claude }, output) => {
-    const { plugin } = await installClaudePlugin({ aangHome, hookBinarySource, claude })
+  async ({ catacombHome, claude }, output) => {
+    const { plugin } = await installClaudePlugin({ catacombHome, hookBinarySource, claude })
     output.out(`claude: plugin ${claudePluginId} installed from ${plugin}`)
     const state = await claudePluginState(claude)
     output.out(`claude: plugin ${claudePluginId} is ${claudePluginNotes[state]}`)
@@ -81,10 +81,10 @@ const installClaude =
 
 const installCodex =
   (hookBinarySource: string): Step =>
-  async ({ aangHome, codex, codexHome }, output) => {
-    const { hooksFile, backup, status } = await installCodexHooks({ aangHome, hookBinarySource, codexHome, codex })
-    output.out(`codex: aang hooks registered in ${hooksFile}${backup === null ? '' : `; the previous file is kept in ${backup}`}`)
-    output.out(`codex: aang hooks are ${codexHooksNotes[status]}`)
+  async ({ catacombHome, codex, codexHome }, output) => {
+    const { hooksFile, backup, status } = await installCodexHooks({ catacombHome, hookBinarySource, codexHome, codex })
+    output.out(`codex: catacomb hooks registered in ${hooksFile}${backup === null ? '' : `; the previous file is kept in ${backup}`}`)
+    output.out(`codex: catacomb hooks are ${codexHooksNotes[status]}`)
     if (onWindows) {
       output.out(`codex: ${codexHookSlowdown}`)
     }
@@ -93,12 +93,12 @@ const installCodex =
 
 const skipCodexOnWindows: Step = (_connection, output) => {
   output.out(`codex: ${codexHooksOffByDefault}`)
-  output.out(`codex: \`aang install --codex\` installs them anyway; ${codexHookSlowdown}`)
+  output.out(`codex: \`catacomb install --codex\` installs them anyway; ${codexHookSlowdown}`)
   return Promise.resolve(true)
 }
 
-const uninstallClaude: Step = async ({ aangHome, claude }, output) => {
-  await uninstallClaudePlugin({ aangHome, claude })
+const uninstallClaude: Step = async ({ catacombHome, claude }, output) => {
+  await uninstallClaudePlugin({ catacombHome, claude })
   output.out(`claude: plugin ${claudePluginId} and its marketplace are removed`)
   return true
 }
@@ -107,8 +107,8 @@ const uninstallCodex: Step = async ({ codexHome }, output) => {
   const { hooksFile, backup } = await uninstallCodexHooks({ codexHome })
   output.out(
     backup === null
-      ? `codex: no aang hooks in ${hooksFile}`
-      : `codex: aang hooks neutralized in ${hooksFile}; the previous file is kept in ${backup}`,
+      ? `codex: no catacomb hooks in ${hooksFile}`
+      : `codex: catacomb hooks neutralized in ${hooksFile}; the previous file is kept in ${backup}`,
   )
   return true
 }

@@ -13,7 +13,7 @@ import type {
   UsageQuery,
   UsageReport,
   ViewPosition,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { artifactVersion } from './artifact-version.js'
 import { usageReport } from '../usage/report.js'
 import { runChanges } from './changes.js'

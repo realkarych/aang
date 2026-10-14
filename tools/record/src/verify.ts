@@ -1,5 +1,5 @@
 import { join, relative } from 'node:path'
-import { loadManifest } from '@aang/testkit'
+import { loadManifest } from '@catacomb/testkit'
 import { assertAnonymous } from './anonymize.js'
 import { filesIn, readUtf8 } from './files.js'
 import { assertNoMachineNames, machineIdentities } from './machine.js'

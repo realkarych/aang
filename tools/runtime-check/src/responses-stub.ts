@@ -74,12 +74,12 @@ const usage = {
 
 const itemOf = (scenario: ResponsesScenario, step: number, reply: number): Record<string, unknown> => {
   const tool = scenario.steps[step]
-  const callId = `call_aang_${String(reply)}`
+  const callId = `call_catacomb_${String(reply)}`
   if (tool === undefined) {
     return {
       type: 'message',
       role: 'assistant',
-      id: `msg_aang_${String(reply)}`,
+      id: `msg_catacomb_${String(reply)}`,
       content: [{ type: 'output_text', text: scenario.text }],
     }
   }
@@ -87,7 +87,7 @@ const itemOf = (scenario: ResponsesScenario, step: number, reply: number): Recor
   return tool.type === 'function_call'
     ? {
         type: 'function_call',
-        id: `fc_aang_${String(reply)}`,
+        id: `fc_catacomb_${String(reply)}`,
         call_id: callId,
         name: tool.name,
         ...namespace,
@@ -95,7 +95,7 @@ const itemOf = (scenario: ResponsesScenario, step: number, reply: number): Recor
       }
     : {
         type: 'custom_tool_call',
-        id: `ctc_aang_${String(reply)}`,
+        id: `ctc_catacomb_${String(reply)}`,
         call_id: callId,
         status: 'completed',
         name: tool.name,
@@ -129,7 +129,7 @@ export const startResponsesStub = async (): Promise<ResponsesStub> => {
       outputs,
     })
     replies += 1
-    const id = `resp_aang_${String(replies)}`
+    const id = `resp_catacomb_${String(replies)}`
     sendEvents(response, [
       { type: 'response.created', response: { id } },
       { type: 'response.output_item.done', output_index: 0, item: itemOf(scenario, outputs.length, replies) },

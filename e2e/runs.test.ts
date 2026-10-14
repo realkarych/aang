@@ -1,6 +1,6 @@
-import { endpoints, type RunsResponse } from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import { sampleScenarioManifest } from '@aang/testkit'
+import { endpoints, type RunsResponse } from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import { sampleScenarioManifest } from '@catacomb/testkit'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { claudeOriginal, runOf } from './samples.js'
 

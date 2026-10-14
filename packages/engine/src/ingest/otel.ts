@@ -1,5 +1,5 @@
-import { CollectedRecord, type Fact, type RawSeq } from '@aang/contract'
-import type { Transaction } from '@aang/store'
+import { CollectedRecord, type Fact, type RawSeq } from '@catacomb/contract'
+import type { Transaction } from '@catacomb/store'
 import { type Adapters, collectedFields } from './records.js'
 
 const pageSize = 256

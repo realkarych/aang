@@ -1,6 +1,6 @@
-import { type Action, endpoints, ObserverInput, type RunId, type RunSnapshot, type Session } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import { type FakeCall, type LoadedManifest, loadManifest, observerScenarios } from '@aang/testkit'
+import { type Action, endpoints, ObserverInput, type RunId, type RunSnapshot, type Session } from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
+import { type FakeCall, type LoadedManifest, loadManifest, observerScenarios } from '@catacomb/testkit'
 import type { Page, Route } from '@playwright/test'
 import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { after, codexRecording, filesOnly, startingAt, threadsOf, through } from './recordings.js'
@@ -150,14 +150,14 @@ test.describe('with the Codex observer drawing the map', () => {
     const root = thread(subagents)
     await (await player(subagents, played)).play()
     await page.goto(`/?run=${codexRun(root)}`)
-    const goal = '[aang:subagent] Spawn subagents scout and builder, wait for them, then reply done.'
+    const goal = '[catacomb:subagent] Spawn subagents scout and builder, wait for them, then reply done.'
     await expect.poll(async () => (await snapshotOf(page, codexRun(root)))?.summary.agents ?? null).toBe(3)
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(goal)
     expect((await snapshotOf(page, codexRun(root)))?.summary.goal).toBe(goal)
     await expect
       .poll(async () => {
         const brief = (await snapshotOf(page, codexRun(root)))?.run.brief ?? null
-        return brief === null ? null : { working: brief.text.startsWith('Working towards: [aang:subagent]'), basis: brief.basis.kind }
+        return brief === null ? null : { working: brief.text.startsWith('Working towards: [catacomb:subagent]'), basis: brief.basis.kind }
       }, observed)
       .toEqual({ working: true, basis: 'interpreted' })
     expect(await actionsOf(page, codexRun(root), 'collaboration/spawn_agent')).toHaveLength(2)

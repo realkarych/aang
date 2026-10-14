@@ -6,8 +6,8 @@ import {
   type CollectorBatch,
   type SpoolFileName,
   spoolLayout,
-} from '@aang/contract'
-import { contentHash } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { contentHash } from '@catacomb/contract/ids'
 import { absent, isMissing } from './errors.js'
 import { parseSpoolFile } from './spool-file.js'
 import { epochNs, millisecondsToNs, nowNs } from './time.js'

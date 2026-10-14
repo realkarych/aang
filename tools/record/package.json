@@ -1,5 +1,5 @@
 {
-  "name": "@aang/record",
+  "name": "@catacomb/record",
   "private": true,
   "type": "module",
   "exports": {
@@ -9,13 +9,13 @@
     }
   },
   "dependencies": {
-    "@aang/contract": "workspace:*",
-    "@aang/hook": "workspace:*",
-    "@aang/testkit": "workspace:*",
+    "@catacomb/contract": "workspace:*",
+    "@catacomb/hook": "workspace:*",
+    "@catacomb/testkit": "workspace:*",
     "zod": "^4.6.5",
-    "@aang/observer": "workspace:*"
+    "@catacomb/observer": "workspace:*"
   },
   "devDependencies": {
-    "@aang/adapter-codex": "workspace:*"
+    "@catacomb/adapter-codex": "workspace:*"
   }
 }

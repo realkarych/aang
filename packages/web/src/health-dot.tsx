@@ -53,7 +53,7 @@ export const HealthDot = ({ lamps }: { readonly lamps: readonly Lamp[] }): React
             ])}
           </ul>
           <p className="health-note">
-            Details: <code>aang status</code>
+            Details: <code>catacomb status</code>
           </p>
         </div>
       ) : null}

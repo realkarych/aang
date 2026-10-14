@@ -23,8 +23,8 @@ import {
   type RunView,
   type Session,
   type UsageRecord,
-} from '@aang/contract'
-import type { Observation, StoredObservationRemoval } from '@aang/store'
+} from '@catacomb/contract'
+import type { Observation, StoredObservationRemoval } from '@catacomb/store'
 import { compareText } from '../observations/evidence.js'
 import { reparseBoundary } from '../reparse/boundary.js'
 import { type ProjectedView, projectView } from '../view/projection.js'

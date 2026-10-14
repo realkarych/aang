@@ -1,5 +1,5 @@
-import { codexAdapter } from '@aang/adapter-codex'
-import type { StreamKey } from '@aang/contract'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import type { StreamKey } from '@catacomb/contract'
 import { expect, test } from 'vitest'
 import { z } from 'zod'
 import {
@@ -67,7 +67,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
         at: iso('2026-10-01T11:55:58.003Z'),
         runtime_ids: { session_id: realThread, thread_id: realThread, ordinal: 0 },
         runtime_env: {
-          cwd: '/tmp/aang-spike/codex-cli/run1',
+          cwd: '/tmp/catacomb-spike/codex-cli/run1',
           version: '0.159.2',
           originator: 'codex_exec',
           git_branch: null,
@@ -75,7 +75,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
         payload: {
           launch: 'startup',
           surface: { surface: 'codex_exec', basis: 'observed' },
-          cwd: '/tmp/aang-spike/codex-cli/run1',
+          cwd: '/tmp/catacomb-spike/codex-cli/run1',
           forked_from: null,
           observer_marker: false,
         },
@@ -97,7 +97,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
       },
     ],
   },
-  'session_meta.exec.thread_source-aang-observer.mock.json': {
+  'session_meta.exec.thread_source-catacomb-observer.mock.json': {
     stream: 'own',
     facts: [
       {
@@ -174,7 +174,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
         kind: 'turn_settings',
         entity_key: session(real),
         runtime_ids: { turn_id: '01a0f752-4102-7740-9432-0533263c2dc1', ordinal: 7 },
-        runtime_env: { cwd: '/tmp/aang-spike/codex-cli/run1' },
+        runtime_env: { cwd: '/tmp/catacomb-spike/codex-cli/run1' },
         payload: { model: 'gpt-6.1-sol', effort: null, approval_policy: 'never', sandbox: 'read-only' },
       },
     ],
@@ -290,7 +290,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
         payload: {
           tool: 'CommandExecution',
           action_kind: 'command',
-          input: { command: ['/bin/zsh', '-lc', 'echo hi'], cwd: 'file:///tmp/aang-spike/codex-cli/run1' },
+          input: { command: ['/bin/zsh', '-lc', 'echo hi'], cwd: 'file:///tmp/catacomb-spike/codex-cli/run1' },
           container_call: null,
         },
       },
@@ -344,7 +344,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
         payload: {
           tool: 'FileChange',
           action_kind: 'file_write',
-          input: { changes: { '/tmp/aang-spike/codex-cli/m_patch3/patched.txt': { type: 'add', content: 'hello\n' } } },
+          input: { changes: { '/tmp/catacomb-spike/codex-cli/m_patch3/patched.txt': { type: 'add', content: 'hello\n' } } },
         },
       },
       {

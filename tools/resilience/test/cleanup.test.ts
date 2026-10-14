@@ -42,7 +42,7 @@ const alive = (pid: number): boolean => {
 const createFakeLab = (): Promise<Lab> =>
   createLab({
     clis: { claude: fakeCli('claude'), codex: fakeCli('codex') },
-    aangEntry: fileURLToPath(new URL('../../../packages/aang/dist/main.js', import.meta.url)),
+    catacombEntry: fileURLToPath(new URL('../../../packages/catacomb/dist/main.js', import.meta.url)),
     journal: createJournal(),
   })
 

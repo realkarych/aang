@@ -2,7 +2,7 @@ import filesystem, { chmod, lstat, mkdir, readdir, readFile, readlink, rename, r
 import { syncBuiltinESMExports } from 'node:module'
 import { basename, dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { HookInstallError, hookBinaryName, installCodexHooks, uninstallCodexHooks } from '@aang/hook'
+import { HookInstallError, hookBinaryName, installCodexHooks, uninstallCodexHooks } from '@catacomb/hook'
 import { describe, inject, test, vi } from 'vitest'
 import { cleanExit, readSpoolEvents, runProcess, typicalPayload, withoutNames } from './hook.js'
 import { createInstallHome, absentProcessId, type InstallHome, readJson, sampleText } from './install.js'
@@ -35,7 +35,7 @@ const loggerConfig = await sampleText('codex-cli/hooks/hooks.json.logger-config.
 
 const codexEvents = Object.keys((JSON.parse(loggerConfig) as HooksDocument).hooks)
 
-const windowsStaleCommand = "& 'C:\\Users\\O''Brien\\.aang\\bin\\aang-hook.exe' 'codex' 'user' 'C:\\Users\\O''Brien\\.aang\\spool'"
+const windowsStaleCommand = "& 'C:\\Users\\O''Brien\\.catacomb\\bin\\catacomb-hook.exe' 'codex' 'user' 'C:\\Users\\O''Brien\\.catacomb\\spool'"
 
 const staleFile: HooksDocument = {
   hooks: {
@@ -43,8 +43,8 @@ const staleFile: HooksDocument = {
       { hooks: [{ type: 'command', command: 'herdr-agent-state.sh', timeout: 5 }] },
       {
         hooks: [
-          { type: 'command', command: '/Users/USER/src/aang/bin/aang hook', timeout: 5 },
-          { type: 'command', command: 'echo aang-hook', timeout: 1 },
+          { type: 'command', command: '/Users/USER/src/catacomb/bin/catacomb hook', timeout: 5 },
+          { type: 'command', command: 'echo catacomb-hook', timeout: 1 },
         ],
       },
       { matcher: 'startup', hooks: [{ type: 'command', command: 'cc-status' }] },
@@ -52,14 +52,14 @@ const staleFile: HooksDocument = {
     Stop: [
       {
         hooks: [
-          { type: 'command', command: "'/old home/.aang/bin/aang-hook' codex user '/old home/.aang/spool'", timeout: 2 },
+          { type: 'command', command: "'/old home/.catacomb/bin/catacomb-hook' codex user '/old home/.catacomb/spool'", timeout: 2 },
         ],
       },
-      { hooks: [{ type: 'command', command: 'notify-send "aang hook"' }] },
+      { hooks: [{ type: 'command', command: 'notify-send "catacomb hook"' }] },
       { hooks: [{ type: 'command', command: windowsStaleCommand, timeout: 2 }] },
     ],
-    UserPromptSubmit: [{ hooks: [{ type: 'command', command: '"/Users/USER/src/aang/bin/aang" hook' }] }],
-    LegacyEvent: [{ hooks: [{ type: 'command', command: 'aang hook' }] }],
+    UserPromptSubmit: [{ hooks: [{ type: 'command', command: '"/Users/USER/src/catacomb/bin/catacomb" hook' }] }],
+    LegacyEvent: [{ hooks: [{ type: 'command', command: 'catacomb hook' }] }],
   },
   extra: { kept: true },
 }
@@ -71,14 +71,14 @@ const neutralizedStaleFile: HooksDocument = {
       {
         hooks: [
           { type: 'command', command: neutral, timeout: 5 },
-          { type: 'command', command: 'echo aang-hook', timeout: 1 },
+          { type: 'command', command: 'echo catacomb-hook', timeout: 1 },
         ],
       },
       { matcher: 'startup', hooks: [{ type: 'command', command: 'cc-status' }] },
     ],
     Stop: [
       { hooks: [{ type: 'command', command: neutral, timeout: 2 }] },
-      { hooks: [{ type: 'command', command: 'notify-send "aang hook"' }] },
+      { hooks: [{ type: 'command', command: 'notify-send "catacomb hook"' }] },
       { hooks: [{ type: 'command', command: neutral, timeout: 2 }] },
     ],
     UserPromptSubmit: [{ hooks: [{ type: 'command', command: neutral }] }],
@@ -87,18 +87,18 @@ const neutralizedStaleFile: HooksDocument = {
   extra: { kept: true },
 }
 
-const aangGroup = (command: string): Group => ({ hooks: [{ type: 'command', command, timeout: 2 }] })
+const catacombGroup = (command: string): Group => ({ hooks: [{ type: 'command', command, timeout: 2 }] })
 
 const install = (home: InstallHome, hookBinarySource = binaries.plain) =>
-  installCodexHooks({ aangHome: home.aangHome, hookBinarySource, codexHome: home.codexHome, codex: home.codex })
+  installCodexHooks({ catacombHome: home.catacombHome, hookBinarySource, codexHome: home.codexHome, codex: home.codex })
 
 const uninstall = (home: InstallHome) => uninstallCodexHooks({ codexHome: home.codexHome })
 
-const withAangAppended = (document: HooksDocument, command: string): HooksDocument => ({
+const withCatacombAppended = (document: HooksDocument, command: string): HooksDocument => ({
   ...document,
   hooks: {
     ...document.hooks,
-    ...Object.fromEntries(codexEvents.map((event) => [event, [...(document.hooks[event] ?? []), aangGroup(command)]])),
+    ...Object.fromEntries(codexEvents.map((event) => [event, [...(document.hooks[event] ?? []), catacombGroup(command)]])),
   },
 })
 
@@ -147,17 +147,17 @@ const fileKind = (name: string): string => {
   if (name.endsWith('.tmp')) {
     return 'staged'
   }
-  if (name.endsWith('.aang-lock')) {
+  if (name.endsWith('.catacomb-lock')) {
     return 'lock'
   }
-  return name.includes('.aang-backup-') ? 'backup' : name
+  return name.includes('.catacomb-backup-') ? 'backup' : name
 }
 
 const backups = async (home: InstallHome): Promise<string[]> =>
-  (await readdir(home.codexHome)).filter((name) => name.includes('.aang-backup-')).map((name) => join(home.codexHome, name))
+  (await readdir(home.codexHome)).filter((name) => name.includes('.catacomb-backup-')).map((name) => join(home.codexHome, name))
 
 describe('Codex hooks.json installation', () => {
-  test('install appends one aang entry to the end of every event array and keeps foreign entries in place', async ({
+  test('install appends one catacomb entry to the end of every event array and keeps foreign entries in place', async ({
     expect,
     onTestFinished,
   }) => {
@@ -171,17 +171,17 @@ describe('Codex hooks.json installation', () => {
       binary: home.paths.binary,
       command: expect.any(String) as unknown,
       hooksFile: home.hooksFile,
-      backup: expect.stringMatching(/hooks\.json\.aang-backup-/) as unknown,
+      backup: expect.stringMatching(/hooks\.json\.catacomb-backup-/) as unknown,
       status: 'untrusted',
     })
     expect(await readJson(home.hooksFile)).toEqual(
-      withAangAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),
+      withCatacombAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),
     )
     expect(await readFile(installation.backup ?? '', 'utf8')).toBe(loggerConfig)
     expect((await readFile(installation.binary)).equals(await readFile(binaries.plain))).toBe(true)
   })
 
-  test('stale aang entries are neutralized in place without moving foreign entries', async ({
+  test('stale catacomb entries are neutralized in place without moving foreign entries', async ({
     expect,
     onTestFinished,
   }) => {
@@ -191,11 +191,11 @@ describe('Codex hooks.json installation', () => {
 
     const installation = await install(home)
 
-    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(neutralizedStaleFile, installation.command))
+    expect(await readJson(home.hooksFile)).toEqual(withCatacombAppended(neutralizedStaleFile, installation.command))
     expect(await readFile(installation.backup ?? '', 'utf8')).toBe(original)
   })
 
-  test('repeated install with an updated binary keeps the aang command line and leaves hooks.json untouched', async ({
+  test('repeated install with an updated binary keeps the catacomb command line and leaves hooks.json untouched', async ({
     expect,
     onTestFinished,
   }) => {
@@ -213,7 +213,7 @@ describe('Codex hooks.json installation', () => {
     expect((await readFile(home.paths.binary)).equals(await readFile(binaries.stripped))).toBe(true)
   })
 
-  test('a duplicate of the current aang entry is neutralized and the first one stays', async ({
+  test('a duplicate of the current catacomb entry is neutralized and the first one stays', async ({
     expect,
     onTestFinished,
   }) => {
@@ -222,7 +222,7 @@ describe('Codex hooks.json installation', () => {
     const installed = (await readJson(home.hooksFile)) as HooksDocument
     const duplicated: HooksDocument = {
       ...installed,
-      hooks: { ...installed.hooks, Stop: [...(installed.hooks.Stop ?? []), aangGroup(command)] },
+      hooks: { ...installed.hooks, Stop: [...(installed.hooks.Stop ?? []), catacombGroup(command)] },
     }
     await writeFile(home.hooksFile, JSON.stringify(duplicated))
 
@@ -230,11 +230,11 @@ describe('Codex hooks.json installation', () => {
 
     expect(await readJson(home.hooksFile)).toEqual({
       ...installed,
-      hooks: { ...installed.hooks, Stop: [aangGroup(command), aangGroup(neutral)] },
+      hooks: { ...installed.hooks, Stop: [catacombGroup(command), catacombGroup(neutral)] },
     })
   })
 
-  test('without hooks.json install creates it with the aang entries and the command line runs the installed hook through the shell of Codex', async ({
+  test('without hooks.json install creates it with the catacomb entries and the command line runs the installed hook through the shell of Codex', async ({
     expect,
     onTestFinished,
   }) => {
@@ -243,7 +243,7 @@ describe('Codex hooks.json installation', () => {
     const installation = await install(home)
 
     expect(installation.backup).toBeNull()
-    expect(await readJson(home.hooksFile)).toEqual(withAangAppended({ hooks: {} }, installation.command))
+    expect(await readJson(home.hooksFile)).toEqual(withCatacombAppended({ hooks: {} }, installation.command))
     if (!windows) {
       expect(((await stat(home.hooksFile)).mode & 0o777).toString(8)).toBe('600')
     }
@@ -255,7 +255,7 @@ describe('Codex hooks.json installation', () => {
     ])
   })
 
-  test('uninstall neutralizes the aang entries in place, keeps foreign entries and can be repeated', async ({
+  test('uninstall neutralizes the catacomb entries in place, keeps foreign entries and can be repeated', async ({
     expect,
     onTestFinished,
   }) => {
@@ -267,7 +267,7 @@ describe('Codex hooks.json installation', () => {
     const first = await uninstall(home)
     const second = await uninstall(home)
 
-    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(JSON.parse(loggerConfig) as HooksDocument, neutral))
+    expect(await readJson(home.hooksFile)).toEqual(withCatacombAppended(JSON.parse(loggerConfig) as HooksDocument, neutral))
     expect(first).toEqual({ hooksFile: home.hooksFile, backup: expect.any(String) as unknown })
     expect(await readFile(first.backup ?? '', 'utf8')).toBe(installed)
     expect(second).toEqual({ hooksFile: home.hooksFile, backup: null })
@@ -295,9 +295,9 @@ describe('Codex hooks.json installation', () => {
     expect((await lstat(home.hooksFile)).isSymbolicLink()).toBe(true)
     expect(await readlink(home.hooksFile)).toBe(join(dotfiles, 'hooks.json'))
     expect(await readJson(join(dotfiles, 'hooks.json'))).toEqual(
-      withAangAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),
+      withCatacombAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),
     )
-    expect(installation.backup?.startsWith(join(dotfiles, 'hooks.json.aang-backup-'))).toBe(true)
+    expect(installation.backup?.startsWith(join(dotfiles, 'hooks.json.catacomb-backup-'))).toBe(true)
   })
 
   posixOnly('a hooks.json symlink to a missing file is refused and left a symlink', async ({ expect, onTestFinished }) => {
@@ -328,7 +328,7 @@ describe('Codex hooks.json installation', () => {
     await release()
     const installation = await installing
 
-    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(edited, installation.command))
+    expect(await readJson(home.hooksFile)).toEqual(withCatacombAppended(edited, installation.command))
     expect(await backups(home)).toEqual([installation.backup])
     expect(await readFile(installation.backup ?? '', 'utf8')).toBe(editedText)
   })
@@ -348,7 +348,7 @@ describe('Codex hooks.json installation', () => {
     await release()
     const installation = await installing
 
-    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(created, installation.command))
+    expect(await readJson(home.hooksFile)).toEqual(withCatacombAppended(created, installation.command))
     expect(await readFile(installation.backup ?? '', 'utf8')).toBe(createdText)
   })
 
@@ -363,7 +363,7 @@ describe('Codex hooks.json installation', () => {
 
     const installation = await replaceBeforeVerification(home, replacement, () => install(home))
 
-    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(replacement, installation.command))
+    expect(await readJson(home.hooksFile)).toEqual(withCatacombAppended(replacement, installation.command))
     expect(await backups(home)).toEqual([installation.backup])
     expect(await readJson(installation.backup ?? '')).toEqual(replacement)
   })
@@ -373,18 +373,18 @@ describe('Codex hooks.json installation', () => {
     onTestFinished,
   }) => {
     const home = await createInstallHome(onTestFinished)
-    const original: HooksDocument = { hooks: { Stop: [aangGroup('aang hook')] } }
+    const original: HooksDocument = { hooks: { Stop: [catacombGroup('catacomb hook')] } }
     await writeFile(home.hooksFile, JSON.stringify(original))
     const replacement = foreignStop(original)
 
     const uninstallation = await replaceBeforeVerification(home, replacement, () => uninstall(home))
 
-    expect(await readJson(home.hooksFile)).toEqual(foreignStop({ hooks: { Stop: [aangGroup(neutral)] } }))
+    expect(await readJson(home.hooksFile)).toEqual(foreignStop({ hooks: { Stop: [catacombGroup(neutral)] } }))
     expect(await backups(home)).toEqual([uninstallation.backup])
     expect(await readJson(uninstallation.backup ?? '')).toEqual(replacement)
   })
 
-  test('concurrent installs from several AANG_HOMEs into one Codex home end as if they ran one after another', async ({
+  test('concurrent installs from several CATACOMB_HOMEs into one Codex home end as if they ran one after another', async ({
     expect,
     onTestFinished,
   }) => {
@@ -395,17 +395,17 @@ describe('Codex hooks.json installation', () => {
     await writeFile(hooksFile, JSON.stringify(original))
 
     const installations = await Promise.all(
-      homes.map((home) => installCodexHooks({ aangHome: home.aangHome, hookBinarySource: binaries.plain, codexHome, codex: home.codex })),
+      homes.map((home) => installCodexHooks({ catacombHome: home.catacombHome, hookBinarySource: binaries.plain, codexHome, codex: home.codex })),
     )
 
     const neutralized = Array.from({ length: concurrentInstalls - 1 }, () => neutral)
     const sequential = installations.map(({ command }) =>
-      [...neutralized, command].reduce(withAangAppended, original),
+      [...neutralized, command].reduce(withCatacombAppended, original),
     )
     expect(sequential).toContainEqual(await readJson(hooksFile))
   })
 
-  test('concurrent installs from one AANG_HOME change hooks.json once and leave one backup', async ({
+  test('concurrent installs from one CATACOMB_HOME change hooks.json once and leave one backup', async ({
     expect,
     onTestFinished,
   }) => {
@@ -415,7 +415,7 @@ describe('Codex hooks.json installation', () => {
     const installations = await Promise.all([install(home), install(home)])
 
     const [{ command }] = installations
-    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(JSON.parse(loggerConfig) as HooksDocument, command))
+    expect(await readJson(home.hooksFile)).toEqual(withCatacombAppended(JSON.parse(loggerConfig) as HooksDocument, command))
     expect(installations.map(({ backup }) => backup).sort()).toEqual([...(await backups(home)), null])
   })
 
@@ -425,12 +425,12 @@ describe('Codex hooks.json installation', () => {
   }) => {
     const home = await createInstallHome(onTestFinished)
     await writeFile(home.hooksFile, loggerConfig)
-    await writeFile(`${home.hooksFile}.aang-lock`, String(absentProcessId()))
+    await writeFile(`${home.hooksFile}.catacomb-lock`, String(absentProcessId()))
 
     const installation = await install(home)
 
     expect(await readJson(home.hooksFile)).toEqual(
-      withAangAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),
+      withCatacombAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),
     )
     expect((await readdir(home.codexHome)).map(fileKind).sort()).toEqual(['backup', 'hooks.json'])
   })

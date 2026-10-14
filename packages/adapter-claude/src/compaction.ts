@@ -1,4 +1,4 @@
-import type { CompactionTrigger } from '@aang/contract'
+import type { CompactionTrigger } from '@catacomb/contract'
 
 const compactionTriggers: ReadonlyMap<string, CompactionTrigger> = new Map([
   ['manual', 'manual'],

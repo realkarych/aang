@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import type { OperatingSystem } from '@aang/contract'
+import type { OperatingSystem } from '@catacomb/contract'
 import { z } from 'zod'
 import type { Scenario } from '../scenario.js'
 import { agentsFlag } from './agents-flag.js'
@@ -18,7 +18,7 @@ import { userHooks } from './user-hooks.js'
 import { workflow } from './workflow.js'
 
 const echo = (key: string, word: string): { readonly prompt: string; readonly script: StubScript } => ({
-  prompt: `[aang:${key}] Run \`echo ${word}\` with the Bash tool and reply with its output.`,
+  prompt: `[catacomb:${key}] Run \`echo ${word}\` with the Bash tool and reply with its output.`,
   script: { [key]: [[bash(`echo ${word}`, `Print ${word}`)], [{ text: word }]] },
 })
 
@@ -49,9 +49,9 @@ const tools: Definition = {
     ],
   }),
   run: async ({ session, stage }) => {
-    await writeFile(join(session.project, 'notes.txt'), 'Reference notes for the aang recording.\n')
+    await writeFile(join(session.project, 'notes.txt'), 'Reference notes for the catacomb recording.\n')
     const summary = await stage('tools', {
-      turns: [{ prompt: '[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.' }],
+      turns: [{ prompt: '[catacomb:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.' }],
       decisions: [{ tool: 'Write', behavior: 'allow', delayMs: 500 }, { tool: 'Edit', behavior: 'allow', delayMs: 500 }],
     })
     const sessionId = sessionOf(summary)
@@ -69,7 +69,7 @@ const tools: Definition = {
   },
 }
 
-const subagentPrompt = (key: string, command: string): string => `[aang:${key}] Run \`${command}\` with the Bash tool and report its output.`
+const subagentPrompt = (key: string, command: string): string => `[catacomb:${key}] Run \`${command}\` with the Bash tool and report its output.`
 const agent = (key: string, command: string, description: string, background: boolean): StubBlock =>
   ({ tool: 'Agent', input: { description, prompt: subagentPrompt(key, command), subagent_type: 'general-purpose', run_in_background: background } })
 const child = (command: string, description: string, report: string): (readonly StubBlock[])[] => [[bash(command, description)], [{ text: report }]]
@@ -99,7 +99,7 @@ const subagents: Definition = {
     const summary = await stage('subagents', {
       turns: [{
         prompt: [
-          '[aang:subagents] Use the Agent tool with the general-purpose subagent type for each step.',
+          '[catacomb:subagents] Use the Agent tool with the general-purpose subagent type for each step.',
           `First start one foreground subagent (run_in_background false) with the prompt "${subagentPrompt('sub-solo', 'echo solo')}" and wait for it.`,
           `Then, in a single message, start two foreground subagents in parallel with the prompts "${subagentPrompt('sub-left', 'echo left')}" and "${subagentPrompt('sub-right', 'echo right')}".`,
           `Finally start one background subagent (run_in_background true) with the prompt "${subagentPrompt('sub-back', 'sleep 2 && echo back')}" and reply with one sentence without waiting for it.`,
@@ -209,7 +209,7 @@ const fork: Definition = {
     echoUse(copy, 'base')
     const action = echoUse(copy, 'branch')
     const unchanged = await findTranscript(session, parent)
-    check(unchanged.entries.length === original.entries.length && !userTexts(unchanged).some((text) => text.includes('[aang:fork-branch]')),
+    check(unchanged.entries.length === original.entries.length && !userTexts(unchanged).some((text) => text.includes('[catacomb:fork-branch]')),
       'The fork changed the parent transcript')
     await session.checkpoint('fork-started', { hook: { event: 'SessionStart', sessionId: forked } },
       'A new session F appears with a copy of the history of S; S stays idle')
@@ -242,7 +242,7 @@ const plan: Definition = {
     const summary = await stage('plan', {
       permissionMode: 'plan',
       env: { CLAUDE_CODE_ENABLE_TODO_TOOLS: '1' },
-      turns: [{ prompt: '[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: "Write checklist" and "Review checklist". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.' }],
+      turns: [{ prompt: '[catacomb:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: "Write checklist" and "Review checklist". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.' }],
       decisions: [{ tool: 'ExitPlanMode', behavior: 'allow', delayMs: 1500 }, { tool: 'Write', behavior: 'allow', delayMs: 500 }],
     })
     check(summary.tools.includes('TaskCreate') && summary.tools.includes('ExitPlanMode'), 'The engine offered no TaskCreate or ExitPlanMode tool')
@@ -287,7 +287,7 @@ const approval: Definition = {
   }),
   run: async ({ session, stage }) => {
     const summary = await stage('approval', {
-      turns: [{ prompt: `[aang:approval] Run \`${approvedCommand}\` with the Bash tool. After it finishes, run \`${deniedCommand}\` with the Bash tool. If a command is denied, do not retry it and reply with one sentence.` }],
+      turns: [{ prompt: `[catacomb:approval] Run \`${approvedCommand}\` with the Bash tool. After it finishes, run \`${deniedCommand}\` with the Bash tool. If a command is denied, do not retry it and reply with one sentence.` }],
       decisions: [{ tool: 'Bash', behavior: 'allow', delayMs: 2000 }, { tool: 'Bash', behavior: 'deny', delayMs: 1000, message: 'The user denied this command' }],
     })
     const approved = present(summary.decisions[0], 'No permission was requested')
@@ -335,7 +335,7 @@ const question: Definition = {
   }),
   run: async ({ session, stage }) => {
     const summary = await stage('question', {
-      turns: [{ prompt: '[aang:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.' }],
+      turns: [{ prompt: '[catacomb:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.' }],
       decisions: [{ tool: 'AskUserQuestion', behavior: 'allow', delayMs: 1500, answer: 0 }, { tool: 'Write', behavior: 'allow', delayMs: 500 }],
     })
     const asked = present(summary.decisions.find(({ tool }) => tool === 'AskUserQuestion'), 'The session asked no question')
@@ -363,7 +363,7 @@ const interrupt: Definition = {
   run: async ({ session, stage }) => {
     const started = Date.now()
     const summary = await stage('interrupt', {
-      turns: [{ prompt: '[aang:interrupt] Run `sleep 30` with the Bash tool.', interrupt: { tool: 'Bash', delayMs: 2000 } }],
+      turns: [{ prompt: '[catacomb:interrupt] Run `sleep 30` with the Bash tool.', interrupt: { tool: 'Bash', delayMs: 2000 } }],
     })
     check(Date.now() - started < 28_000, 'The sleep was not interrupted')
     const sleep = present(summary.interrupts[0], 'The host sent no interrupt')
@@ -385,7 +385,7 @@ const reconnect: Definition = {
   name: 'reconnect',
   expectedFacts: [
     'One session runs two turns separated by a 5 s pause in the same engine process',
-    'The aang daemon is restarted at the daemon-restart label between the turns',
+    'The catacomb daemon is restarted at the daemon-restart label between the turns',
     'The second turn appends to the same session after the restart',
   ],
   script: () => ({ ...reconnectBefore.script, ...reconnectAfter.script }),

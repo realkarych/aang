@@ -10,9 +10,9 @@ import {
   type FactId,
   type FactOf,
   type RunId,
-} from '@aang/contract'
-import { canonicalJson, contentHash } from '@aang/contract/ids'
-import type { Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { canonicalJson, contentHash } from '@catacomb/contract/ids'
+import type { Transaction } from '@catacomb/store'
 import { resolvedMasks } from '../checks/catalog.js'
 import type { RunChecks } from '../checks/history.js'
 import { applyChangeSet, type ModelChangeDraft } from '../model/journal.js'

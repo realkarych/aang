@@ -11,8 +11,8 @@ import {
   type SupportStatus,
   supportKeyText,
   supportRowOf,
-} from '@aang/contract'
-import { driverOf, type RecordingManifest, scenarios as catalog, supportsOs } from '@aang/record'
+} from '@catacomb/contract'
+import { driverOf, type RecordingManifest, scenarios as catalog, supportsOs } from '@catacomb/record'
 import { byKeyText, checklistSurfaces, OwnerChecklistName, sameKey, type SupportVerification } from './verification.js'
 
 export interface RecordingOutcome {

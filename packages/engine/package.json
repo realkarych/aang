@@ -1,5 +1,5 @@
 {
-  "name": "@aang/engine",
+  "name": "@catacomb/engine",
   "private": true,
   "type": "module",
   "exports": {
@@ -9,15 +9,15 @@
     }
   },
   "dependencies": {
-    "@aang/contract": "workspace:*",
-    "@aang/store": "workspace:*",
+    "@catacomb/contract": "workspace:*",
+    "@catacomb/store": "workspace:*",
     "smol-toml": "^1.9.0",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
-    "@aang/adapter-claude": "workspace:*",
-    "@aang/adapter-codex": "workspace:*",
-    "@aang/collector": "workspace:*",
-    "@aang/testkit": "workspace:*"
+    "@catacomb/adapter-claude": "workspace:*",
+    "@catacomb/adapter-codex": "workspace:*",
+    "@catacomb/collector": "workspace:*",
+    "@catacomb/testkit": "workspace:*"
   }
 }

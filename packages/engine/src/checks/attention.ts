@@ -10,9 +10,9 @@ import {
   type ModelEntity,
   ModelVersion,
   type RunId,
-} from '@aang/contract'
-import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
-import type { Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { canonicalJson, contentHash, objectId } from '@catacomb/contract/ids'
+import type { Transaction } from '@catacomb/store'
 import { applyChangeSet, type AttentionItemDraft, type ModelChangeDraft } from '../model/journal.js'
 import type { Contract } from './catalog.js'
 import type { RunChecks } from './history.js'

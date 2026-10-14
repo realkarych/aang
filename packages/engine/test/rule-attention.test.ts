@@ -1,6 +1,6 @@
-import { type Basis, type JsonValue, ObserverCallId } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
-import { applyObserverResponse } from '@aang/engine'
+import { type Basis, type JsonValue, ObserverCallId } from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
+import { applyObserverResponse } from '@catacomb/engine'
 import { expect, onTestFinished, test } from 'vitest'
 import {
   actionId,
@@ -103,7 +103,7 @@ test('links a request only to an unfinished call of the same agent with the same
       hooks.pre('twin-b.evt', 'twin-b', ms(11)),
       hooks.request('twin.evt', ms(12)),
       hooks.request('unmatched.evt', ms(13), { command: 'rm -rf build' }),
-      hooks.request('tool.evt', ms(14), 'AANG-6', { tool_name: 'mcp__tracker__close' }),
+      hooks.request('tool.evt', ms(14), 'CATACOMB-6', { tool_name: 'mcp__tracker__close' }),
     ),
   )
   expect(itemOf(store, key, 'tool.evt')).toMatchObject({ action: null, text: 'mcp__tracker__close' })

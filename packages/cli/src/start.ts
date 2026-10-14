@@ -1,9 +1,9 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { open } from 'node:fs/promises'
 import { resolve as absolutePath } from 'node:path'
-import { Listener } from '@aang/contract'
-import { type ConfigEnvironment, loadConfig, processEnvironment } from '@aang/contract/config-file'
-import { type AangHomePaths, aangHomePaths } from '@aang/contract/home'
+import { Listener } from '@catacomb/contract'
+import { type ConfigEnvironment, loadConfig, processEnvironment } from '@catacomb/contract/config-file'
+import { type CatacombHomePaths, catacombHomePaths } from '@catacomb/contract/home'
 import { z } from 'zod'
 import { daemonUrl } from './daemon-process.js'
 import { ensureUiToken, preparePrivateHome } from './home.js'
@@ -44,7 +44,7 @@ const readyTimeoutMs = 60_000
 
 const bindArguments = (bind: string | null): string[] => (bind === null ? [] : ['--bind', bind])
 
-const pathVariables = ['AANG_HOME', 'CLAUDE_CONFIG_DIR', 'CODEX_HOME'] as const
+const pathVariables = ['CATACOMB_HOME', 'CLAUDE_CONFIG_DIR', 'CODEX_HOME'] as const
 
 const daemonEnvironment = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => ({
   ...env,
@@ -56,9 +56,9 @@ const daemonEnvironment = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => ({
   ),
 })
 
-const prepareHome = async (environment: ConfigEnvironment): Promise<AangHomePaths> => {
-  const { aangHome } = await loadConfig(environment)
-  const paths = aangHomePaths(aangHome)
+const prepareHome = async (environment: ConfigEnvironment): Promise<CatacombHomePaths> => {
+  const { catacombHome } = await loadConfig(environment)
+  const paths = catacombHomePaths(catacombHome)
   await preparePrivateHome(paths)
   await ensureUiToken(paths)
   return paths
@@ -95,8 +95,8 @@ const detach = (child: ChildProcess): void => {
 }
 
 const announce = (output: Output, ready: DaemonReady, mode: string): void => {
-  output.out(`aang ${mode}: pid ${String(ready.pid)}, ${daemonUrl(ready.api)}`)
-  output.out('Run `aang open` to sign in to the UI.')
+  output.out(`catacomb ${mode}: pid ${String(ready.pid)}, ${daemonUrl(ready.api)}`)
+  output.out('Run `catacomb open` to sign in to the UI.')
 }
 
 export const startInBackground = async (program: DaemonProgram, bind: string | null, output: Output): Promise<number> => {
@@ -121,16 +121,16 @@ export const startInBackground = async (program: DaemonProgram, bind: string | n
       announce(output, outcome, 'started')
       return 0
     case 'failed':
-      output.error(`aang start: ${outcome.message}`)
+      output.error(`catacomb start: ${outcome.message}`)
       return 1
     case 'exited':
       output.error(
-        `aang start: the daemon exited (${String(outcome.code ?? outcome.signal)}) before it was ready; see ${paths.daemonLog}`,
+        `catacomb start: the daemon exited (${String(outcome.code ?? outcome.signal)}) before it was ready; see ${paths.daemonLog}`,
       )
       return 1
     case 'timeout':
       output.error(
-        `aang start: the daemon did not report readiness within ${String(readyTimeoutMs / 1000)} s; see ${paths.daemonLog} and \`aang status\``,
+        `catacomb start: the daemon did not report readiness within ${String(readyTimeoutMs / 1000)} s; see ${paths.daemonLog} and \`catacomb status\``,
       )
       return 1
   }
@@ -150,7 +150,7 @@ const abortOnSignals = (controller: AbortController): (() => void) => {
 
 const stoppedBeforeReady = (reason: string): string =>
   reason === 'stop_marker'
-    ? '`aang stop` was requested while the daemon was starting'
+    ? '`catacomb stop` was requested while the daemon was starting'
     : `the daemon stopped (${reason}) before it was ready`
 
 export const startInForeground = async (program: DaemonProgram, bind: string | null, output: Output): Promise<number> => {
@@ -167,7 +167,7 @@ export const startInForeground = async (program: DaemonProgram, bind: string | n
         announce(output, ready, 'running in the foreground')
       },
     })
-    output.out(`aang stopped: ${reason}`)
+    output.out(`catacomb stopped: ${reason}`)
     return 0
   } finally {
     release()
@@ -199,7 +199,7 @@ export const runDaemonProcess = async (program: DaemonProgram, bind: string | nu
       signal: controller.signal,
       onReady: (info) => {
         readiness.reported = true
-        output.out(`aang daemon ${String(info.pid)} listening on ${daemonUrl(info.api)}`)
+        output.out(`catacomb daemon ${String(info.pid)} listening on ${daemonUrl(info.api)}`)
         void sendToParent({ type: 'ready', pid: info.pid, api: info.api })
       },
     })
@@ -207,10 +207,10 @@ export const runDaemonProcess = async (program: DaemonProgram, bind: string | nu
       await sendToParent({ type: 'failed', message: stoppedBeforeReady(reason) })
       return 1
     }
-    output.out(`aang daemon ${String(process.pid)} stopped: ${reason}`)
+    output.out(`catacomb daemon ${String(process.pid)} stopped: ${reason}`)
     return 0
   } catch (error) {
-    output.error(`aang daemon: ${describeError(error)}`)
+    output.error(`catacomb daemon: ${describeError(error)}`)
     await sendToParent({ type: 'failed', message: describeError(error) })
     return 1
   } finally {

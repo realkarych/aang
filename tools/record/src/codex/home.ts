@@ -35,7 +35,7 @@ const tomlString = (value: string): string => JSON.stringify(value.replaceAll('\
 
 export const writeCodexHome = async (codexHome: string, options: CodexHomeOptions): Promise<void> => {
   await writeFile(join(codexHome, 'config.toml'), [
-    'model_provider = "aang_stub"',
+    'model_provider = "catacomb_stub"',
     'approval_policy = "never"',
     'sandbox_mode = "danger-full-access"',
     'check_for_update_on_startup = false',
@@ -43,8 +43,8 @@ export const writeCodexHome = async (codexHome: string, options: CodexHomeOption
     '[features]',
     'plugins = false',
     '',
-    '[model_providers.aang_stub]',
-    'name = "aang stub"',
+    '[model_providers.catacomb_stub]',
+    'name = "catacomb stub"',
     `base_url = ${tomlString(options.provider)}`,
     'wire_api = "responses"',
     'requires_openai_auth = false',

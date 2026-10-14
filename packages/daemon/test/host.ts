@@ -1,14 +1,14 @@
 import { fileURLToPath } from 'node:url'
-import { runDaemon } from '@aang/daemon'
+import { runDaemon } from '@catacomb/daemon'
 
-const [aangHome, homedir] = process.argv.slice(2)
-if (aangHome === undefined || homedir === undefined) {
-  throw new Error('usage: host.ts <AANG_HOME> <HOME>')
+const [catacombHome, homedir] = process.argv.slice(2)
+if (catacombHome === undefined || homedir === undefined) {
+  throw new Error('usage: host.ts <CATACOMB_HOME> <HOME>')
 }
 
 await runDaemon({
   version: '0.0.0-test',
-  environment: { env: { AANG_HOME: aangHome }, homedir },
+  environment: { env: { CATACOMB_HOME: catacombHome }, homedir },
   bind: null,
   staticRoot: null,
   supportMatrix: fileURLToPath(new URL('../../../support/matrix.json', import.meta.url)),

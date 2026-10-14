@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs'
-import { codexAdapter } from '@aang/adapter-codex'
-import { CollectedRecord, EpochNs, type JsonValue, type RecordOwner, type SpoolEnv } from '@aang/contract'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { CollectedRecord, EpochNs, type JsonValue, type RecordOwner, type SpoolEnv } from '@catacomb/contract'
 import { describe, expect, test } from 'vitest'
 import {
   realRollout,
@@ -62,15 +62,15 @@ describe('the owner of a rollout line', () => {
       new Set([JSON.stringify(session(realRoot))]),
     )
     expect(owners.flatMap((owner, index) => (owner?.cwd === null ? [] : [[index, owner?.cwd, owner?.start]]))).toEqual([
-      [0, '/tmp/aang-spike/codex-cli/run1', true],
-      [7, '/tmp/aang-spike/codex-cli/run1', false],
-      [33, '/tmp/aang-spike/codex-cli/run1', false],
+      [0, '/tmp/catacomb-spike/codex-cli/run1', true],
+      [7, '/tmp/catacomb-spike/codex-cli/run1', false],
+      [33, '/tmp/catacomb-spike/codex-cli/run1', false],
     ])
   })
 
   test.for([
-    ['session_meta.subagent.thread_spawn.mock.json', spawnRoot, '/tmp/aang-spike/codex-cli/m_spawn'],
-    ['session_meta.guardian.mock.json', guardianRoot, '/tmp/aang-spike/codex-cli/m_escalate3'],
+    ['session_meta.subagent.thread_spawn.mock.json', spawnRoot, '/tmp/catacomb-spike/codex-cli/m_spawn'],
+    ['session_meta.guardian.mock.json', guardianRoot, '/tmp/catacomb-spike/codex-cli/m_escalate3'],
   ])('of a child thread %s belongs to its root session and does not open it', ([name, root, cwd]) => {
     const line = sampleLine(name ?? '')
 
@@ -84,8 +84,8 @@ describe('the owner of a rollout line', () => {
   })
 
   test.for([
-    ['session_meta.exec.thread_source-aang-observer.mock.json', {}],
-    ['session_meta.exec.real.json', { originator: 'aang_observer' }],
+    ['session_meta.exec.thread_source-catacomb-observer.mock.json', {}],
+    ['session_meta.exec.real.json', { originator: 'catacomb_observer' }],
   ] as const)('carries the observer marker of %s', ([name, changes]) => {
     const sample = JSON.parse(sampleLine(name)) as { readonly payload: JsonObject }
     const line = JSON.stringify({ ...sample, payload: { ...sample.payload, ...changes } })
@@ -118,9 +118,9 @@ describe('the owner of a rollout line', () => {
   })
 
   test.for([
-    [{ thread_source: 'aang-observer', cwd: 42 }, null],
-    [{ originator: 'aang_observer', thread_source: null }, '/tmp/aang-spike/codex-cli/run1'],
-    [{ originator: null, thread_source: 'aang-observer' }, '/tmp/aang-spike/codex-cli/run1'],
+    [{ thread_source: 'catacomb-observer', cwd: 42 }, null],
+    [{ originator: 'catacomb_observer', thread_source: null }, '/tmp/catacomb-spike/codex-cli/run1'],
+    [{ originator: null, thread_source: 'catacomb-observer' }, '/tmp/catacomb-spike/codex-cli/run1'],
   ] as const)('of a session_meta line keeps every valid mark beside a malformed one: %j', ([changes, cwd]) => {
     const line = withPayload('session_meta.exec.real.json', changes)
 
@@ -166,7 +166,7 @@ describe('the owner of a hook event', () => {
   test('opens the session on a cleared start and carries the observer originator', () => {
     const cleared = { ...stdinOf('SessionStart.startup.json'), source: 'clear' }
 
-    expect(ownerOfHook(cleared, { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' })).toMatchObject({
+    expect(ownerOfHook(cleared, { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'catacomb_observer' })).toMatchObject({
       start: true,
       observer: true,
     })
@@ -189,7 +189,7 @@ describe('the owner of a hook event', () => {
   test('keeps its session and observer when the cwd is malformed', () => {
     const stdin = stdinOf('PreToolUse.Bash.json')
 
-    expect(ownerOfHook({ ...stdin, cwd: 42 }, { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' })).toEqual({
+    expect(ownerOfHook({ ...stdin, cwd: 42 }, { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'catacomb_observer' })).toEqual({
       session: session(typeof stdin['session_id'] === 'string' ? stdin['session_id'] : ''),
       thread: 'root',
       cwd: null,
@@ -218,7 +218,7 @@ describe('the owner of a hook event', () => {
   test('opens the session on a valid SessionStart with a malformed cwd', () => {
     const start = stdinOf('SessionStart.startup.json')
 
-    expect(ownerOfHook({ ...start, cwd: 42 }, { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' })).toMatchObject({
+    expect(ownerOfHook({ ...start, cwd: 42 }, { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'catacomb_observer' })).toMatchObject({
       thread: 'root',
       cwd: null,
       start: true,

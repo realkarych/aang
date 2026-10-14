@@ -1,30 +1,30 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { defaultConfig } from '@aang/contract'
-import { ConfigError, configFileName, loadConfig, type ConfigEnvironment } from '@aang/contract/config-file'
+import { defaultConfig } from '@catacomb/contract'
+import { ConfigError, configFileName, loadConfig, type ConfigEnvironment } from '@catacomb/contract/config-file'
 import { describe, test, type TestContext } from 'vitest'
 
 const temporaryHome = async (onTestFinished: TestContext['onTestFinished']): Promise<string> => {
-  const home = await mkdtemp(join(tmpdir(), 'aang-config-'))
+  const home = await mkdtemp(join(tmpdir(), 'catacomb-config-'))
   onTestFinished(() => rm(home, { recursive: true, force: true }))
   return home
 }
 
-const writeConfig = async (aangHome: string, content: string): Promise<string> => {
-  await mkdir(aangHome, { recursive: true })
-  const path = join(aangHome, configFileName)
+const writeConfig = async (catacombHome: string, content: string): Promise<string> => {
+  await mkdir(catacombHome, { recursive: true })
+  const path = join(catacombHome, configFileName)
   await writeFile(path, content)
   return path
 }
 
-describe.concurrent('config.json is loaded from AANG_HOME', () => {
+describe.concurrent('config.json is loaded from CATACOMB_HOME', () => {
   test('without a config file the defaults apply under the home directory', async ({ expect, onTestFinished }) => {
     const home = await temporaryHome(onTestFinished)
 
     expect(await loadConfig({ env: {}, homedir: home })).toEqual({
-      aangHome: join(home, '.aang'),
-      path: join(home, '.aang', configFileName),
+      catacombHome: join(home, '.catacomb'),
+      path: join(home, '.catacomb', configFileName),
       exists: false,
       config: defaultConfig(),
       runtimeRoots: { claude: join(home, '.claude'), codex: join(home, '.codex') },
@@ -33,11 +33,11 @@ describe.concurrent('config.json is loaded from AANG_HOME', () => {
 
   test('the default config written to disk loads back unchanged', async ({ expect, onTestFinished }) => {
     const home = await temporaryHome(onTestFinished)
-    const aangHome = join(home, 'custom aang')
-    const path = await writeConfig(aangHome, JSON.stringify(defaultConfig(), null, 2))
+    const catacombHome = join(home, 'custom catacomb')
+    const path = await writeConfig(catacombHome, JSON.stringify(defaultConfig(), null, 2))
 
-    expect(await loadConfig({ env: { AANG_HOME: aangHome }, homedir: home })).toMatchObject({
-      aangHome,
+    expect(await loadConfig({ env: { CATACOMB_HOME: catacombHome }, homedir: home })).toMatchObject({
+      catacombHome,
       path,
       exists: true,
       config: defaultConfig(),
@@ -46,10 +46,10 @@ describe.concurrent('config.json is loaded from AANG_HOME', () => {
 
   test('a partial config keeps the defaults of everything it omits', async ({ expect, onTestFinished }) => {
     const home = await temporaryHome(onTestFinished)
-    const aangHome = join(home, '.aang')
+    const catacombHome = join(home, '.catacomb')
     const project = join(home, 'projects', 'shop')
     await writeConfig(
-      aangHome,
+      catacombHome,
       JSON.stringify({
         watch: {
           roots: [
@@ -97,14 +97,14 @@ describe.concurrent('config.json is loaded from AANG_HOME', () => {
 
   test('an unreadable config is an error rather than silent defaults', async ({ expect, onTestFinished }) => {
     const home = await temporaryHome(onTestFinished)
-    await mkdir(join(home, '.aang', configFileName), { recursive: true })
+    await mkdir(join(home, '.catacomb', configFileName), { recursive: true })
 
     await expect(loadConfig({ env: {}, homedir: home })).rejects.toMatchObject({ code: 'EISDIR' })
   })
 
   test('a byte order mark left by Windows editors is accepted', async ({ expect, onTestFinished }) => {
     const home = await temporaryHome(onTestFinished)
-    await writeConfig(join(home, '.aang'), `\uFEFF${JSON.stringify({ api: { port: 0 } })}`)
+    await writeConfig(join(home, '.catacomb'), `\uFEFF${JSON.stringify({ api: { port: 0 } })}`)
 
     const { config } = await loadConfig({ env: {}, homedir: home })
 
@@ -125,7 +125,7 @@ describe.concurrent('config.json is loaded from AANG_HOME', () => {
   test('runtime roots set in the config win over the environment', async ({ expect, onTestFinished }) => {
     const home = await temporaryHome(onTestFinished)
     const codexHome = join(home, 'codex from config')
-    await writeConfig(join(home, '.aang'), JSON.stringify({ runtimes: { codex: { home: codexHome } } }))
+    await writeConfig(join(home, '.catacomb'), JSON.stringify({ runtimes: { codex: { home: codexHome } } }))
     const environment: ConfigEnvironment = { env: { CODEX_HOME: join(home, 'codex from env') }, homedir: home }
 
     expect((await loadConfig(environment)).runtimeRoots).toEqual({ claude: join(home, '.claude'), codex: codexHome })
@@ -152,7 +152,7 @@ const rejected = [
 describe.concurrent('an invalid config.json is reported with its path and the offending field', () => {
   test.for(rejected)('$name', async ({ content, reason }, { expect, onTestFinished }) => {
     const home = await temporaryHome(onTestFinished)
-    const path = await writeConfig(join(home, '.aang'), content)
+    const path = await writeConfig(join(home, '.catacomb'), content)
 
     const loading = loadConfig({ env: {}, homedir: home })
 

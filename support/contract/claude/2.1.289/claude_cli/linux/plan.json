@@ -288,7 +288,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "36d18d957c905b3214b39d1065f95ca01bc2fb3394801ab3e0a869ff8573e897",
+      "redelivery_key": "d8282f476ebcbf8441920aafeebd85a6819c50e840c7f30107ea21b2340e1c42",
       "payload": {}
     },
     {
@@ -298,7 +298,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_0_0"
+        "call": "toolu_catacomb_plan_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -312,7 +312,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_0_0",
+        "call_id": "toolu_catacomb_plan_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -323,7 +323,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "6e77e8d35cd5c5612112a90833314dde350e9832a8b62388705b4cdb9e0cbb53",
+      "redelivery_key": "4d7ff3be96df5b942e4af652b5eebd2d802a16a201f93ab3560816772d048ab7",
       "payload": {
         "tool": "TaskCreate",
         "action_kind": "plan",
@@ -343,7 +343,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_0_0"
+        "call": "toolu_catacomb_plan_0_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -357,7 +357,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_0_0",
+        "call_id": "toolu_catacomb_plan_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -368,7 +368,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "6e77e8d35cd5c5612112a90833314dde350e9832a8b62388705b4cdb9e0cbb53",
+      "redelivery_key": "4d7ff3be96df5b942e4af652b5eebd2d802a16a201f93ab3560816772d048ab7",
       "payload": {
         "source": "task_tool",
         "text": "Create checklist.txt with both steps",
@@ -432,7 +432,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_0_0"
+        "call": "toolu_catacomb_plan_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -446,7 +446,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_0_0",
+        "call_id": "toolu_catacomb_plan_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -457,7 +457,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "69ba580009c00670a39703bcb2cd6e3383bbc639092520eac4eb0dd95dd9f6aa",
+      "redelivery_key": "478b5b53aa76938381414c716dea806fc0b4a3e0e78836eb7ba83c1ad3abc050",
       "payload": {
         "outcome": "ok",
         "output": null,
@@ -506,7 +506,7 @@
       "redelivery_key": null,
       "payload": {
         "operation": "enqueue",
-        "content": "[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate."
+        "content": "[catacomb:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate."
       }
     },
     {
@@ -580,7 +580,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
+        "text": "[catacomb:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
         "origin": "human",
         "origin_raw": "sdk"
       }
@@ -740,7 +740,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_0_0"
+        "call": "toolu_catacomb_plan_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -753,8 +753,8 @@
         "prompt_id": null,
         "record_uuid": "11fa7814-2337-4122-80cf-b3154cb223fd",
         "parent_uuid": "f5b77c77-0775-416c-b4d6-325cf634b312",
-        "message_id": "msg_aang_1",
-        "call_id": "toolu_aang_plan_0_0",
+        "message_id": "msg_catacomb_1",
+        "call_id": "toolu_catacomb_plan_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -785,7 +785,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_0_0"
+        "call": "toolu_catacomb_plan_0_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -798,8 +798,8 @@
         "prompt_id": null,
         "record_uuid": "11fa7814-2337-4122-80cf-b3154cb223fd",
         "parent_uuid": "f5b77c77-0775-416c-b4d6-325cf634b312",
-        "message_id": "msg_aang_1",
-        "call_id": "toolu_aang_plan_0_0",
+        "message_id": "msg_catacomb_1",
+        "call_id": "toolu_catacomb_plan_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -830,7 +830,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -843,7 +843,7 @@
         "prompt_id": null,
         "record_uuid": "11fa7814-2337-4122-80cf-b3154cb223fd",
         "parent_uuid": "f5b77c77-0775-416c-b4d6-325cf634b312",
-        "message_id": "msg_aang_1",
+        "message_id": "msg_catacomb_1",
         "call_id": null,
         "ordinal": null
       },
@@ -900,11 +900,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "2eccef0138c6ea7bad667d96f410437a0d31741f5a46992675586d5bbb4ffaed",
+      "redelivery_key": "a1c3eb877cd55325c530a31a0e2c1da337c5d5996a5b163c379150283470fc13",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_plan_0_0",
+            "call_id": "toolu_catacomb_plan_0_0",
             "tool": "TaskCreate",
             "response": "Task #1 created successfully: Write checklist"
           }
@@ -918,7 +918,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_1_0"
+        "call": "toolu_catacomb_plan_1_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -932,7 +932,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_1_0",
+        "call_id": "toolu_catacomb_plan_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -943,7 +943,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "da20baab79838c96faf60299c4f33d0e566e9f92efee577848670033445ba7d2",
+      "redelivery_key": "89eb12c9154e07df08bb03158a2184cccf0a7187dfcb6af985cad01d83c8a3dd",
       "payload": {
         "tool": "TaskCreate",
         "action_kind": "plan",
@@ -963,7 +963,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_1_0"
+        "call": "toolu_catacomb_plan_1_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -977,7 +977,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_1_0",
+        "call_id": "toolu_catacomb_plan_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -988,7 +988,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "da20baab79838c96faf60299c4f33d0e566e9f92efee577848670033445ba7d2",
+      "redelivery_key": "89eb12c9154e07df08bb03158a2184cccf0a7187dfcb6af985cad01d83c8a3dd",
       "payload": {
         "source": "task_tool",
         "text": "Check that checklist.txt lists both steps",
@@ -1052,7 +1052,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_1_0"
+        "call": "toolu_catacomb_plan_1_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1066,7 +1066,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_1_0",
+        "call_id": "toolu_catacomb_plan_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1077,7 +1077,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "1be6376c532d4503d59511338f4f7316718cda242d1980f9b25285200f1f4abe",
+      "redelivery_key": "81711f3b63265da302f7c0c157324c829679c7cf92a98d584b4aea200f1429d2",
       "payload": {
         "outcome": "ok",
         "output": null,
@@ -1123,11 +1123,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "02529ca3204ef39e48ebbe201b99a0a2215353d0be2bae256d340d872d426b02",
+      "redelivery_key": "ba6a0c063f3243a448428908486e21fc91faf2b82da86fba88d148df6e74fdd2",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_plan_1_0",
+            "call_id": "toolu_catacomb_plan_1_0",
             "tool": "TaskCreate",
             "response": "Task #2 created successfully: Review checklist"
           }
@@ -1141,7 +1141,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_2_0"
+        "call": "toolu_catacomb_plan_2_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1155,7 +1155,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_2_0",
+        "call_id": "toolu_catacomb_plan_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1166,12 +1166,12 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "84b0a04aaaa88923f7fd191d3ae1b6209460b0559ae95d1bc8f877fd87cede3f",
+      "redelivery_key": "4a3710a12cef34d4d6ee54d7f838d9276c45245f6b30a1a7f70b06b5ecf8e93d",
       "payload": {
         "tool": "Write",
         "action_kind": "file_write",
         "input": {
-          "file_path": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md",
+          "file_path": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md",
           "content": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n"
         },
         "description": null,
@@ -1185,7 +1185,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_2_0"
+        "call": "toolu_catacomb_plan_2_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1199,7 +1199,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_2_0",
+        "call_id": "toolu_catacomb_plan_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1210,7 +1210,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "8bcbf8069277b2fe9211d78cdfaf766509f4ec47db538ed1d66afee7dbd9d976",
+      "redelivery_key": "9619870b6d9e8ee62985a940e83806ea5f9c8e908c623bad95c3569bf5182224",
       "payload": {
         "outcome": "ok",
         "output": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
@@ -1219,7 +1219,7 @@
         "duration_ms": 4,
         "result": {
           "type": "create",
-          "filePath": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md",
+          "filePath": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md",
           "content": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
           "structuredPatch": [],
           "originalFile": null,
@@ -1258,13 +1258,13 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "7b2e3607a249eaa0f1bb1c2d84d495ee796e07ac745f22f426459f2dd5059b76",
+      "redelivery_key": "5de162326de96759d76008ff74190e65da432c2567065492f324bb4c0eab38e9",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_plan_2_0",
+            "call_id": "toolu_catacomb_plan_2_0",
             "tool": "Write",
-            "response": "File created successfully at: /home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md (file state is current in your context — no need to Read it back)"
+            "response": "File created successfully at: /home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md (file state is current in your context — no need to Read it back)"
           }
         ]
       }
@@ -1276,7 +1276,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_3_0"
+        "call": "toolu_catacomb_plan_3_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1290,7 +1290,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_3_0",
+        "call_id": "toolu_catacomb_plan_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1301,13 +1301,13 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "0ee18f58f29840717709eb661f40fffc8b5d5279b2ba8f44e853f36fbaf0722b",
+      "redelivery_key": "bd15fc4b4a0a65419885341bf6f34f80b9ee674db0aad0c77a7171276d29912f",
       "payload": {
         "tool": "ExitPlanMode",
         "action_kind": "plan",
         "input": {
           "plan": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
-          "planFilePath": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md"
+          "planFilePath": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md"
         },
         "description": null,
         "container_call": null
@@ -1320,7 +1320,7 @@
         "kind": "question",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "question": "toolu_aang_plan_3_0"
+        "question": "toolu_catacomb_plan_3_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -1334,7 +1334,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_3_0",
+        "call_id": "toolu_catacomb_plan_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1345,7 +1345,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "0ee18f58f29840717709eb661f40fffc8b5d5279b2ba8f44e853f36fbaf0722b",
+      "redelivery_key": "bd15fc4b4a0a65419885341bf6f34f80b9ee674db0aad0c77a7171276d29912f",
       "payload": {
         "source": "exit_plan_mode",
         "blocking": true,
@@ -1365,7 +1365,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_3_0"
+        "call": "toolu_catacomb_plan_3_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -1379,7 +1379,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_3_0",
+        "call_id": "toolu_catacomb_plan_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1390,7 +1390,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "0ee18f58f29840717709eb661f40fffc8b5d5279b2ba8f44e853f36fbaf0722b",
+      "redelivery_key": "bd15fc4b4a0a65419885341bf6f34f80b9ee674db0aad0c77a7171276d29912f",
       "payload": {
         "source": "exit_plan_mode",
         "text": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
@@ -1428,12 +1428,12 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "07ae0deb69cf2b179ddce827b97f4ed2e9986867e7a90efe97b5d4b745595df7",
+      "redelivery_key": "108062cd10dfeaf320aa92930ad5ff967ed2000fe8f750ae808b7215623fbdd9",
       "payload": {
         "tool": "ExitPlanMode",
         "input": {
           "plan": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
-          "planFilePath": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md"
+          "planFilePath": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md"
         }
       }
     },
@@ -1444,7 +1444,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_0_0"
+        "call": "toolu_catacomb_plan_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1458,7 +1458,7 @@
         "record_uuid": "b4f024da-6f13-4157-8dcd-38e96258de61",
         "parent_uuid": "11fa7814-2337-4122-80cf-b3154cb223fd",
         "message_id": null,
-        "call_id": "toolu_aang_plan_0_0",
+        "call_id": "toolu_catacomb_plan_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1491,7 +1491,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_1_0"
+        "call": "toolu_catacomb_plan_1_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1504,8 +1504,8 @@
         "prompt_id": null,
         "record_uuid": "2ba71eec-25b0-4d30-9ff1-97e612a04b59",
         "parent_uuid": "d8e67c7f-e3c4-487a-ba53-bbb2ff63ec56",
-        "message_id": "msg_aang_2",
-        "call_id": "toolu_aang_plan_1_0",
+        "message_id": "msg_catacomb_2",
+        "call_id": "toolu_catacomb_plan_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1536,7 +1536,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_1_0"
+        "call": "toolu_catacomb_plan_1_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -1549,8 +1549,8 @@
         "prompt_id": null,
         "record_uuid": "2ba71eec-25b0-4d30-9ff1-97e612a04b59",
         "parent_uuid": "d8e67c7f-e3c4-487a-ba53-bbb2ff63ec56",
-        "message_id": "msg_aang_2",
-        "call_id": "toolu_aang_plan_1_0",
+        "message_id": "msg_catacomb_2",
+        "call_id": "toolu_catacomb_plan_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1581,7 +1581,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1594,7 +1594,7 @@
         "prompt_id": null,
         "record_uuid": "2ba71eec-25b0-4d30-9ff1-97e612a04b59",
         "parent_uuid": "d8e67c7f-e3c4-487a-ba53-bbb2ff63ec56",
-        "message_id": "msg_aang_2",
+        "message_id": "msg_catacomb_2",
         "call_id": null,
         "ordinal": null
       },
@@ -1627,7 +1627,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_1_0"
+        "call": "toolu_catacomb_plan_1_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1641,7 +1641,7 @@
         "record_uuid": "864b8d9d-908c-45f6-b100-b4cfb8b70833",
         "parent_uuid": "2ba71eec-25b0-4d30-9ff1-97e612a04b59",
         "message_id": null,
-        "call_id": "toolu_aang_plan_1_0",
+        "call_id": "toolu_catacomb_plan_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1674,7 +1674,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_2_0"
+        "call": "toolu_catacomb_plan_2_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1687,8 +1687,8 @@
         "prompt_id": null,
         "record_uuid": "51754060-6e75-4914-9a6c-e83310513533",
         "parent_uuid": "6d19ca71-6442-4dbc-b3e9-88af40f11341",
-        "message_id": "msg_aang_3",
-        "call_id": "toolu_aang_plan_2_0",
+        "message_id": "msg_catacomb_3",
+        "call_id": "toolu_catacomb_plan_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1704,7 +1704,7 @@
         "tool": "Write",
         "action_kind": "file_write",
         "input": {
-          "file_path": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md",
+          "file_path": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md",
           "content": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n"
         },
         "description": null,
@@ -1718,7 +1718,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_3"
+        "usage": "msg_catacomb_3"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1731,7 +1731,7 @@
         "prompt_id": null,
         "record_uuid": "51754060-6e75-4914-9a6c-e83310513533",
         "parent_uuid": "6d19ca71-6442-4dbc-b3e9-88af40f11341",
-        "message_id": "msg_aang_3",
+        "message_id": "msg_catacomb_3",
         "call_id": null,
         "ordinal": null
       },
@@ -1764,7 +1764,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_2_0"
+        "call": "toolu_catacomb_plan_2_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1778,7 +1778,7 @@
         "record_uuid": "c168bc68-08ce-4dc3-8ac2-4e08a4b699de",
         "parent_uuid": "51754060-6e75-4914-9a6c-e83310513533",
         "message_id": null,
-        "call_id": "toolu_aang_plan_2_0",
+        "call_id": "toolu_catacomb_plan_2_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1792,13 +1792,13 @@
       "redelivery_key": null,
       "payload": {
         "outcome": "ok",
-        "output": "File created successfully at: /home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md (file state is current in your context — no need to Read it back)",
+        "output": "File created successfully at: /home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md (file state is current in your context — no need to Read it back)",
         "persisted_output_path": null,
         "exit_code": null,
         "duration_ms": null,
         "result": {
           "type": "create",
-          "filePath": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md",
+          "filePath": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md",
           "content": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
           "structuredPatch": [],
           "originalFile": null,
@@ -1813,7 +1813,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_3_0"
+        "call": "toolu_catacomb_plan_3_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1826,8 +1826,8 @@
         "prompt_id": null,
         "record_uuid": "371e1452-4ca2-472f-9ec4-4f5596b41956",
         "parent_uuid": "9ab880c2-6a3a-4135-b911-2483b5ada9e4",
-        "message_id": "msg_aang_4",
-        "call_id": "toolu_aang_plan_3_0",
+        "message_id": "msg_catacomb_4",
+        "call_id": "toolu_catacomb_plan_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1844,7 +1844,7 @@
         "action_kind": "plan",
         "input": {
           "plan": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
-          "planFilePath": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md"
+          "planFilePath": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md"
         },
         "description": null,
         "container_call": null
@@ -1857,7 +1857,7 @@
         "kind": "question",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "question": "toolu_aang_plan_3_0"
+        "question": "toolu_catacomb_plan_3_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -1870,8 +1870,8 @@
         "prompt_id": null,
         "record_uuid": "371e1452-4ca2-472f-9ec4-4f5596b41956",
         "parent_uuid": "9ab880c2-6a3a-4135-b911-2483b5ada9e4",
-        "message_id": "msg_aang_4",
-        "call_id": "toolu_aang_plan_3_0",
+        "message_id": "msg_catacomb_4",
+        "call_id": "toolu_catacomb_plan_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1902,7 +1902,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_3_0"
+        "call": "toolu_catacomb_plan_3_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -1915,8 +1915,8 @@
         "prompt_id": null,
         "record_uuid": "371e1452-4ca2-472f-9ec4-4f5596b41956",
         "parent_uuid": "9ab880c2-6a3a-4135-b911-2483b5ada9e4",
-        "message_id": "msg_aang_4",
-        "call_id": "toolu_aang_plan_3_0",
+        "message_id": "msg_catacomb_4",
+        "call_id": "toolu_catacomb_plan_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1941,7 +1941,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_4"
+        "usage": "msg_catacomb_4"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1954,7 +1954,7 @@
         "prompt_id": null,
         "record_uuid": "371e1452-4ca2-472f-9ec4-4f5596b41956",
         "parent_uuid": "9ab880c2-6a3a-4135-b911-2483b5ada9e4",
-        "message_id": "msg_aang_4",
+        "message_id": "msg_catacomb_4",
         "call_id": null,
         "ordinal": null
       },
@@ -2036,7 +2036,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_3_0"
+        "call": "toolu_catacomb_plan_3_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -2050,7 +2050,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_3_0",
+        "call_id": "toolu_catacomb_plan_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2061,7 +2061,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "d52915f8d74e9e671813a6a8b391b9e98a1e1bb937e7e5a5357c7b771963f50b",
+      "redelivery_key": "fc50d79c1903cf9f177a32acf11d5e04f6a73c90e5097ba6df9488b841361fbe",
       "payload": {
         "outcome": "ok",
         "output": null,
@@ -2071,7 +2071,7 @@
         "result": {
           "plan": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
           "isAgent": false,
-          "filePath": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md"
+          "filePath": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md"
         }
       }
     },
@@ -2155,13 +2155,13 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "cf0b3ea50b7229ef7398719143003500aa0f6549b672b95610056d1656d5dbfc",
+      "redelivery_key": "e72f29c558bc6ad7dcebcb6967a9f6a9fceaf5a9281d451312e3e9b6d4e2de44",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_plan_3_0",
+            "call_id": "toolu_catacomb_plan_3_0",
             "tool": "ExitPlanMode",
-            "response": "User has approved your plan. You can now start coding. Start with updating your todo list if applicable\n\nYour plan has been saved to: /home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md\nYou can refer back to it if needed during implementation.\n\n## Approved Plan:\n# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n"
+            "response": "User has approved your plan. You can now start coding. Start with updating your todo list if applicable\n\nYour plan has been saved to: /home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md\nYou can refer back to it if needed during implementation.\n\n## Approved Plan:\n# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n"
           }
         ]
       }
@@ -2173,7 +2173,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_4_0"
+        "call": "toolu_catacomb_plan_4_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -2187,7 +2187,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_4_0",
+        "call_id": "toolu_catacomb_plan_4_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2198,7 +2198,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "2e95d048d856a3e1f182b2c1413c2af4b29e5b972b729905dcebf4bb1ef4981a",
+      "redelivery_key": "7d64236b57108f69e30a5160dfab6dd0d1780e55f227081c5aab643536eded46",
       "payload": {
         "tool": "Write",
         "action_kind": "file_write",
@@ -2307,7 +2307,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_3_0"
+        "call": "toolu_catacomb_plan_3_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -2321,7 +2321,7 @@
         "record_uuid": "c49dc285-80e8-4a98-a325-ee392f346f12",
         "parent_uuid": "371e1452-4ca2-472f-9ec4-4f5596b41956",
         "message_id": null,
-        "call_id": "toolu_aang_plan_3_0",
+        "call_id": "toolu_catacomb_plan_3_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2335,14 +2335,14 @@
       "redelivery_key": null,
       "payload": {
         "outcome": "ok",
-        "output": "User has approved your plan. You can now start coding. Start with updating your todo list if applicable\n\nYour plan has been saved to: /home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md\nYou can refer back to it if needed during implementation.\n\n## Approved Plan:\n# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+        "output": "User has approved your plan. You can now start coding. Start with updating your todo list if applicable\n\nYour plan has been saved to: /home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md\nYou can refer back to it if needed during implementation.\n\n## Approved Plan:\n# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
         "persisted_output_path": null,
         "exit_code": null,
         "duration_ms": null,
         "result": {
           "plan": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
           "isAgent": false,
-          "filePath": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md"
+          "filePath": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md"
         }
       }
     },
@@ -2353,7 +2353,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_4_0"
+        "call": "toolu_catacomb_plan_4_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -2366,8 +2366,8 @@
         "prompt_id": null,
         "record_uuid": "cedc8503-7bfb-4f94-b7cc-5b7283b6d0f1",
         "parent_uuid": "2ebec550-3103-40fb-b2f3-104cd563bbc2",
-        "message_id": "msg_aang_5",
-        "call_id": "toolu_aang_plan_4_0",
+        "message_id": "msg_catacomb_5",
+        "call_id": "toolu_catacomb_plan_4_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2397,7 +2397,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_5"
+        "usage": "msg_catacomb_5"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -2410,7 +2410,7 @@
         "prompt_id": null,
         "record_uuid": "cedc8503-7bfb-4f94-b7cc-5b7283b6d0f1",
         "parent_uuid": "2ebec550-3103-40fb-b2f3-104cd563bbc2",
-        "message_id": "msg_aang_5",
+        "message_id": "msg_catacomb_5",
         "call_id": null,
         "ordinal": null
       },
@@ -2443,7 +2443,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_4_0"
+        "call": "toolu_catacomb_plan_4_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -2457,7 +2457,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_4_0",
+        "call_id": "toolu_catacomb_plan_4_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2468,7 +2468,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "e421134404c9a1589ed3179959c824bf1e8948485ed1d026d7f53b2e08f8885d",
+      "redelivery_key": "934f5f03b0c149a1319430c40d81ce38bb0e5cd1909a4921dd9b3b7f26fe846a",
       "payload": {
         "outcome": "ok",
         "output": "- Write checklist\n- Review checklist\n",
@@ -2516,11 +2516,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "4215fe74190e31dc87d168e1fade11fc4214a381f8289dd0a54ee614cb0f7941",
+      "redelivery_key": "f67e452eb01f32b626939613bc917e325657f81d07488e01a440e1267012ee47",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_plan_4_0",
+            "call_id": "toolu_catacomb_plan_4_0",
             "tool": "Write",
             "response": "File created successfully at: /fixture/project/checklist.txt (file state is current in your context — no need to Read it back)"
           }
@@ -2583,7 +2583,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_5_0"
+        "call": "toolu_catacomb_plan_5_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -2597,7 +2597,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_5_0",
+        "call_id": "toolu_catacomb_plan_5_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2608,7 +2608,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "e73ba0bc66cc496be3cd3e40d065581b3b6c1000189b62daed997d484191369e",
+      "redelivery_key": "00e98599e5f49f658b7b4606907d072767d0ee9d6cef4b71f323f16815e034bb",
       "payload": {
         "tool": "TaskUpdate",
         "action_kind": "plan",
@@ -2627,7 +2627,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_5_0"
+        "call": "toolu_catacomb_plan_5_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -2641,7 +2641,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_5_0",
+        "call_id": "toolu_catacomb_plan_5_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2652,7 +2652,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "e73ba0bc66cc496be3cd3e40d065581b3b6c1000189b62daed997d484191369e",
+      "redelivery_key": "00e98599e5f49f658b7b4606907d072767d0ee9d6cef4b71f323f16815e034bb",
       "payload": {
         "source": "task_tool",
         "text": null,
@@ -2716,7 +2716,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_5_0"
+        "call": "toolu_catacomb_plan_5_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -2730,7 +2730,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_5_0",
+        "call_id": "toolu_catacomb_plan_5_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2741,7 +2741,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "2a50d9761227f6c7cf80be8edf7c6890e526ce51e778b1ce83529338a24bf5b8",
+      "redelivery_key": "613e8e3a75ee6e10f36ad75d787d9dcd64fc8aa15dae5b500eb5e5a577be6400",
       "payload": {
         "outcome": "ok",
         "output": null,
@@ -2792,11 +2792,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "01489194a126aa5f582f87483291631a81e3378fa5f321d9d784a542f800f136",
+      "redelivery_key": "4e09c297b473af9541270d0daf25acdceeaa96d71929d8cf1ca22ce22b92531f",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_plan_5_0",
+            "call_id": "toolu_catacomb_plan_5_0",
             "tool": "TaskUpdate",
             "response": "Updated task #1 status"
           }
@@ -2810,7 +2810,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_6_0"
+        "call": "toolu_catacomb_plan_6_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -2824,7 +2824,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_6_0",
+        "call_id": "toolu_catacomb_plan_6_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2835,7 +2835,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "425ee2a0ad5842537359976c70933afd5cf35d4c90c6f81c194c6e5facdd4b3e",
+      "redelivery_key": "ca06f640e7f48e156052f90e0d54321dd6d87cd6f158366e327b78726fa95d44",
       "payload": {
         "tool": "TaskUpdate",
         "action_kind": "plan",
@@ -2854,7 +2854,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_6_0"
+        "call": "toolu_catacomb_plan_6_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -2868,7 +2868,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_6_0",
+        "call_id": "toolu_catacomb_plan_6_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2879,7 +2879,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "425ee2a0ad5842537359976c70933afd5cf35d4c90c6f81c194c6e5facdd4b3e",
+      "redelivery_key": "ca06f640e7f48e156052f90e0d54321dd6d87cd6f158366e327b78726fa95d44",
       "payload": {
         "source": "task_tool",
         "text": null,
@@ -2943,7 +2943,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_6_0"
+        "call": "toolu_catacomb_plan_6_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -2957,7 +2957,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_plan_6_0",
+        "call_id": "toolu_catacomb_plan_6_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -2968,7 +2968,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "5fb559ab0063a1b92f911e0191fea06cd0a657c5a59ec0f2d3d6e1add8921580",
+      "redelivery_key": "cc3a789894c509a08ab4b3aac390ca9288c908fdf5cf950f07371aba1f1bb122",
       "payload": {
         "outcome": "ok",
         "output": null,
@@ -3019,11 +3019,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "b42d9dc464af90472d2c8684c8fe60aada036e5871a973efa1131519e82ac090",
+      "redelivery_key": "20d34ded0d09dd5cd8b9a61eeaae0d713106b67339235067dd41f82845478eb1",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_plan_6_0",
+            "call_id": "toolu_catacomb_plan_6_0",
             "tool": "TaskUpdate",
             "response": "Updated task #2 status"
           }
@@ -3076,7 +3076,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_4_0"
+        "call": "toolu_catacomb_plan_4_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -3090,7 +3090,7 @@
         "record_uuid": "475a0994-b524-4d1c-97f3-aeb8e962fbe1",
         "parent_uuid": "cedc8503-7bfb-4f94-b7cc-5b7283b6d0f1",
         "message_id": null,
-        "call_id": "toolu_aang_plan_4_0",
+        "call_id": "toolu_catacomb_plan_4_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -3125,7 +3125,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_5_0"
+        "call": "toolu_catacomb_plan_5_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -3138,8 +3138,8 @@
         "prompt_id": null,
         "record_uuid": "2515fab0-8db4-47b8-ada2-c9696f76a39e",
         "parent_uuid": "ce884273-558f-4d0c-aecf-38a5b155253d",
-        "message_id": "msg_aang_6",
-        "call_id": "toolu_aang_plan_5_0",
+        "message_id": "msg_catacomb_6",
+        "call_id": "toolu_catacomb_plan_5_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -3169,7 +3169,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_5_0"
+        "call": "toolu_catacomb_plan_5_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -3182,8 +3182,8 @@
         "prompt_id": null,
         "record_uuid": "2515fab0-8db4-47b8-ada2-c9696f76a39e",
         "parent_uuid": "ce884273-558f-4d0c-aecf-38a5b155253d",
-        "message_id": "msg_aang_6",
-        "call_id": "toolu_aang_plan_5_0",
+        "message_id": "msg_catacomb_6",
+        "call_id": "toolu_catacomb_plan_5_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -3214,7 +3214,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_6"
+        "usage": "msg_catacomb_6"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -3227,7 +3227,7 @@
         "prompt_id": null,
         "record_uuid": "2515fab0-8db4-47b8-ada2-c9696f76a39e",
         "parent_uuid": "ce884273-558f-4d0c-aecf-38a5b155253d",
-        "message_id": "msg_aang_6",
+        "message_id": "msg_catacomb_6",
         "call_id": null,
         "ordinal": null
       },
@@ -3260,7 +3260,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_5_0"
+        "call": "toolu_catacomb_plan_5_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -3274,7 +3274,7 @@
         "record_uuid": "7e655479-1965-4be7-920b-35636000b4a5",
         "parent_uuid": "2515fab0-8db4-47b8-ada2-c9696f76a39e",
         "message_id": null,
-        "call_id": "toolu_aang_plan_5_0",
+        "call_id": "toolu_catacomb_plan_5_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -3312,7 +3312,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_6_0"
+        "call": "toolu_catacomb_plan_6_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -3325,8 +3325,8 @@
         "prompt_id": null,
         "record_uuid": "d91dca3a-726e-443f-a51f-4f05d6590d5f",
         "parent_uuid": "7d0c7cbb-e3ac-48f0-8e18-32c0b3be15a0",
-        "message_id": "msg_aang_7",
-        "call_id": "toolu_aang_plan_6_0",
+        "message_id": "msg_catacomb_7",
+        "call_id": "toolu_catacomb_plan_6_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -3356,7 +3356,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_6_0"
+        "call": "toolu_catacomb_plan_6_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -3369,8 +3369,8 @@
         "prompt_id": null,
         "record_uuid": "d91dca3a-726e-443f-a51f-4f05d6590d5f",
         "parent_uuid": "7d0c7cbb-e3ac-48f0-8e18-32c0b3be15a0",
-        "message_id": "msg_aang_7",
-        "call_id": "toolu_aang_plan_6_0",
+        "message_id": "msg_catacomb_7",
+        "call_id": "toolu_catacomb_plan_6_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -3401,7 +3401,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_7"
+        "usage": "msg_catacomb_7"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -3414,7 +3414,7 @@
         "prompt_id": null,
         "record_uuid": "d91dca3a-726e-443f-a51f-4f05d6590d5f",
         "parent_uuid": "7d0c7cbb-e3ac-48f0-8e18-32c0b3be15a0",
-        "message_id": "msg_aang_7",
+        "message_id": "msg_catacomb_7",
         "call_id": null,
         "ordinal": null
       },
@@ -3447,7 +3447,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_6_0"
+        "call": "toolu_catacomb_plan_6_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -3461,7 +3461,7 @@
         "record_uuid": "93334d3a-d4d8-445a-af3e-b0826d8da15e",
         "parent_uuid": "d91dca3a-726e-443f-a51f-4f05d6590d5f",
         "message_id": null,
-        "call_id": "toolu_aang_plan_6_0",
+        "call_id": "toolu_catacomb_plan_6_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -3512,7 +3512,7 @@
         "prompt_id": null,
         "record_uuid": "52ac1931-13b3-4719-90d6-7345e50cee24",
         "parent_uuid": "09435c96-2909-4271-84b1-15f95e73a0f6",
-        "message_id": "msg_aang_8",
+        "message_id": "msg_catacomb_8",
         "call_id": null,
         "ordinal": null
       },
@@ -3539,7 +3539,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_8"
+        "usage": "msg_catacomb_8"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -3552,7 +3552,7 @@
         "prompt_id": null,
         "record_uuid": "52ac1931-13b3-4719-90d6-7345e50cee24",
         "parent_uuid": "09435c96-2909-4271-84b1-15f95e73a0f6",
-        "message_id": "msg_aang_8",
+        "message_id": "msg_catacomb_8",
         "call_id": null,
         "ordinal": null
       },
@@ -3754,7 +3754,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_0_0"
+        "call": "toolu_catacomb_plan_0_0"
       },
       "session": "#79",
       "agent": "#81",
@@ -3787,7 +3787,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_1_0"
+        "call": "toolu_catacomb_plan_1_0"
       },
       "session": "#79",
       "agent": "#81",
@@ -3820,7 +3820,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_2_0"
+        "call": "toolu_catacomb_plan_2_0"
       },
       "session": "#79",
       "agent": "#81",
@@ -3853,7 +3853,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_3_0"
+        "call": "toolu_catacomb_plan_3_0"
       },
       "session": "#79",
       "agent": "#81",
@@ -3886,7 +3886,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_4_0"
+        "call": "toolu_catacomb_plan_4_0"
       },
       "session": "#79",
       "agent": "#81",
@@ -3919,7 +3919,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_5_0"
+        "call": "toolu_catacomb_plan_5_0"
       },
       "session": "#79",
       "agent": "#81",
@@ -3952,7 +3952,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "call": "toolu_aang_plan_6_0"
+        "call": "toolu_catacomb_plan_6_0"
       },
       "session": "#79",
       "agent": "#81",
@@ -4030,7 +4030,7 @@
         "kind": "question",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "question": "toolu_aang_plan_3_0"
+        "question": "toolu_catacomb_plan_3_0"
       },
       "session": "#79",
       "agent": "#81",
@@ -4071,7 +4071,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "session": "#79",
       "agent": "#81",
@@ -4095,7 +4095,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "session": "#79",
       "agent": "#81",
@@ -4119,7 +4119,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_3"
+        "usage": "msg_catacomb_3"
       },
       "session": "#79",
       "agent": "#81",
@@ -4143,7 +4143,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_4"
+        "usage": "msg_catacomb_4"
       },
       "session": "#79",
       "agent": "#81",
@@ -4167,7 +4167,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_5"
+        "usage": "msg_catacomb_5"
       },
       "session": "#79",
       "agent": "#81",
@@ -4191,7 +4191,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_6"
+        "usage": "msg_catacomb_6"
       },
       "session": "#79",
       "agent": "#81",
@@ -4215,7 +4215,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_7"
+        "usage": "msg_catacomb_7"
       },
       "session": "#79",
       "agent": "#81",
@@ -4239,7 +4239,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "d6f29a7c-7bf6-4a0f-b2ae-46101f1587ca",
-        "usage": "msg_aang_8"
+        "usage": "msg_catacomb_8"
       },
       "session": "#79",
       "agent": "#81",
@@ -4292,7 +4292,7 @@
         "run": "#80",
         "artifact": {
           "kind": "file",
-          "path": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md"
+          "path": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md"
         },
         "identity": {
           "kind": "content",
@@ -4303,7 +4303,7 @@
       "artifact": "#102",
       "ref": {
         "kind": "file",
-        "path": "/home/USER/.claude/plans/aang-plan-plan-the-creation-memoized-crab.md"
+        "path": "/home/USER/.claude/plans/catacomb-plan-plan-the-creation-memoized-crab.md"
       },
       "retention": {
         "kind": "reference"
@@ -4321,7 +4321,7 @@
         "runtime": "claude",
         "root_session": "#79",
         "goal": {
-          "text": "[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
+          "text": "[catacomb:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
           "fact": "#11"
         },
         "brief": null,
@@ -4387,7 +4387,7 @@
             "runtime": "claude",
             "root_session": "#79",
             "goal": {
-              "text": "[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
+              "text": "[catacomb:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
               "fact": "#11"
             },
             "brief": null,

@@ -10,7 +10,7 @@ import type {
   Session,
   StatusResponse,
   SupportMode,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { absoluteTime, bytes, clockTime, duration, plural, relativeTime } from './format.js'
 import {
   earlyFactForms,
@@ -152,12 +152,12 @@ const catchUpDetails = ({ deferred_facts: deferred }: ObserverRunState): LampDet
 const linkLamp = ({ statusFailing, runsFailing, focus }: LampInput): Lamp => {
   if (statusFailing) {
     return lamp('link', 'Link', 'no connection to the daemon', 'warning', [
-      detail('The daemon is not responding. Check it with aang status; the data on screen may be stale.', 'warning'),
+      detail('The daemon is not responding. Check it with catacomb status; the data on screen may be stale.', 'warning'),
     ])
   }
   if (runsFailing && focus === null) {
     return lamp('link', 'Link', 'list not updating', 'warning', [
-      detail('The daemon did not return the run list. aang keeps retrying; the list on screen may be stale.', 'warning'),
+      detail('The daemon did not return the run list. catacomb keeps retrying; the list on screen may be stale.', 'warning'),
     ])
   }
   switch (focus?.connection) {
@@ -170,7 +170,7 @@ const linkLamp = ({ statusFailing, runsFailing, focus }: LampInput): Lamp => {
         ? lamp('link', 'Link', 'branches not updating', 'caution', [
             detail('Run changes arrive as events are recorded.'),
             detail(
-              'The daemon did not return the run list. aang keeps retrying; branches and names of linked runs may be stale.',
+              'The daemon did not return the run list. catacomb keeps retrying; branches and names of linked runs may be stale.',
               'caution',
             ),
           ])
@@ -179,7 +179,7 @@ const linkLamp = ({ statusFailing, runsFailing, focus }: LampInput): Lamp => {
           ])
     case 'reconnecting':
       return lamp('link', 'Link', 'reconnecting', 'caution', [
-        detail('The change stream was interrupted. aang will reconnect and catch up on what it missed.', 'caution'),
+        detail('The change stream was interrupted. catacomb will reconnect and catch up on what it missed.', 'caution'),
       ])
     case 'missing':
       return lamp('link', 'Link', 'run not found', 'warning', [
@@ -417,7 +417,7 @@ const spoolLamp = ({ status, now }: LampInput): Lamp => {
   if (spool.stopped) {
     return lamp('spool', 'Spool', 'writing stopped', 'caution', [
       usage,
-      detail('The daemon was stopped with aang stop: hooks do not write to the spool until aang start.', 'caution'),
+      detail('The daemon was stopped with catacomb stop: hooks do not write to the spool until catacomb start.', 'caution'),
       ...gaps,
     ])
   }
@@ -468,7 +468,7 @@ const coverageLamp = ({ status }: LampInput): Lamp | null => {
     surfaces.map((surface) => notObservableLabel[surface]).join(', '),
     'caution',
     surfaces.map((surface) =>
-      detail(`${notObservableLabel[surface]}: aang receives no events from this mode.`, 'caution'),
+      detail(`${notObservableLabel[surface]}: catacomb receives no events from this mode.`, 'caution'),
     ),
   )
 }

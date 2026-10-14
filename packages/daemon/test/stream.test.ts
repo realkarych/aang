@@ -7,11 +7,11 @@ import {
   type RunId,
   type RunSnapshot,
   type SseEvent,
-} from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import { createReadQueries } from '@aang/engine'
-import { openStore } from '@aang/store'
-import { applyFeed } from '@aang/testkit'
+} from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
+import { createReadQueries } from '@catacomb/engine'
+import { openStore } from '@catacomb/store'
+import { applyFeed } from '@catacomb/testkit'
 import { describe, type TestContext, test } from 'vitest'
 import type { z } from 'zod'
 import { bearer, type Home, type RunningDaemon, startDaemon } from './daemon.js'

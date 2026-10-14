@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { delimiter, join } from 'node:path'
-import { spoolEnvKeys } from '@aang/contract'
-import { revokeLeases } from '@aang/contract/home'
+import { spoolEnvKeys } from '@catacomb/contract'
+import { revokeLeases } from '@catacomb/contract/home'
 import { runClaude } from './claude.js'
 import {
   type CodexHooks,
@@ -327,7 +327,7 @@ export const hookLatency = async (context: CheckContext, inputs: LatencyInputs):
     return { unavailable: 'runtime launcher probes did not complete; latency cannot be validated' }
   }
   const { profile, probe } = context
-  const spool = join(profile.aangHome, 'spool-latency')
+  const spool = join(profile.catacombHome, 'spool-latency')
   await createSpool(spool)
   const claudeDirect = [profile.hook, 'claude', 'plugin', spool]
   const codexDirect = [profile.hook, 'codex', 'user', spool]
@@ -355,14 +355,14 @@ export const hookLatency = async (context: CheckContext, inputs: LatencyInputs):
     ),
   }
   const execFormChain = inputs.claudeProbes.find(withChain('claude-exec-form'))?.chain
-  const unleased = join(profile.aangHome, 'spool-latency-unleased')
+  const unleased = join(profile.catacombHome, 'spool-latency-unleased')
   await createSpool(unleased)
   await revokeLeases(unleased)
   const results: Record<string, unknown> = {
     series: strictSeries,
     claudeExecFormParent:
       typeof execFormChain === 'object' && execFormChain !== null ? (execFormChain[0]?.name ?? null) : null,
-    'direct spawn (exec form, strict aang-hook benchmark)': await measure(
+    'direct spawn (exec form, strict catacomb-hook benchmark)': await measure(
       { id: 'direct spawn', command: profile.hook, args: claudeDirect.slice(1), verbatim: false },
       spool,
       strictSeries,

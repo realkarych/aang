@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ChatOutput, observerOutputJsonSchema, ObserverOutput } from '@aang/contract'
-import { fakeCliExitCodes, installFakeCodex, type CodexScenario, type FakeCli } from '@aang/testkit'
+import { ChatOutput, observerOutputJsonSchema, ObserverOutput } from '@catacomb/contract'
+import { fakeCliExitCodes, installFakeCodex, type CodexScenario, type FakeCli } from '@catacomb/testkit'
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
 import {
@@ -100,7 +100,7 @@ const isolationProfile = (files: ObserverFiles): ProfilePart[] => [
   { id: '--ignore-rules', args: ['--ignore-rules'] },
   { id: '--skip-git-repo-check', args: ['--skip-git-repo-check'] },
   { id: '-s read-only', args: ['-s', 'read-only'] },
-  { id: '--thread-source aang-observer', args: ['--thread-source', 'aang-observer'] },
+  { id: '--thread-source catacomb-observer', args: ['--thread-source', 'catacomb-observer'] },
   { id: '-c model_catalog_json', args: ['-c', `model_catalog_json=${tomlPath(files.catalog)}`] },
   { id: '-c model_instructions_file', args: ['-c', `model_instructions_file=${tomlPath(files.instructions)}`] },
   {
@@ -110,10 +110,10 @@ const isolationProfile = (files: ObserverFiles): ProfilePart[] => [
   ...configSettings.map((setting) => ({ id: `-c ${setting}`, args: ['-c', setting] })),
   ...disabledFeatures.map((feature) => ({ id: `--disable ${feature}`, args: ['--disable', feature] })),
   {
-    id: 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE=aang_observer',
-    env: { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' },
+    id: 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE=catacomb_observer',
+    env: { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'catacomb_observer' },
   },
-  { id: 'AANG_OBSERVER=1', env: { AANG_OBSERVER: '1' } },
+  { id: 'CATACOMB_OBSERVER=1', env: { CATACOMB_OBSERVER: '1' } },
 ]
 
 const Catalog = z.strictObject({ models: z.array(z.looseObject({ slug: z.string() })) })
@@ -259,8 +259,8 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
         argv: observer.args(),
         cwd: observer.workspace.cwd,
         env: expect.objectContaining({
-          CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer',
-          AANG_OBSERVER: '1',
+          CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'catacomb_observer',
+          CATACOMB_OBSERVER: '1',
         }) as unknown,
         pid: expect.any(Number) as unknown,
         prompt,
@@ -293,7 +293,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
     writeFileSync(emptyInstructions, '')
     const weakened: readonly (ProfilePart & { readonly replaces?: string })[] = [
       { id: '-s read-only', args: ['-s', 'workspace-write'] },
-      { id: '--thread-source aang-observer', args: ['--thread-source', 'user'] },
+      { id: '--thread-source catacomb-observer', args: ['--thread-source', 'user'] },
       { id: '-c web_search="disabled"', args: ['-c', 'web_search="live"'] },
       { id: '-m matches the catalog slug', replaces: '-m', args: ['-m', 'gpt-5.5'] },
       {
@@ -310,7 +310,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
         args: ['-c', `model_instructions_file=${tomlPath(emptyInstructions)}`],
       },
       {
-        id: 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE=aang_observer',
+        id: 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE=catacomb_observer',
         env: { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'codex_exec' },
       },
     ]
@@ -552,7 +552,7 @@ describe('fake codex sends a real Responses API request to the self-check stub (
     expect(stub.requests).toHaveLength(1)
     const [request] = stub.requests
     expect(request?.path).toBe('/v1/responses')
-    expect(request?.headers).toMatchObject({ originator: 'aang_observer' })
+    expect(request?.headers).toMatchObject({ originator: 'catacomb_observer' })
     expect(keysOf(request?.body)).toEqual(keysOf(recorded.body))
     expect(request?.body).not.toHaveProperty('tools')
     expect(request?.body).toMatchObject({
@@ -569,7 +569,7 @@ describe('fake codex sends a real Responses API request to the self-check stub (
       ],
     })
     expect(JSON.parse(String(request?.headers['x-codex-turn-metadata']))).toMatchObject({
-      thread_source: 'aang-observer',
+      thread_source: 'catacomb-observer',
       model,
     })
     expect(agentText(exit.events)).toBe(finalText)

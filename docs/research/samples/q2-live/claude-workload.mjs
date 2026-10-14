@@ -7,11 +7,11 @@ import { tasks } from './tasks.mjs'
 
 const repository = fileURLToPath(new URL('../../../../', import.meta.url))
 const streamHost = join(repository, 'tools/record/dist/claude/stream-host.js')
-const task = process.env.AANG_Q2_TASK ?? 'ledger'
-const engine = process.env.AANG_Q2_CLAUDE ?? join(process.env.HOME ?? '', '.local/bin/claude')
-const fixturesRoot = resolve(process.env.AANG_Q2_FIXTURES ?? join(repository, 'fixtures/sessions'))
+const task = process.env.CATACOMB_Q2_TASK ?? 'ledger'
+const engine = process.env.CATACOMB_Q2_CLAUDE ?? join(process.env.HOME ?? '', '.local/bin/claude')
+const fixturesRoot = resolve(process.env.CATACOMB_Q2_FIXTURES ?? join(repository, 'fixtures/sessions'))
 const pausesMs = [45_000, 30_000, 60_000, 40_000, 35_000, 50_000, 20_000, 45_000, 30_000, 55_000, 40_000, 35_000]
-const budgetMs = Number(process.env.AANG_Q2_BUDGET_MS ?? 90 * 60_000)
+const budgetMs = Number(process.env.CATACOMB_Q2_BUDGET_MS ?? 90 * 60_000)
 const version = /^(\S+) \(Claude Code\)$/.exec(execFileSync(engine, ['--version'], { encoding: 'utf8' }).trim())?.[1]
 if (version === undefined) throw new Error('The Claude CLI did not report its version')
 const definition = tasks[task]
@@ -29,7 +29,7 @@ export const options = {
     'The session plans, implements and tests stages, asks one explicit question, runs subagents, is compacted once, changes its plan and commits with git',
   ],
   fixturesRoot,
-  hookBinary: join(repository, 'packages/hook/bin/aang-hook'),
+  hookBinary: join(repository, 'packages/hook/bin/catacomb-hook'),
   claudeHome: 'regular',
 }
 
@@ -58,8 +58,8 @@ const prepare = async (project) => {
     await writeFile(join(project, path), content)
   }
   git(project, 'init', '--quiet', '--initial-branch=main')
-  git(project, 'config', 'user.name', 'aang')
-  git(project, 'config', 'user.email', 'aang@example.invalid')
+  git(project, 'config', 'user.name', 'catacomb')
+  git(project, 'config', 'user.email', 'catacomb@example.invalid')
   git(project, 'add', '-A')
   git(project, 'commit', '--quiet', '-m', 'Initial specification')
 }

@@ -1,4 +1,4 @@
-import { JsonValue } from '@aang/contract'
+import { JsonValue } from '@catacomb/contract'
 import { z } from 'zod'
 
 const nestingLimit = 256

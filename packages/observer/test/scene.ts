@@ -8,8 +8,8 @@ import { DatabaseSync } from 'node:sqlite'
 import type { Readable } from 'node:stream'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { codexAdapter } from '@aang/adapter-codex'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { codexAdapter } from '@catacomb/adapter-codex'
 import {
   type Adapter,
   CollectedRecord,
@@ -20,9 +20,9 @@ import {
   ObserverInput,
   type RunId,
   type Runtime,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import { applyChangeSet, createEngine } from '@aang/engine'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import { applyChangeSet, createEngine } from '@catacomb/engine'
 import {
   type CliCommand,
   createClaudeBackend,
@@ -32,9 +32,9 @@ import {
   type ObserverExecutor,
   type SchedulerClock,
   type SchedulerLimits,
-} from '@aang/observer'
-import { openStore, type StoredObserverCall } from '@aang/store'
-import { type ClaudeReply, type CodexReply, installFakeClaude, installFakeCodex } from '@aang/testkit'
+} from '@catacomb/observer'
+import { openStore, type StoredObserverCall } from '@catacomb/store'
+import { type ClaudeReply, type CodexReply, installFakeClaude, installFakeCodex } from '@catacomb/testkit'
 import type { TestContext } from 'vitest'
 
 type JsonObject = { readonly [key: string]: JsonValue }
@@ -221,7 +221,7 @@ export interface SceneOptions {
 }
 
 export const createScene = async ({ onTestFinished }: TestContext, options: SceneOptions = {}) => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-scheduler-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-scheduler-')))
   const home = join(root, 'Όνομα Επώνυμο')
   const workspace = join(root, 'workspace')
   await mkdir(home)
@@ -231,7 +231,7 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
   const launch = {
     temporaryDirectory: root,
     environment: { ...process.env, HOME: home, USERPROFILE: home },
-    windowsLauncher: resolve('packages/hook/bin/aang-hook.exe'),
+    windowsLauncher: resolve('packages/hook/bin/catacomb-hook.exe'),
     timeoutMs: options.timeoutMs ?? 20_000,
   }
   const claude = createClaudeBackend({
@@ -255,7 +255,7 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
   const manual = options.systemClock === true ? null : manualClock(start)
   let failure: unknown = null
   const boot = (crossVendor = options.crossVendor) => {
-    const store = openStore({ home: join(root, 'aang') })
+    const store = openStore({ home: join(root, 'catacomb') })
     const engine = createEngine({ store, adapters, watch: { all: true, roots: [] } })
     const scheduler = createObserverScheduler({
       store,
@@ -351,7 +351,7 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
   const statuses = (run: RunId): FactInterpretation[] => daemon.store.interpretations.ofRun(run)
   const tally = (run: RunId): Record<string, number> =>
     statuses(run).reduce<Record<string, number>>((counts, { status }) => ({ ...counts, [status]: (counts[status] ?? 0) + 1 }), {})
-  const database = new DatabaseSync(join(root, 'aang', 'aang.db'), { readOnly: true })
+  const database = new DatabaseSync(join(root, 'catacomb', 'catacomb.db'), { readOnly: true })
   const selectCalls = database.prepare('SELECT id FROM observer_calls WHERE run_id = ? ORDER BY started_at, rowid')
   const calls = (run: RunId): StoredObserverCall[] =>
     (selectCalls.all(run) as { readonly id: string }[]).flatMap(({ id }) => {
@@ -385,7 +385,7 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
       daemon.store.close()
       const child = spawn(
         process.execPath,
-        [daemonScript, join(root, 'aang'), root, String(now()), fakeClaude.command, ...fakeClaude.args],
+        [daemonScript, join(root, 'catacomb'), root, String(now()), fakeClaude.command, ...fakeClaude.args],
         { stdio: ['ignore', 'pipe', 'pipe'] },
       )
       const exited = once(child, 'exit')

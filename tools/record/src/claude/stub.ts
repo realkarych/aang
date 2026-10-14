@@ -28,7 +28,7 @@ type Block =
   { readonly type: 'text'; readonly text: string } |
   { readonly type: 'tool_use'; readonly id: string; readonly name: string; readonly input: Readonly<Record<string, unknown>> }
 
-const marker = /\[aang:([a-z0-9-]+)\]/
+const marker = /\[catacomb:([a-z0-9-]+)\]/
 const planFile = /(?:create your plan at|plan file already exists at) (.+?\.md)\b/
 export const planFilePlaceholder = '{plan-file}'
 const usage = { input_tokens: 12, cache_creation_input_tokens: 2, cache_read_input_tokens: 8, output_tokens: 4 }
@@ -78,7 +78,7 @@ const replyOf = (script: StubScript, body: MessagesBody): { key: string | null; 
       ? { type: 'text', text: block.text }
       : {
           type: 'tool_use',
-          id: `toolu_aang_${key}_${String(step)}_${String(index)}`,
+          id: `toolu_catacomb_${key}_${String(step)}_${String(index)}`,
           name: toolName(block.tool, offered),
           input: substitute(block.input, replacements) as Readonly<Record<string, unknown>>,
         }),
@@ -138,7 +138,7 @@ export const startModelStub = async (script: StubScript, log: string): Promise<M
       const body = parse(text)
       const { key, step, blocks } = replyOf(script, body)
       replies += 1
-      const id = `msg_aang_${String(replies)}`
+      const id = `msg_catacomb_${String(replies)}`
       const model = body.model ?? 'claude-stub'
       const stopReason = blocks.some((block) => block.type === 'tool_use') ? 'tool_use' : 'end_turn'
       const entry = { at: new Date().toISOString(), id, key, step, tools: body.tools?.length ?? 0, reply: blocks.map((block) => block.type === 'text' ? 'text' : block.name) }

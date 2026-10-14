@@ -1,5 +1,5 @@
-import { claudeAdapter } from '@aang/adapter-claude'
-import { CollectedRecord, EpochNs, FactDraft, type JsonValue } from '@aang/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { CollectedRecord, EpochNs, FactDraft, type JsonValue } from '@catacomb/contract'
 import { describe, test } from 'vitest'
 import {
   factsOf,
@@ -54,7 +54,7 @@ describe.concurrent('Claude session registry', () => {
         ordinal: null,
       },
       runtime_env: {
-        cwd: '/tmp/aang-spike/cc-transcripts/run',
+        cwd: '/tmp/catacomb-spike/cc-transcripts/run',
         version: '2.1.286',
         entrypoint: 'sdk-cli',
         originator: null,
@@ -73,7 +73,7 @@ describe.concurrent('Claude session registry', () => {
           entrypoint: 'sdk-cli',
           status: null,
           waiting_for: null,
-          cwd: '/tmp/aang-spike/cc-transcripts/run',
+          cwd: '/tmp/catacomb-spike/cc-transcripts/run',
           version: '2.1.286',
           status_updated_at: null,
         },
@@ -120,13 +120,13 @@ describe.concurrent('Claude session registry', () => {
     expect,
   }) => {
     const [snapshot] = factsOf(
-      parseEntry({ pid: 7001, sessionId: 'observer-1', kind: 'interactive', entrypoint: 'aang-observer', cwd: '/tmp/aang-observer/empty' }),
+      parseEntry({ pid: 7001, sessionId: 'observer-1', kind: 'interactive', entrypoint: 'catacomb-observer', cwd: '/tmp/catacomb-observer/empty' }),
     )
 
     expect(snapshot).toMatchObject({
       entity_key: { kind: 'session', session: 'observer-1' },
-      runtime_env: { entrypoint: 'aang-observer', cwd: '/tmp/aang-observer/empty' },
-      payload: { content: { entrypoint: 'aang-observer' } },
+      runtime_env: { entrypoint: 'catacomb-observer', cwd: '/tmp/catacomb-observer/empty' },
+      payload: { content: { entrypoint: 'catacomb-observer' } },
     })
   })
 

@@ -1,6 +1,6 @@
 import { readdir, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { spoolFormat } from '@aang/contract'
+import { spoolFormat } from '@catacomb/contract'
 import { spoolReady } from './profile.js'
 
 export interface DeliveredEvent {

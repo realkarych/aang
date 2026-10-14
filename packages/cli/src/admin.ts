@@ -1,7 +1,7 @@
 import { join, resolve } from 'node:path'
-import { ApiError, endpoints, EpochNs, type PruneRequest, type WatchState } from '@aang/contract'
-import { loadConfig, processEnvironment, resolveAangHome } from '@aang/contract/config-file'
-import { aangHomePaths, readDaemonState, readUiToken } from '@aang/contract/home'
+import { ApiError, endpoints, EpochNs, type PruneRequest, type WatchState } from '@catacomb/contract'
+import { loadConfig, processEnvironment, resolveCatacombHome } from '@catacomb/contract/config-file'
+import { catacombHomePaths, readDaemonState, readUiToken } from '@catacomb/contract/home'
 import type { z } from 'zod'
 import { daemonUrl, isAlive } from './daemon-process.js'
 import type { Output } from './output.js'
@@ -33,10 +33,10 @@ interface DaemonAccess {
 }
 
 const daemonAccess = async (): Promise<DaemonAccess> => {
-  const paths = aangHomePaths(resolveAangHome(processEnvironment()))
+  const paths = catacombHomePaths(resolveCatacombHome(processEnvironment()))
   const state = await readDaemonState(paths.daemonState)
   if (state === null || !isAlive(state.pid)) {
-    throw new Error('aang is not running; start it with `aang start`')
+    throw new Error('catacomb is not running; start it with `catacomb start`')
   }
   const token = await readUiToken(paths.uiToken)
   if (token === null) {
@@ -167,8 +167,8 @@ export const otelConfig = async (output: Output, rotate: boolean): Promise<numbe
   output.out(`exporter = { otlp-http = { endpoint = ${JSON.stringify(endpoint)}, protocol = "json" } }`)
   output.error(
     rotate
-      ? `aang otel-config: the OTel ingest token is replaced and the previous endpoint no longer accepts records; replace the [otel] section in ${codexConfig}, ${restartNotice}`
-      : `aang otel-config: add this section to ${codexConfig} yourself, aang does not change it; ${restartNotice}`,
+      ? `catacomb otel-config: the OTel ingest token is replaced and the previous endpoint no longer accepts records; replace the [otel] section in ${codexConfig}, ${restartNotice}`
+      : `catacomb otel-config: add this section to ${codexConfig} yourself, catacomb does not change it; ${restartNotice}`,
   )
   return 0
 }

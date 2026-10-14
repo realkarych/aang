@@ -1,8 +1,8 @@
 import { appendFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Action, Session } from '@aang/contract'
-import { codexHooksState } from '@aang/hook'
-import type { ClaudeStubBlock, CodexStubCall } from '@aang/record'
+import type { Action, Session } from '@catacomb/contract'
+import { codexHooksState } from '@catacomb/hook'
+import type { ClaudeStubBlock, CodexStubCall } from '@catacomb/record'
 import { findings } from './findings.js'
 import type { Lab, SessionView } from './lab.js'
 import { waitFor } from './lab.js'
@@ -35,12 +35,12 @@ const claudeFlags: readonly string[] = [
 ]
 
 export const claudePrompt = (key: string): string =>
-  `[aang:${key}] Run the commands of this step with the Bash tool, then reply done.`
+  `[catacomb:${key}] Run the commands of this step with the Bash tool, then reply done.`
 
 export const claudeTurn = (lab: Lab, key: string, extra: readonly string[] = []): Launched =>
   lab.claude(['-p', claudePrompt(key), ...claudeFlags, ...extra])
 
-export const codexPrompt = (key: string): string => `[aang:${key}] Run the commands of this step, then reply done.`
+export const codexPrompt = (key: string): string => `[catacomb:${key}] Run the commands of this step, then reply done.`
 
 export const codexFlags: readonly string[] = ['--json', '--skip-git-repo-check']
 
@@ -62,17 +62,17 @@ export const codexThread = async (lab: Lab, what: string, launched: Launched): P
   codexThreadOf((await finished(lab, what, launched)).stdout)
 
 export const installHooks = async (lab: Lab, runtimes: readonly ('claude' | 'codex')[]): Promise<void> => {
-  const result = await lab.aang('install', ...runtimes.map((runtime) => `--${runtime}`))
+  const result = await lab.catacomb('install', ...runtimes.map((runtime) => `--${runtime}`))
   if (result.code !== 0) {
-    throw new Error(`aang install failed: ${tail(result.stderr || result.stdout)}`)
+    throw new Error(`catacomb install failed: ${tail(result.stderr || result.stdout)}`)
   }
 }
 
 export const trustCodexHooks = async (lab: Lab): Promise<number> => {
-  const { aangHome, codex } = lab.profile
+  const { catacombHome, codex } = lab.profile
   const command = lab.config.cli?.codex
   if (typeof command !== 'string') throw new Error('the lab has no Codex command')
-  const state = await codexHooksState({ aangHome, codexHome: codex, codex: { command } })
+  const state = await codexHooksState({ catacombHome, codexHome: codex, codex: { command } })
   const untrusted = state.hooks.filter((hook) => hook.trustStatus !== 'trusted')
   await appendFile(
     join(codex, 'config.toml'),
@@ -80,7 +80,7 @@ export const trustCodexHooks = async (lab: Lab): Promise<number> => {
       .map((hook) => `\n[hooks.state.${JSON.stringify(hook.key)}]\ntrusted_hash = ${JSON.stringify(String(hook['currentHash']))}\n`)
       .join(''),
   )
-  lab.journal.step('codex hooks of aang trusted as /hooks would', { hooks: untrusted.length })
+  lab.journal.step('codex hooks of catacomb trusted as /hooks would', { hooks: untrusted.length })
   return untrusted.length
 }
 

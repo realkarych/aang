@@ -1,4 +1,4 @@
-import type { ApiErrorCode, EndpointSpec } from '@aang/contract'
+import type { ApiErrorCode, EndpointSpec } from '@catacomb/contract'
 import { z } from 'zod'
 
 export class ApiFailure extends Error {

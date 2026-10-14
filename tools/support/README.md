@@ -8,7 +8,7 @@ pnpm support:check
 pnpm support:update
 ```
 
-Both commands accept `--fixtures <directory>` (default `fixtures/sessions`), `--support <directory>` (default `support`) and `--hook <aang-hook>` (default the built binary). `check` exits with 1 and lists the problems; `update` writes the snapshots and the matrix, and refuses to write anything when an invariant is violated. Both read the placement checks and owner checklists of `verification.json` from the support directory (see [Placement checks and owner checklists](#placement-checks-and-owner-checklists-q1)).
+Both commands accept `--fixtures <directory>` (default `fixtures/sessions`), `--support <directory>` (default `support`) and `--hook <catacomb-hook>` (default the built binary). `check` exits with 1 and lists the problems; `update` writes the snapshots and the matrix, and refuses to write anything when an invariant is violated. Both read the placement checks and owner checklists of `verification.json` from the support directory (see [Placement checks and owner checklists](#placement-checks-and-owner-checklists-q1)).
 
 CI runs the same check as contract tests: `tools/support/test/contract.test.ts` has one test per recording and fails when a snapshot differs, a snapshot is missing or stale, an invariant is violated (an unparsed record among them), or `support/matrix.json` is not the matrix of the run. A pull request that adds or re-records reference sessions (R.4) or changes the normalized output runs `pnpm support:update` and commits the regenerated files.
 
@@ -18,7 +18,7 @@ Every recording under `fixtures/sessions/<runtime>/<engine-version>/<surface>/<o
 
 ## Playback
 
-Each recording plays into a temporary HOME with the testkit player, the real `aang-hook` with a leased spool, and the collector's OTLP receiver. The player stands in a live process for every recorded Claude session process: a registry entry and the `CLAUDE_PID` of a hook name the stand-in, so the collector's process check finds the session alive, and the stand-in ends once its registry entry is removed for the last time; an entry removed and written again by the same recorded process keeps it. The collector scans every 10 ms and its batches go through `engine.ingest` with `watch.all`, wired as the daemon wires them: acknowledgements, rescans requested by the engine, and open `source_lost` gaps passed to the collector at start.
+Each recording plays into a temporary HOME with the testkit player, the real `catacomb-hook` with a leased spool, and the collector's OTLP receiver. The player stands in a live process for every recorded Claude session process: a registry entry and the `CLAUDE_PID` of a hook name the stand-in, so the collector's process check finds the session alive, and the stand-in ends once its registry entry is removed for the last time; an entry removed and written again by the same recorded process keeps it. The collector scans every 10 ms and its batches go through `engine.ingest` with `watch.all`, wired as the daemon wires them: acknowledgements, rescans requested by the engine, and open `source_lost` gaps passed to the collector at start.
 
 A step labelled `daemon-restart` (the reconnect scenario) restarts the ingestion once the step is reflected: the collector and the engine stop, the store closes and reopens from the same directory, and a new collector starts from the cursors and open gaps saved in the store, with the same spool and OTLP port. A `reconnect` recording without such a step fails the run, so `reconnect` is `passed` only after a real restart.
 
@@ -40,7 +40,7 @@ Which files count as collected mirrors the collector's roots and tail filter (`p
 
 The run replays the recorded timeline, moved as a whole to the time of the replay (`startsAt` of `playRecording` picks another moment; the contract run replays at the current time), so that hooks, files and the engine see one clock, as the daemon sees them in a live session, and the snapshot does not depend on how fast the runner replays:
 
-- the player shifts the times inside transcripts, rollouts, JSON snapshots and OTLP requests by whole seconds (`recordTime` of `@aang/testkit`, from the start of the replay), at any JSON nesting depth: a quoted time or an epoch value inside JSON text held in a string value (a Claude tool result, the arguments of a Codex call, also pretty-printed with escaped line breaks) moves too, so the shift does not depend on whether an adapter parses such text into a structure or serializes a structure into text;
+- the player shifts the times inside transcripts, rollouts, JSON snapshots and OTLP requests by whole seconds (`recordTime` of `@catacomb/testkit`, from the start of the replay), at any JSON nesting depth: a quoted time or an epoch value inside JSON text held in a string value (a Claude tool result, the arguments of a Codex call, also pretty-printed with escaped line breaks) moves too, so the shift does not depend on whether an adapter parses such text into a structure or serializes a structure into text;
 - every step plays while the collector is paused (`paused` of the collector), and before it resumes the step's files get the recorded modification time with the same shift: the spool file the hook wrote gets the receipt time of the recorded hook, a written or appended file the modification time of its recorded artifact. The collector reads hooks, JSON snapshots and lines without their own time by these modification times;
 - the engine's clock is the recorded time of the step being played, with the same shift, so freshness (quiet sessions, hooks that stop arriving) is judged on the recorded timeline, not on the wall clock of a replay that runs faster or slower than the session did.
 
@@ -55,7 +55,7 @@ The snapshot holds the normalized facts (ordered by raw record), sessions, agent
 - times are `<time>`; `change_seq` is left out;
 - times inside content that the replay shifted (see [Record time](#record-time)) are shifted back at any JSON nesting depth, so the snapshot shows the recorded content whenever it is taken, also where an adapter serialized a structure into text (a workflow result in `final_message`) or parsed text into a structure (the arguments of a Codex call). An epoch value the replay left in place, more than a day away from the recorded times (a limit that resets days later), stays as recorded even when the replay comes as late as that value. When the shift would move an epoch value of the recorded timeline onto such a value, the replay moves a second less, until no shifted value meets one left in place, so every value in the snapshot shifts back unambiguously;
 - hook spool file names, which carry the receipt time, become `spool#<n>` in the order the hooks were collected;
-- values of fields typed as ids in the `@aang/contract` schemas (derived and assigned) become `#<n>` in order of first appearance, and lists of ids are ordered by these labels; any other text, including text shaped like a hash, stays as it is;
+- values of fields typed as ids in the `@catacomb/contract` schemas (derived and assigned) become `#<n>` in order of first appearance, and lists of ids are ordered by these labels; any other text, including text shaped like a hash, stays as it is;
 - object lists are ordered by their keys with ids and times masked;
 - the temporary playback directory becomes `<base>` with `/` separators, including JSON-escaped Windows paths;
 - the pid of a stand-in process becomes the recorded pid in registry paths and in the `pid` of registry entries.
@@ -63,13 +63,13 @@ The snapshot holds the normalized facts (ordered by raw record), sessions, agent
 ## Invariants
 
 - No two facts have the same kind, entity, time, runtime ids and payload.
-- Every id that an object, gap, run or model entity refers to through a field typed as an id in the `@aang/contract` schemas is stored: facts, observations, artifact versions and their artifacts, Git snapshots, gaps, runs, model entities (including assigned ids such as stage ids) and observer calls. Content and runtime identifiers are never read as references.
+- Every id that an object, gap, run or model entity refers to through a field typed as an id in the `@catacomb/contract` schemas is stored: facts, observations, artifact versions and their artifacts, Git snapshots, gaps, runs, model entities (including assigned ids such as stage ids) and observer calls. Content and runtime identifiers are never read as references.
 - For every Codex thread with `token_usage_record` facts, their sum equals the last `thread_token_usage`. Forked threads are skipped: their counter inherits the parent.
 - Every raw record is parsed (R.5b, ADR-0010: no `unknown` among the covered types). An `invalid` or `unknown` record breaks the run and is reported by its record type, the one of the snapshot's record counts: the hook event name or the record `type`, followed by its `subtype` or `payload.type`. The covered types are all types of the reference sessions: the last type left unparsed, the Claude transcript record `system:stop_hook_summary`, is parsed since F.7d. A new type in a new recording breaks the run until the adapter parses it.
 
 ## Matrix
 
-`support/matrix.json` follows `SupportMatrix` from `@aang/contract`. Rows come from the recordings (local placement), from the previous matrix, from every key of `support/verification.json`, and, for every Desktop engine version, an explicit Windows row. For each row:
+`support/matrix.json` follows `SupportMatrix` from `@catacomb/contract`. Rows come from the recordings (local placement), from the previous matrix, from every key of `support/verification.json`, and, for every Desktop engine version, an explicit Windows row. For each row:
 
 - `resume`, `compaction`, `child_sessions` (`subagents`, `fork`) and `reconnect` are `passed`, `failed` or `not_run` from the recordings of the row's own OS, whatever its placement; recordings of another OS never count;
 - `during_work` (E2E 1) is kept from the previous matrix. A row with a placement other than local takes it from the local row of the same runtime, surface, OS and engine version in the previous matrix, because E2E 1 runs on the reference recordings of the OS (ADR-0010); without such a row it keeps its own value, and a new row starts with `not_run`. `e2e/support-matrix.test.ts` keeps the local column in line with the E2E variants (`e2e/README.md`);
@@ -96,15 +96,15 @@ The reasons, in the order they are listed:
 
 Desktop on Windows needs no checklist: it is not verified in the MVP. Claude CLI on Linux needs no TUI checklist either: the TUI recordings of CI (`teammates` and `input-dialogs` through `expect`) are enough (ADR-0010, owner decision 4), and like every catalog scenario they are listed as missing when not recorded. Recordings of a Desktop engine in emulation never replace the owner's checklist (ADR-0010).
 
-A key outside the matrix reads as `unverified` through `supportStatusOf` from `@aang/contract`.
+A key outside the matrix reads as `unverified` through `supportStatusOf` from `@catacomb/contract`.
 
 ## Placement checks and owner checklists (Q.1)
 
-`support/verification.json` holds the evidence that the contract run cannot produce: placement checks and the owner's checklists. The file belongs to this tool, not to `@aang/contract`. A missing file reads as empty lists; a file off its schema stops `check`, `update` and `placement import` with its path and the problems.
+`support/verification.json` holds the evidence that the contract run cannot produce: placement checks and the owner's checklists. The file belongs to this tool, not to `@catacomb/contract`. A missing file reads as empty lists; a file off its schema stops `check`, `update` and `placement import` with its path and the problems.
 
 ```json
 {
-  "format": "aang-support-verification/1",
+  "format": "catacomb-support-verification/1",
   "placements": [
     { "runtime": "claude", "surface": "claude_cli", "os": "linux", "placement": "docker", "engine_version": "2.1.289", "result": "passed", "checked_on": "2026-10-07" }
   ],
@@ -122,7 +122,7 @@ A key outside the matrix reads as `unverified` through `supportStatusOf` from `@
 node tools/support/dist/main.js placement import <report.json>... [--support <directory>]
 ```
 
-`placement import` records placement checks from the reports of `tools/surface-check` (format `aang-surface-check/1`; fields the tool does not read are allowed), which the `Surface matrix` workflow uploads as CI artifacts. Every result whose placement is not local and which is not emulated becomes an entry:
+`placement import` records placement checks from the reports of `tools/surface-check` (format `catacomb-surface-check/1`; fields the tool does not read are allowed), which the `Surface matrix` workflow uploads as CI artifacts. Every result whose placement is not local and which is not emulated becomes an entry:
 
 - `passed` only when the result and the report's access check (`access.result`) both passed, otherwise `failed`;
 - `checked_on` is the UTC date of the report's `finished_at`;
@@ -135,18 +135,18 @@ The owner's checklists are entered by hand from the owner's report: one entry pe
 ## Observer isolation (F.10)
 
 ```sh
-pnpm support:isolation codex [--cli <codex>] [--support <directory>] [--hook <aang-hook>]
+pnpm support:isolation codex [--cli <codex>] [--support <directory>] [--hook <catacomb-hook>]
 pnpm support:isolation import <matrix.json>... [--support <directory>]
 ```
 
-`isolation codex` runs the automatic admission of ADR-0007 from `@aang/observer` (F.6) on the installed Codex CLI, `codex` from `PATH` by default: the observer profile against the local Responses stub in a temporary `CODEX_HOME`, without authorization and without the user's Codex home. It writes the result into the `observer` column of the row `(codex, codex_exec, <this OS>, local, <CLI version>)`: the observer runs `codex exec`, so the column belongs to that surface.
+`isolation codex` runs the automatic admission of ADR-0007 from `@catacomb/observer` (F.6) on the installed Codex CLI, `codex` from `PATH` by default: the observer profile against the local Responses stub in a temporary `CODEX_HOME`, without authorization and without the user's Codex home. It writes the result into the `observer` column of the row `(codex, codex_exec, <this OS>, local, <CLI version>)`: the observer runs `codex exec`, so the column belongs to that surface.
 
 - `admission` is `passed` when the admission passes and `failed` when the admission disables the backend for isolation: tools in the request, a tool call that is not rejected, a turn that does not complete, a control hook that runs with hooks disabled, a rollout or SQLite rows after `--ephemeral`. A failed admission is written and the command exits with 1.
 - Any other admission failure (the CLI is missing or reports no version, a launch failure or timeout, output that is missing or invalid) is no verdict: nothing is written and the command exits with 1.
 - `cross_session_inbound` stays `not_run` for Codex, which has no inbox for other sessions; `builtins` stays empty.
 - A new row is a row without recordings, as `update` would generate it. `check` and `update` keep the column from the previous matrix.
 
-CI installs `@openai/codex@$CODEX_VERSION` (`.github/workflows/check.yml`) for every Vitest job on all three runners and sets `AANG_ISOLATION_CODEX=codex`, which turns on the contract test in `tools/support/test/isolation.test.ts`. The test runs `isolation codex` into a temporary directory and requires `support/matrix.json` to hold the same `observer` column for the runner's OS and CLI version, so a profile change that breaks isolation, or a Codex version whose result is not recorded, fails CI. When a Vitest job fails, it runs `isolation codex` into a temporary directory of the runner and uploads that matrix as the `support-isolation-<os>` artifact.
+CI installs `@openai/codex@$CODEX_VERSION` (`.github/workflows/check.yml`) for every Vitest job on all three runners and sets `CATACOMB_ISOLATION_CODEX=codex`, which turns on the contract test in `tools/support/test/isolation.test.ts`. The test runs `isolation codex` into a temporary directory and requires `support/matrix.json` to hold the same `observer` column for the runner's OS and CLI version, so a profile change that breaks isolation, or a Codex version whose result is not recorded, fails CI. When a Vitest job fails, it runs `isolation codex` into a temporary directory of the runner and uploads that matrix as the `support-isolation-<os>` artifact.
 
 `isolation import` copies the `observer` column of every row of the given matrices whose admission or cross-session check has run into `support/matrix.json`. A new Codex version is recorded by changing `CODEX_VERSION`, running `isolation codex` locally, and importing the `support-isolation-<os>` matrices of the other runners from the failed CI job.
 
@@ -156,6 +156,6 @@ Claude rows keep `not_run` in the `observer` column: the local Claude check, the
 
 `tools/support/test/run.test.ts` records sessions from the spike samples with the real recorder: `spike-runtime.ts` plays the testkit sample scenarios, fires hooks built from the spike hook samples, writes and removes a session registry entry from the spike sample, moves and deletes the transcript, writes a JSONL file under `tool-results`, pauses so that the recorder captures the transcript in parts, and sends the spike OTLP requests. The reconnect recording puts its `daemon-restart` checkpoint on the first part of the transcript, and its snapshot must equal the snapshot of the same recording replayed without the restart. The tests place copies under several OS directories and run the CLI. The OTel decisions of the spike samples belong to no recorded rollout and stay `unknown`, so the recording made from them breaks the run and checks the unparsed record invariant, together with transcript lines rewritten into a listed, an unlisted and an invalid record. `test/portable/` holds three such recordings made on macOS with their snapshots, so every CI runner checks that a recording of another OS replays to the same snapshot; OTLP steps replay on every runner with the reference sessions of `fixtures/sessions`.
 
-`tools/support/test/isolation.test.ts` runs `isolation codex` with the fake `codex` of `@aang/testkit` in place of the CLI: a passed admission, a hook that runs with hooks disabled, and checks without a verdict; it imports matrices written for other OSes, and with `AANG_ISOLATION_CODEX` set it runs the contract test on the installed CLI.
+`tools/support/test/isolation.test.ts` runs `isolation codex` with the fake `codex` of `@catacomb/testkit` in place of the CLI: a passed admission, a hook that runs with hooks disabled, and checks without a verdict; it imports matrices written for other OSes, and with `CATACOMB_ISOLATION_CODEX` set it runs the contract test on the installed CLI.
 
 `tools/support/test/verification.test.ts` runs the CLI on a matrix and `verification.json` without recordings: owner checklists of exact keys remove the Desktop and TUI gaps, Claude CLI on Linux needs no TUI checklist, `placement import` writes passed and failed entries from surface check reports, skips local, emulated, not run and keyless results and replaces an entry of the same key, and an invalid verification file or report is refused. The rules that need recordings (the status that follows from the gaps, a non-local row with a passed, a failed or no placement check, E2E columns taken from the local row, `verified_on`) are in the matrix tests of `run.test.ts`.

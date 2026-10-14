@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { cp, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { codexAdapter } from '@aang/adapter-codex'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { codexAdapter } from '@catacomb/adapter-codex'
 import {
   type Adapter,
   type AgentKey,
@@ -19,10 +19,10 @@ import {
   NormalizerVersion,
   type RunId,
   type SessionKey,
-} from '@aang/contract'
-import { factIds, objectId, runId } from '@aang/contract/ids'
-import { applyChangeSet, createEngine, resolveEvidence } from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { factIds, objectId, runId } from '@catacomb/contract/ids'
+import { applyChangeSet, createEngine, resolveEvidence } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { expect, onTestFinished, test } from 'vitest'
 import { anotherVersion, draftOf, reversedFactGroups, sameFacts, storeAnotherNormalizer } from './another-normalizer.js'
 import {

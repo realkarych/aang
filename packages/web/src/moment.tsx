@@ -1,4 +1,4 @@
-import type { EpochNs } from '@aang/contract'
+import type { EpochNs } from '@catacomb/contract'
 import type { ReactElement } from 'react'
 import { absoluteTime, relativeTime } from './format.js'
 

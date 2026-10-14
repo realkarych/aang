@@ -10,7 +10,7 @@ import type {
   PruneBoundary,
   Runtime,
   StreamKey,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { absent, isMissing } from './errors.js'
 import { readPrefix } from './prefix.js'
 import type { Failure, FailureState, Retrier } from './retry.js'

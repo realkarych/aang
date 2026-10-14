@@ -12,8 +12,8 @@ import {
   type RunId,
   type Runtime,
   SessionKey,
-} from '@aang/contract'
-import { canonicalJson, factIds } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { canonicalJson, factIds } from '@catacomb/contract/ids'
 import { decodeJson, encodeFlag, encodeJson } from './codec.js'
 import { insertInto, prepareStatement, type WriteContext } from './context.js'
 import { MissingRawRecordError } from './errors.js'

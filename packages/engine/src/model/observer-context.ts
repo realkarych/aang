@@ -15,8 +15,8 @@ import {
   type RunId,
   type StageRef,
   type TempId,
-} from '@aang/contract'
-import type { StoredObserverCall, Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import type { StoredObserverCall, Transaction } from '@catacomb/store'
 import { factSession, sessionInRun } from '../input/scope.js'
 import type { ModelChangeDraft, ModelEntityDraft } from './journal.js'
 

@@ -4,9 +4,9 @@ import {
   type ObserverOp,
   type RunId,
   TempId,
-} from '@aang/contract'
-import { applyChangeSet, applyObserverResponse } from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { applyChangeSet, applyObserverResponse } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { hookBatch, jsonlFile } from './batches.js'
 import { codexCall, codexRun, setupCodexObserver } from './codex-observer.js'

@@ -408,7 +408,7 @@ const rolloutLines = (rollout: CodexRollout | undefined, anonymize: Anonymize): 
         `- session_meta: originator ${code(json(rollout.originator, anonymize))}, source ${code(json(rollout.source, anonymize))}, thread_source ${code(json(rollout.thread_source, anonymize))}, parent_thread_id ${code(json(rollout.parent_thread_id, anonymize))}, cli_version ${code(json(rollout.cli_version, anonymize))}`,
         ...rollout.turnContexts.map(
           (context) =>
-            `- turn_context: approval_policy ${code(json(context.approval_policy, anonymize))}, sandbox_policy ${code(json(context.sandbox_policy, anonymize))}, workspace_roots ${code(json(context.workspace_roots, anonymize))}; \`~/aang-desktop-probe-outside\` among writable roots: ${yesNo(context.outside_probe_writable)}`,
+            `- turn_context: approval_policy ${code(json(context.approval_policy, anonymize))}, sandbox_policy ${code(json(context.sandbox_policy, anonymize))}, workspace_roots ${code(json(context.workspace_roots, anonymize))}; \`~/catacomb-desktop-probe-outside\` among writable roots: ${yesNo(context.outside_probe_writable)}`,
         ),
       ]
 
@@ -490,14 +490,14 @@ export const renderSummary = (input: SummaryInput): string => {
     ...sessionsOverview(labeled, input.anonymize),
     '## Interactive Claude TUI (spike section 6, items a–h)',
     '',
-    'All Claude sessions are included; the surface is shown in a column. Time is when `aang-hook` received the event (mtime of the spool file).',
+    'All Claude sessions are included; the surface is shown in a column. Time is when `catacomb-hook` received the event (mtime of the spool file).',
     '',
     ...permissionSection(claude),
     ...idleSection(claude),
     ...toolSection('### (c) AskUserQuestion', 'AskUserQuestion', claude, false),
     '### (d) Hook errors and a hung hook — filled in by the owner',
     '',
-    'Probes `probes/failure-settings.json`: PreToolUse exits with code 1, UserPromptSubmit hangs longer than `timeout: 2`. The script sees only aang events; the owner records what the TUI showed.',
+    'Probes `probes/failure-settings.json`: PreToolUse exits with code 1, UserPromptSubmit hangs longer than `timeout: 2`. The script sees only catacomb events; the owner records what the TUI showed.',
     '',
     ...sessionEndSection(claude),
     ...envProbeSection(input.envProbes, labeled),

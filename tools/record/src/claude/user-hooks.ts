@@ -38,9 +38,9 @@ export const userHooks: Definition = {
   name: 'user-hooks',
   models: ['stub'],
   expectedFacts: [
-    `The user hook ${hookName} comes from a settings file (--settings; the settings option of query() in the SDK) and runs on SessionStart, UserPromptSubmit, PostToolUse for Bash and Stop next to the aang hook`,
+    `The user hook ${hookName} comes from a settings file (--settings; the settings option of query() in the SDK) and runs on SessionStart, UserPromptSubmit, PostToolUse for Bash and Stop next to the catacomb hook`,
     'SessionStart prints plain text (hook_success); UserPromptSubmit and PostToolUse return additionalContext (hook_additional_context), PostToolUse also a systemMessage (hook_system_message)',
-    `Stop exits with 1 (hook_non_blocking_error); stop_hook_summary lists the ${hookName} command with an error next to the aang hook`,
+    `Stop exits with 1 (hook_non_blocking_error); stop_hook_summary lists the ${hookName} command with an error next to the catacomb hook`,
   ],
   script: () => ({ 'user-hooks': [[bash('echo hooked', 'Print hooked')], [{ text: 'The command printed hooked.' }]] }),
   run: async ({ session, stage }) => {
@@ -53,7 +53,7 @@ export const userHooks: Definition = {
     }, null, 2)}\n`)
     const summary = await stage('user-hooks', {
       settings,
-      turns: [{ prompt: '[aang:user-hooks] Run `echo hooked` with the Bash tool and reply with its output.' }],
+      turns: [{ prompt: '[catacomb:user-hooks] Run `echo hooked` with the Bash tool and reply with its output.' }],
     })
     const sessionId = sessionOf(summary)
     const transcript = await findTranscript(session, sessionId)

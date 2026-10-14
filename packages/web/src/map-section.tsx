@@ -1,4 +1,4 @@
-import type { RunSnapshot, StageId } from '@aang/contract'
+import type { RunSnapshot, StageId } from '@catacomb/contract'
 import { lazy, type ReactElement, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { FilterChips } from './filter-chips.js'
 import { plural } from './format.js'

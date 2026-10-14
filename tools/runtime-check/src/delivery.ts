@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { readdir, readFile, realpath, rm, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
-import { revokeLeases } from '@aang/contract/home'
+import { revokeLeases } from '@catacomb/contract/home'
 import {
   type ClaudeCli,
   claudePluginState,
@@ -12,7 +12,7 @@ import {
   installCodexHooks,
   uninstallClaudePlugin,
   writeClaudePlugin,
-} from '@aang/hook'
+} from '@catacomb/hook'
 import { type AgentSdk, runAgentSdk, sdkOutcome } from './agent-sdk.js'
 import { claudeOutcome, runClaude } from './claude.js'
 import { codexOutcome, type CommandForm, newPatch, runCodex, writeCodexHome } from './codex.js'
@@ -24,8 +24,8 @@ import { clearDelivered, countByEvent, type DeliveredEvent, readDelivered } from
 
 const posixQuote = (value: string): string => `'${value.replaceAll("'", `'\\''`)}'`
 
-export const aangInstallForm: CommandForm = {
-  id: 'aang install (POSIX single quotes)',
+export const catacombInstallForm: CommandForm = {
+  id: 'catacomb install (POSIX single quotes)',
   render: (parts) => parts.map(posixQuote).join(' '),
 }
 
@@ -147,7 +147,7 @@ export const claudeMarketplace = async (
 ): Promise<Record<string, unknown>> => {
   const { profile } = context
   const claude = claudeCli(context, profile.claudeConfigDir)
-  const options = { aangHome: profile.aangHome, hookBinarySource: hookSource, claude }
+  const options = { catacombHome: profile.catacombHome, hookBinarySource: hookSource, claude }
   const installation = await isolated(context, () => installClaudePlugin(options))
   const repeated = await attempt(() => isolated(context, () => installClaudePlugin(options)))
   return {
@@ -167,7 +167,7 @@ export const claudeSkillsDirectory = async (
 ): Promise<Record<string, unknown>> => {
   const { profile } = context
   const configDir = join(profile.home, '.claude-skills-fallback')
-  const directory = join(configDir, 'skills', 'aang')
+  const directory = join(configDir, 'skills', 'catacomb')
   await writeClaudePlugin({ directory, hookBinary: profile.hook, spool: profile.spool })
   try {
     return {
@@ -186,13 +186,13 @@ export const claudeSkillsDirectory = async (
 export const claudeRemoval = async (context: CheckContext): Promise<Record<string, unknown>> => {
   const { profile } = context
   const claude = claudeCli(context, profile.claudeConfigDir)
-  const removed = await attempt(() => isolated(context, () => uninstallClaudePlugin({ aangHome: profile.aangHome, claude })))
-  const repeated = await attempt(() => isolated(context, () => uninstallClaudePlugin({ aangHome: profile.aangHome, claude })))
+  const removed = await attempt(() => isolated(context, () => uninstallClaudePlugin({ catacombHome: profile.catacombHome, claude })))
+  const repeated = await attempt(() => isolated(context, () => uninstallClaudePlugin({ catacombHome: profile.catacombHome, claude })))
   return {
     uninstall: { error: removed.error },
     repeatedUninstall: { error: repeated.error },
     state: await isolated(context, () => claudePluginState(claude)),
-    pluginDirectoryRemoved: !existsSync(join(profile.aangHome, 'claude-plugin')),
+    pluginDirectoryRemoved: !existsSync(join(profile.catacombHome, 'claude-plugin')),
     cli: await claudeCliSession(context, profile.claudeConfigDir),
   }
 }
@@ -244,7 +244,7 @@ const codexShellProbe = async (context: CheckContext): Promise<{ readonly entry:
   const { probe } = context
   const label = 'codex-account-shell'
   await clearProbeLog(probe)
-  const probeCommand = `${aangInstallForm.render([probe.node, ...probeArgs(probe, label, ['chain'])])}; true`
+  const probeCommand = `${catacombInstallForm.render([probe.node, ...probeArgs(probe, label, ['chain'])])}; true`
   const home = join(context.work, 'codex-account-shell')
   await writeCodexHome(context, home, { SessionStart: [{ command: probeCommand, timeout: 60 }] })
   await runCodex(context, { home, steps: [] })
@@ -256,13 +256,13 @@ export const codexInstallation = async (context: CheckContext, hookSource: strin
   const { profile } = context
   const home = join(context.work, 'codex-installed')
   await writeCodexHome(context, home, null)
-  const options = { aangHome: profile.aangHome, hookBinarySource: hookSource, codexHome: home, codex: { command: context.clis.codex.command } }
+  const options = { catacombHome: profile.catacombHome, hookBinarySource: hookSource, codexHome: home, codex: { command: context.clis.codex.command } }
   const installation = await isolated(context, () => installCodexHooks(options))
   const hooksFile = join(home, 'hooks.json')
   const hashBefore = await fileHash(hooksFile)
   const repeated = await attempt(() => isolated(context, () => installCodexHooks(options)))
   const hashAfter = await fileHash(hooksFile)
-  const state = await attempt(() => isolated(context, () => codexHooksState({ aangHome: profile.aangHome, codexHome: home, codex: options.codex })))
+  const state = await attempt(() => isolated(context, () => codexHooksState({ catacombHome: profile.catacombHome, codexHome: home, codex: options.codex })))
   const patch = newPatch(context, 'installed')
   const session = await delivered(context, () => runCodex(context, { home, steps: [patch.step] }))
   const { entry, probeCommand } = await codexShellProbe(context)
@@ -309,9 +309,9 @@ export const installedLatency = async (context: CheckContext, inputs: LatencyInp
     return { unavailable: 'runtime launchers were not observed; the installed configuration cannot be measured' }
   }
   const { profile } = context
-  const spool = join(profile.aangHome, 'spool-installed-latency')
+  const spool = join(profile.catacombHome, 'spool-installed-latency')
   await createSpool(spool)
-  const unleased = join(profile.aangHome, 'spool-installed-latency-unleased')
+  const unleased = join(profile.catacombHome, 'spool-installed-latency-unleased')
   await createSpool(unleased)
   await revokeLeases(unleased)
   const direct = (args: readonly string[], target: string): Promise<LatencySummary> =>
@@ -319,14 +319,14 @@ export const installedLatency = async (context: CheckContext, inputs: LatencyInp
   return {
     series: strictSeries,
     claudeExecFormParent: trimChain(execForm.chain, 'claude'),
-    'claude: aang-hook started directly (exec form)': await direct(['claude', 'plugin', spool], spool),
-    'claude: aang-hook without a lease (no spool write)': await direct(['claude', 'plugin', unleased], unleased),
+    'claude: catacomb-hook started directly (exec form)': await direct(['claude', 'plugin', spool], spool),
+    'claude: catacomb-hook without a lease (no spool write)': await direct(['claude', 'plugin', unleased], unleased),
     'codex: installed command through the account shell': await measure(
       withSpool(inputs.codexLauncher, spool),
       spool,
       strictSeries,
     ),
-    'codex: aang-hook alone': await direct(['codex', 'user', spool], spool),
+    'codex: catacomb-hook alone': await direct(['codex', 'user', spool], spool),
   }
 }
 

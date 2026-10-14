@@ -1,4 +1,4 @@
-import type { EpochNs, Fact, PromptOrigin } from '@aang/contract'
+import type { EpochNs, Fact, PromptOrigin } from '@catacomb/contract'
 import type { Evidence } from '../observations/evidence.js'
 
 export interface RunPause {

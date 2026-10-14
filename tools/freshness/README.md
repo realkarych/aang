@@ -6,11 +6,11 @@ Build with `pnpm build`. A measurement is three steps in one directory:
 
 ```sh
 node tools/freshness/dist/main.js fix <profile.json> <directory> [--fixtures <directory>]
-node tools/freshness/dist/main.js run <directory> [--fixtures <directory>] [--daemon <aang main.js>] [--hook <aang-hook>]
+node tools/freshness/dist/main.js run <directory> [--fixtures <directory>] [--daemon <catacomb main.js>] [--hook <catacomb-hook>]
 node tools/freshness/dist/main.js report <directory>
 ```
 
-`--fixtures` defaults to `fixtures/sessions`, `--daemon` to `packages/aang/dist/main.js`, `--hook` to the built `aang-hook`.
+`--fixtures` defaults to `fixtures/sessions`, `--daemon` to `packages/catacomb/dist/main.js`, `--hook` to the built `catacomb-hook`.
 
 ## Load profile
 
@@ -18,7 +18,7 @@ The load profile is fixed before the measurement. `fix` validates it, loads ever
 
 ```json
 {
-  "format": "aang-freshness-profile/1",
+  "format": "catacomb-freshness-profile/1",
   "name": "claude-parallel",
   "time_scale": 1,
   "window_ms": 120000,
@@ -61,7 +61,7 @@ A predicate holds when the model has an entity that matches every given field. T
 
 ## Run
 
-`run` lays out a runtime home inside the directory (`home`, with the Claude `projects`, `sessions` and `teams` and the Codex `sessions` and `archived_sessions` a used runtime has) and an aang home (`aang`), and starts the daemon with `AANG_HOME`, `CLAUDE_CONFIG_DIR` and `CODEX_HOME` there. `HOME` is inherited, so a real observer CLI runs with the owner's login; the daemon never watches the owner's runtime homes. The daemon config watches every session, uses the observer settings of the profile and otherwise keeps the defaults.
+`run` lays out a runtime home inside the directory (`home`, with the Claude `projects`, `sessions` and `teams` and the Codex `sessions` and `archived_sessions` a used runtime has) and an catacomb home (`catacomb`), and starts the daemon with `CATACOMB_HOME`, `CLAUDE_CONFIG_DIR` and `CODEX_HOME` there. `HOME` is inherited, so a real observer CLI runs with the owner's login; the daemon never watches the owner's runtime homes. The daemon config watches every session, uses the observer settings of the profile and otherwise keeps the defaults.
 
 The tool waits until the observer of every runtime of the profile is admitted, then starts each recording at its offset with the current time (`recordTime` of the player), and keeps sampling the observer state of every run. After the last control event plus `window_ms` it reads the observer calls, stops the daemon and evaluates the store. When a recording fails to play, the other recordings stop at once; the daemon is shut down on every path, so it cancels the observer calls and ends their processes, and is killed only when it does not shut down.
 

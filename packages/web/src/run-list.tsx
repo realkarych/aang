@@ -1,4 +1,4 @@
-import type { RunSummary, WatchState } from '@aang/contract'
+import type { RunSummary, WatchState } from '@catacomb/contract'
 import type { ReactElement } from 'react'
 import { ExecutionBadge } from './badges.js'
 import { dayTime } from './format.js'
@@ -16,10 +16,10 @@ const EmptyList = ({ watch }: { readonly watch: WatchState | null }): ReactEleme
   <div className="empty">
     <h2>No runs yet</h2>
     {watch === null ? null : watch.all ? (
-      <p>aang watches all directories. Start Claude Code or Codex, and the run will appear here.</p>
+      <p>catacomb watches all directories. Start Claude Code or Codex, and the run will appear here.</p>
     ) : watch.roots.length === 0 ? (
       <p>
-        No directory is being watched. Add a project with <code>aang watch &lt;directory&gt;</code> and start
+        No directory is being watched. Add a project with <code>catacomb watch &lt;directory&gt;</code> and start
         Claude Code or Codex in it.
       </p>
     ) : (
@@ -96,7 +96,7 @@ export interface RunListProps {
 export const RunList = ({ runs, failing, watch, now }: RunListProps): ReactElement => {
   if (runs === null) {
     return failing ? (
-      <ListTrouble>Could not load the run list. aang keeps retrying.</ListTrouble>
+      <ListTrouble>Could not load the run list. catacomb keeps retrying.</ListTrouble>
     ) : (
       <p className="loading">Loading runs…</p>
     )

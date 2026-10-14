@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { CallUsage, JsonValue } from '@aang/contract'
+import type { CallUsage, JsonValue } from '@catacomb/contract'
 import { authenticate, createBackend, events, failureClass, LaunchError, number, object, requireSuccess, resetTime, validateOutput, type BackendOptions, type CallOutcome, type CallProtocol, type Invocation, type JsonObject } from './backend.js'
 
 import type { ProcessResult } from './process.js'

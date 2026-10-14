@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { contentHash } from '@aang/contract/ids'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { contentHash } from '@catacomb/contract/ids'
 import {
   CollectedRecord,
   type JsonValue,
@@ -8,7 +8,7 @@ import {
   type SpoolEnv,
   spoolEnvKeys,
   type StreamKey,
-} from '@aang/contract'
+} from '@catacomb/contract'
 
 const samplesRoot = new URL('../../../docs/research/samples/', import.meta.url)
 

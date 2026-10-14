@@ -16,8 +16,8 @@ import {
   type Runtime,
   type Stage,
   type StageId,
-} from '@aang/contract'
-import type { ChatReader, ChatScope, Transaction, ViewReader } from '@aang/store'
+} from '@catacomb/contract'
+import type { ChatReader, ChatScope, Transaction, ViewReader } from '@catacomb/store'
 import { compareText } from '../observations/evidence.js'
 import { origin, partsOf } from '../read/context.js'
 import { attentionZone } from '../view/zone.js'

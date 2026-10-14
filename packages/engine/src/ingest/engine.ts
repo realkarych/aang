@@ -21,10 +21,10 @@ import type {
   SessionId,
   SessionKey,
   StreamKey,
-} from '@aang/contract'
-import { BindingId, EpochNs } from '@aang/contract'
-import { canonicalJson, objectId } from '@aang/contract/ids'
-import type { GapDraft, SessionDecision, Store, Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { BindingId, EpochNs } from '@catacomb/contract'
+import { canonicalJson, objectId } from '@catacomb/contract/ids'
+import type { GapDraft, SessionDecision, Store, Transaction } from '@catacomb/store'
 import { retainBases } from '../artifacts/retention.js'
 import { projectVersions } from '../artifacts/versions.js'
 import { refreshChecks } from '../checks/attention.js'

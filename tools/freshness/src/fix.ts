@@ -21,7 +21,7 @@ export const fixProfile = async (source: string, directory: string, fixtures: st
   if (recordings.every(({ control_events: events }) => events === 0)) {
     throw new Error(`${source}: the recordings of the profile have no control events`)
   }
-  const fixed: FixedProfile = { format: 'aang-freshness-fixed-profile/1', fixed_at: new Date().toISOString(), profile, recordings }
+  const fixed: FixedProfile = { format: 'catacomb-freshness-fixed-profile/1', fixed_at: new Date().toISOString(), profile, recordings }
   await mkdir(directory, { recursive: true })
   await writeNew(join(directory, measurementFiles.profile), fixed)
   return fixed

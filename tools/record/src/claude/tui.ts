@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { spoolLayout } from '@aang/contract'
+import { spoolLayout } from '@catacomb/contract'
 import { resolveExpect } from '../expect.js'
 import type { ScenarioSession } from '../scenario.js'
 import { plainText } from '../terminal.js'
@@ -17,7 +17,7 @@ set stty_init "rows 50 cols 200"
 set env(TERM) xterm-256color
 array set named_keys [list enter "\r" escape "\x1b" right "\x1b\[C" down "\x1b\[B"]
 proc fail {message} {
-  puts stderr "aang-tui: $message"
+  puts stderr "catacomb-tui: $message"
   exit 2
 }
 proc count_matching {files pattern} {

@@ -2,10 +2,10 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { readdir, rm, stat, unlink } from 'node:fs/promises'
 import type { IncomingMessage } from 'node:http'
 import { join } from 'node:path'
-import { type AangHomePaths, AuthCode, readUiToken } from '@aang/contract/home'
+import { type CatacombHomePaths, AuthCode, readUiToken } from '@catacomb/contract/home'
 import { ignoreMissing } from './missing.js'
 
-export const sessionCookie = 'aang_token'
+export const sessionCookie = 'catacomb_token'
 
 const codeLifetimeMs = 5 * 60_000
 const cookieMaxAgeSeconds = 400 * 24 * 60 * 60
@@ -32,7 +32,7 @@ const cookieToken = (request: IncomingMessage): string | undefined =>
 
 const isExpired = (modifiedMs: number): boolean => Date.now() - modifiedMs > codeLifetimeMs
 
-export const createAuthenticator = (paths: AangHomePaths): Authenticator => {
+export const createAuthenticator = (paths: CatacombHomePaths): Authenticator => {
   const credential = async (request: IncomingMessage): Promise<Credential | null> => {
     const token = await readUiToken(paths.uiToken)
     if (token === null) {

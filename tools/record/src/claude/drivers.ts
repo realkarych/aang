@@ -55,7 +55,7 @@ const cliDriver: SurfaceDriver = {
   runtime: 'claude',
   resolve: async (selection) => {
     const nativeInstall = join(homedir(), '.local', 'bin', binaryName)
-    const path = chosen(selection.claude, 'AANG_RECORD_CLAUDE') ?? await onPath(binaryName) ?? (await isExecutable(nativeInstall) ? nativeInstall : undefined)
+    const path = chosen(selection.claude, 'CATACOMB_RECORD_CLAUDE') ?? await onPath(binaryName) ?? (await isExecutable(nativeInstall) ? nativeInstall : undefined)
     if (path === undefined) throw new EngineUnavailableError(`Claude Code CLI (${binaryName}) is not on PATH`)
     return executableEngine(resolve(path), 'Claude Code CLI')
   },
@@ -93,8 +93,8 @@ const sdkDriver: SurfaceDriver = {
   surface: 'claude_sdk',
   runtime: 'claude',
   resolve: async (selection) => {
-    const given = chosen(selection.claudeSdk, 'AANG_RECORD_CLAUDE_SDK')
-    if (given === undefined) throw new EngineUnavailableError('Claude Agent SDK package directory is not given (--claude-sdk or AANG_RECORD_CLAUDE_SDK)')
+    const given = chosen(selection.claudeSdk, 'CATACOMB_RECORD_CLAUDE_SDK')
+    if (given === undefined) throw new EngineUnavailableError('Claude Agent SDK package directory is not given (--claude-sdk or CATACOMB_RECORD_CLAUDE_SDK)')
     const found = await sdkPackage(resolve(given))
     if (found === undefined) throw new EngineUnavailableError(`${given} does not contain @anthropic-ai/claude-agent-sdk`)
     const { directory, manifest } = found
@@ -138,7 +138,7 @@ const desktopDriver: SurfaceDriver = {
   runtime: 'claude',
   os: ['macos'],
   resolve: async (selection) => {
-    const path = chosen(selection.claudeDesktop, 'AANG_RECORD_CLAUDE_DESKTOP') ?? await newestDesktopEngine()
+    const path = chosen(selection.claudeDesktop, 'CATACOMB_RECORD_CLAUDE_DESKTOP') ?? await newestDesktopEngine()
     if (path === undefined) throw new EngineUnavailableError(`Claude Desktop engine is not installed under ${desktopRoot}`)
     const engine = await executableEngine(resolve(path), 'Claude Desktop engine')
     const appVersion = await desktopVersion()

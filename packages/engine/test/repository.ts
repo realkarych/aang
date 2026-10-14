@@ -13,11 +13,11 @@ const run = promisify(execFile)
 const gitEnvironment = (): NodeJS.ProcessEnv => ({
   ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))),
   GIT_CONFIG_NOSYSTEM: '1',
-  GIT_CONFIG_GLOBAL: join(tmpdir(), 'aang-engine-no-gitconfig'),
+  GIT_CONFIG_GLOBAL: join(tmpdir(), 'catacomb-engine-no-gitconfig'),
 })
 
 export const git = async (cwd: string, ...args: readonly string[]): Promise<string> => {
-  const { stdout } = await run('git', ['-c', 'user.name=aang', '-c', 'user.email=aang@example.invalid', ...args], {
+  const { stdout } = await run('git', ['-c', 'user.name=catacomb', '-c', 'user.email=catacomb@example.invalid', ...args], {
     cwd,
     env: gitEnvironment(),
   })
@@ -42,7 +42,7 @@ export const createRepository = async (
   files: Readonly<Record<string, string>>,
   commit = true,
 ): Promise<Repository> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-repository-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-repository-')))
   register(() => rm(root, { recursive: true, force: true, maxRetries: 5 }))
   return initRepository(join(root, 'project'), files, commit)
 }

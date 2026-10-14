@@ -1,4 +1,4 @@
-import { type Adapter, NormalizerVersion } from '@aang/contract'
+import { type Adapter, NormalizerVersion } from '@catacomb/contract'
 import { owner } from './owner.js'
 import { parse } from './parse.js'
 import { rawKey } from './raw-key.js'

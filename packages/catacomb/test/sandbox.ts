@@ -6,13 +6,13 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
-import { invokeHook } from '@aang/testkit'
+import { invokeHook } from '@catacomb/testkit'
 import type { TestContext } from 'vitest'
 import { isAlive, kill } from './processes.js'
 
 const entry = fileURLToPath(new URL('../dist/main.js', import.meta.url))
 const hookBinary = fileURLToPath(
-  new URL(`../../hook/bin/aang-hook${process.platform === 'win32' ? '.exe' : ''}`, import.meta.url),
+  new URL(`../../hook/bin/catacomb-hook${process.platform === 'win32' ? '.exe' : ''}`, import.meta.url),
 )
 
 export interface CommandResult {
@@ -33,14 +33,14 @@ export interface SpoolView {
   readonly stopped: boolean
 }
 
-export type AangProcess = ChildProcessByStdio<null, Readable, Readable>
+export type CatacombProcess = ChildProcessByStdio<null, Readable, Readable>
 
 export interface Sandbox {
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly spool: string
   readonly env: NodeJS.ProcessEnv
-  readonly aang: (...args: string[]) => Promise<CommandResult>
-  readonly spawnAang: (...args: string[]) => AangProcess
+  readonly catacomb: (...args: string[]) => Promise<CommandResult>
+  readonly spawnCatacomb: (...args: string[]) => CatacombProcess
   readonly daemonState: () => Promise<DaemonStateFile | null>
   readonly spoolView: () => Promise<SpoolView>
   readonly hookWrites: () => Promise<boolean>
@@ -59,7 +59,7 @@ const namesIn = (directory: string): Promise<string[]> =>
     throw error
   })
 
-const collect = async (child: AangProcess): Promise<CommandResult> => {
+const collect = async (child: CatacombProcess): Promise<CommandResult> => {
   let stdout = ''
   let stderr = ''
   child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
@@ -76,20 +76,20 @@ export interface SandboxLayout {
   readonly relativeHome?: boolean
 }
 
-const homeName = 'aang home'
+const homeName = 'catacomb home'
 
 export const createSandbox = async (
   onTestFinished: TestContext['onTestFinished'],
   config: Record<string, unknown> = {},
   { relativeHome = false }: SandboxLayout = {},
 ): Promise<Sandbox> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-lifecycle-')))
-  const aangHome = join(root, homeName)
-  const spool = join(aangHome, 'spool')
-  const daemonStateFile = join(aangHome, 'daemon.json')
-  await mkdir(aangHome, { recursive: true })
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-lifecycle-')))
+  const catacombHome = join(root, homeName)
+  const spool = join(catacombHome, 'spool')
+  const daemonStateFile = join(catacombHome, 'daemon.json')
+  await mkdir(catacombHome, { recursive: true })
   await writeFile(
-    join(aangHome, 'config.json'),
+    join(catacombHome, 'config.json'),
     JSON.stringify({
       cli: { claude: join(root, 'absent', 'claude'), codex: join(root, 'absent', 'codex') },
       ...config,
@@ -101,12 +101,12 @@ export const createSandbox = async (
     ...process.env,
     HOME: root,
     USERPROFILE: root,
-    AANG_HOME: relativeHome ? homeName : aangHome,
+    CATACOMB_HOME: relativeHome ? homeName : catacombHome,
     CLAUDE_CONFIG_DIR: join(root, '.claude'),
     CODEX_HOME: join(root, '.codex'),
   }
   const tracked = new Set<number>()
-  const children = new Set<AangProcess>()
+  const children = new Set<CatacombProcess>()
 
   const daemonState = async (): Promise<DaemonStateFile | null> => {
     try {
@@ -121,7 +121,7 @@ export const createSandbox = async (
     }
   }
 
-  const spawnAang = (...args: string[]): AangProcess => {
+  const spawnCatacomb = (...args: string[]): CatacombProcess => {
     const child = spawn(process.execPath, [entry, ...args], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
     children.add(child)
     return child
@@ -143,11 +143,11 @@ export const createSandbox = async (
   })
 
   return {
-    aangHome,
+    catacombHome,
     spool,
     env,
-    aang: (...args) => collect(spawnAang(...args)),
-    spawnAang,
+    catacomb: (...args) => collect(spawnCatacomb(...args)),
+    spawnCatacomb,
     daemonState,
     spoolView: async () => {
       const names = await namesIn(spool)
@@ -166,7 +166,7 @@ export const createSandbox = async (
       await invokeHook({ binary: hookBinary, spool, env }, { runtime: 'claude', registration: 'plugin', payload })
       const written = (await namesIn(ready)).filter((name) => !before.has(name))
       const contents = await Promise.all(written.map((name) => readFile(join(ready, name), 'utf8')))
-      return contents.some((content) => content.startsWith('aang-spool/1 claude plugin\n') && content.endsWith(payload))
+      return contents.some((content) => content.startsWith('catacomb-spool/1 claude plugin\n') && content.endsWith(payload))
     },
     track: (pid) => {
       tracked.add(pid)
@@ -175,9 +175,9 @@ export const createSandbox = async (
 }
 
 export const startedPid = (result: CommandResult): number => {
-  const match = /aang started: pid ([0-9]+), /.exec(result.stdout)
+  const match = /catacomb started: pid ([0-9]+), /.exec(result.stdout)
   if (match?.[1] === undefined) {
-    throw new Error(`aang start did not report a pid: ${result.stdout}${result.stderr}`)
+    throw new Error(`catacomb start did not report a pid: ${result.stdout}${result.stderr}`)
   }
   return Number(match[1])
 }

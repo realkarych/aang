@@ -86,7 +86,7 @@ export const newPatch = (context: CheckContext, label: string): Patch => {
     step: {
       type: 'custom_tool_call',
       name: 'apply_patch',
-      input: `*** Begin Patch\n*** Add File: ${name}\n+aang\n*** End Patch\n`,
+      input: `*** Begin Patch\n*** Add File: ${name}\n+catacomb\n*** End Patch\n`,
     },
     file: join(context.profile.project, name),
   }
@@ -99,12 +99,12 @@ export const writeCodexHome = async (context: CheckContext, home: string, hooks:
     join(home, 'config.toml'),
     [
       'model = "gpt-6.1-sol"',
-      'model_provider = "aang_stub"',
+      'model_provider = "catacomb_stub"',
       'approval_policy = "never"',
       'sandbox_mode = "danger-full-access"',
       '',
-      '[model_providers.aang_stub]',
-      'name = "aang stub"',
+      '[model_providers.catacomb_stub]',
+      'name = "catacomb stub"',
       `base_url = "${context.responses.url}"`,
       'wire_api = "responses"',
       'requires_openai_auth = false',
@@ -201,7 +201,7 @@ export const probeHook = (
 })
 
 const formSpool = (context: CheckContext, form: CommandForm): string =>
-  join(context.profile.aangHome, `spool-codex-${form.id}`)
+  join(context.profile.catacombHome, `spool-codex-${form.id}`)
 
 interface CodexForms {
   readonly report: Record<string, unknown>

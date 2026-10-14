@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { fileURLToPath } from 'node:url'
-import { codexAdapter } from '@aang/adapter-codex'
-import { factIds, objectId } from '@aang/contract/ids'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { factIds, objectId } from '@catacomb/contract/ids'
 import { expect, onTestFinished, test } from 'vitest'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
 import { factsOf, recordsOf, sessionKey, startEngine, streamOf } from './harness.js'
@@ -217,11 +217,11 @@ test.each(
   let engine = startEngine(store, watch)
   const record = decisionRecord(otelThread, {
     [missing]: undefined,
-    ...(scope === 'otel-observer' ? { originator: 'aang_observer' } : {}),
+    ...(scope === 'otel-observer' ? { originator: 'catacomb_observer' } : {}),
   })
   const decision = batchOf({ records: [record] })
   const key = codexAdapter.rawKey(record)
-  const env = scope === 'observer' ? { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' } : {}
+  const env = scope === 'observer' ? { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'catacomb_observer' } : {}
   const root = hookBatch({
     runtime: 'codex',
     file: 'start.evt',

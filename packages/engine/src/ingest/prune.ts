@@ -7,9 +7,9 @@ import type {
   RunId,
   SessionKey,
   StreamKey,
-} from '@aang/contract'
-import { contentHash, runId } from '@aang/contract/ids'
-import type { PruneTarget, Store } from '@aang/store'
+} from '@catacomb/contract'
+import { contentHash, runId } from '@catacomb/contract/ids'
+import type { PruneTarget, Store } from '@catacomb/store'
 import { compareText } from '../observations/evidence.js'
 import { collectedOf, streamOwner } from '../observations/sources.js'
 import { type Adapters, sessionName } from './records.js'

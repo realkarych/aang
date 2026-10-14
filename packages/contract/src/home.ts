@@ -6,7 +6,7 @@ import { Listener } from './api.js'
 import { EpochNs } from './primitives.js'
 import { spoolLayout } from './spool.js'
 
-export const aangHomeLayout = {
+export const catacombHomeLayout = {
   spool: 'spool',
   daemonState: 'daemon.json',
   daemonLog: 'daemon.log',
@@ -14,7 +14,7 @@ export const aangHomeLayout = {
   authCodes: 'auth',
 } as const
 
-export interface AangHomePaths {
+export interface CatacombHomePaths {
   readonly home: string
   readonly spool: string
   readonly spoolReady: string
@@ -26,18 +26,18 @@ export interface AangHomePaths {
   readonly authCodes: string
 }
 
-export const aangHomePaths = (aangHome: string): AangHomePaths => {
-  const spool = join(aangHome, aangHomeLayout.spool)
+export const catacombHomePaths = (catacombHome: string): CatacombHomePaths => {
+  const spool = join(catacombHome, catacombHomeLayout.spool)
   return {
-    home: aangHome,
+    home: catacombHome,
     spool,
     spoolReady: join(spool, spoolLayout.readyDirectory),
     spoolTemporary: join(spool, spoolLayout.temporaryDirectory),
     stoppedMarker: join(spool, spoolLayout.stoppedMarker),
-    daemonState: join(aangHome, aangHomeLayout.daemonState),
-    daemonLog: join(aangHome, aangHomeLayout.daemonLog),
-    uiToken: join(aangHome, aangHomeLayout.uiToken),
-    authCodes: join(aangHome, aangHomeLayout.authCodes),
+    daemonState: join(catacombHome, catacombHomeLayout.daemonState),
+    daemonLog: join(catacombHome, catacombHomeLayout.daemonLog),
+    uiToken: join(catacombHome, catacombHomeLayout.uiToken),
+    authCodes: join(catacombHome, catacombHomeLayout.authCodes),
   }
 }
 

@@ -1,5 +1,5 @@
-import { ObserverCallId, ObserverInput } from '@aang/contract'
-import { applyObserverResponse, beginObserverCall } from '@aang/engine'
+import { ObserverCallId, ObserverInput } from '@catacomb/contract'
+import { applyObserverResponse, beginObserverCall } from '@catacomb/engine'
 import { expect, test } from 'vitest'
 import { at, runA } from './model.js'
 import { callId, createStage, inputFor, response, setupObserver, version } from './observer-fixtures.js'

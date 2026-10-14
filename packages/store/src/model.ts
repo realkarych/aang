@@ -12,7 +12,7 @@ import {
   ModelVersionRecord,
   Run,
   RunId,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { decodeJson, encodeJson } from './codec.js'
 import { insertInto, prepareStatement, type WriteContext } from './context.js'
 

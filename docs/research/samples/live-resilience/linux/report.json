@@ -24,10 +24,10 @@
       "steps": [
         {
           "atMs": 1211,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-cJCgrG/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-cJCgrG/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -130,14 +130,14 @@
           "name": "every tool use of the transcript is one action",
           "ok": true,
           "observed": [
-            "toolu_aang_kill-mid-turn_0_0",
-            "toolu_aang_kill-mid-turn_1_0",
-            "toolu_aang_kill-mid-turn_2_0"
+            "toolu_catacomb_kill-mid-turn_0_0",
+            "toolu_catacomb_kill-mid-turn_1_0",
+            "toolu_catacomb_kill-mid-turn_2_0"
           ],
           "expected": [
-            "toolu_aang_kill-mid-turn_0_0",
-            "toolu_aang_kill-mid-turn_1_0",
-            "toolu_aang_kill-mid-turn_2_0"
+            "toolu_catacomb_kill-mid-turn_0_0",
+            "toolu_catacomb_kill-mid-turn_1_0",
+            "toolu_catacomb_kill-mid-turn_2_0"
           ],
           "known": null
         },
@@ -274,16 +274,16 @@
       "runtimes": [
         "claude"
       ],
-      "summary": "aang stop between two turns of one Claude session: hooks write nothing while aang is stopped, the turn taken while stopped comes from the transcript after aang start, and hooks resume for the next turn",
+      "summary": "catacomb stop between two turns of one Claude session: hooks write nothing while catacomb is stopped, the turn taken while stopped comes from the transcript after catacomb start, and hooks resume for the next turn",
       "status": "passed",
       "durationMs": 7001,
       "steps": [
         {
           "atMs": 1060,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-461CZ4/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-461CZ4/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -330,10 +330,10 @@
         },
         {
           "atMs": 3423,
-          "event": "aang stop",
+          "event": "catacomb stop",
           "details": {
             "code": 0,
-            "stdout": "aang stopped: pid 4353",
+            "stdout": "catacomb stopped: pid 4353",
             "stderr": ""
           }
         },
@@ -419,14 +419,14 @@
       ],
       "checks": [
         {
-          "name": "aang stop succeeds",
+          "name": "catacomb stop succeeds",
           "ok": true,
           "observed": 0,
           "expected": null,
           "known": null
         },
         {
-          "name": "hooks wrote nothing while aang was stopped",
+          "name": "hooks wrote nothing while catacomb was stopped",
           "ok": true,
           "observed": [],
           "expected": [],
@@ -436,12 +436,12 @@
           "name": "the turn taken while stopped is read from the transcript",
           "ok": true,
           "observed": [
-            "toolu_aang_stop-first_0_0",
-            "toolu_aang_stop-second_0_0"
+            "toolu_catacomb_stop-first_0_0",
+            "toolu_catacomb_stop-second_0_0"
           ],
           "expected": [
-            "toolu_aang_stop-first_0_0",
-            "toolu_aang_stop-second_0_0"
+            "toolu_catacomb_stop-first_0_0",
+            "toolu_catacomb_stop-second_0_0"
           ],
           "known": null
         },
@@ -449,14 +449,14 @@
           "name": "every tool use of the transcript is one action",
           "ok": true,
           "observed": [
-            "toolu_aang_stop-first_0_0",
-            "toolu_aang_stop-second_0_0",
-            "toolu_aang_stop-third_0_0"
+            "toolu_catacomb_stop-first_0_0",
+            "toolu_catacomb_stop-second_0_0",
+            "toolu_catacomb_stop-third_0_0"
           ],
           "expected": [
-            "toolu_aang_stop-first_0_0",
-            "toolu_aang_stop-second_0_0",
-            "toolu_aang_stop-third_0_0"
+            "toolu_catacomb_stop-first_0_0",
+            "toolu_catacomb_stop-second_0_0",
+            "toolu_catacomb_stop-third_0_0"
           ],
           "known": null
         },
@@ -557,22 +557,22 @@
       "runtimes": [
         "codex"
       ],
-      "summary": "The daemon is killed with SIGKILL while a codex exec turn with trusted aang hooks waits inside a command; the turn ends while the daemon is down; the restarted daemon takes in the spool and the rest of the rollout once",
+      "summary": "The daemon is killed with SIGKILL while a codex exec turn with trusted catacomb hooks waits inside a command; the turn ends while the daemon is down; the restarted daemon takes in the spool and the rest of the rollout once",
       "status": "known",
       "durationMs": 5933,
       "steps": [
         {
           "atMs": 609,
-          "event": "aang install --codex",
+          "event": "catacomb install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-qyVVSQ/Όνομα Επώνυμο/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: catacomb hooks registered in <tmp>/catacomb-profile-qyVVSQ/Όνομα Επώνυμο/.codex/hooks.json\ncodex: catacomb hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
           "atMs": 714,
-          "event": "codex hooks of aang trusted as /hooks would",
+          "event": "codex hooks of catacomb trusted as /hooks would",
           "details": {
             "hooks": 12
           }
@@ -670,14 +670,14 @@
           "name": "every call of the rollout is one action",
           "ok": true,
           "observed": [
-            "call_aang_1_0",
-            "call_aang_2_0",
-            "call_aang_3_0"
+            "call_catacomb_1_0",
+            "call_catacomb_2_0",
+            "call_catacomb_3_0"
           ],
           "expected": [
-            "call_aang_1_0",
-            "call_aang_2_0",
-            "call_aang_3_0"
+            "call_catacomb_1_0",
+            "call_catacomb_2_0",
+            "call_catacomb_3_0"
           ],
           "known": null
         },
@@ -839,10 +839,10 @@
       "steps": [
         {
           "atMs": 1552,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-qNgeOm/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-qNgeOm/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -932,10 +932,10 @@
           "name": "the observed actions stay",
           "ok": true,
           "observed": [
-            "toolu_aang_lost_0_0"
+            "toolu_catacomb_lost_0_0"
           ],
           "expected": [
-            "toolu_aang_lost_0_0"
+            "toolu_catacomb_lost_0_0"
           ],
           "known": null
         },
@@ -956,10 +956,10 @@
           "name": "after a restart the observed actions stay",
           "ok": true,
           "observed": [
-            "toolu_aang_lost_0_0"
+            "toolu_catacomb_lost_0_0"
           ],
           "expected": [
-            "toolu_aang_lost_0_0"
+            "toolu_catacomb_lost_0_0"
           ],
           "known": null
         }
@@ -969,7 +969,7 @@
           {
             "kind": "source_lost",
             "open": true,
-            "details": "Source not found after searching <tmp>/aang-profile-qNgeOm/Όνομα Επώνυμο/.claude/projects/<tmp>-aang-profile-qNgeOm--------------------q4/1d8caacc-3f99-4a20-977f-3e1171f11b99.jsonl"
+            "details": "Source not found after searching <tmp>/catacomb-profile-qNgeOm/Όνομα Επώνυμο/.claude/projects/<tmp>-catacomb-profile-qNgeOm--------------------q4/1d8caacc-3f99-4a20-977f-3e1171f11b99.jsonl"
           },
           {
             "kind": "unknown_records",
@@ -992,10 +992,10 @@
       "steps": [
         {
           "atMs": 1228,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-3915eI/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-3915eI/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -1096,10 +1096,10 @@
           "name": "after the move the actions are the same",
           "ok": true,
           "observed": [
-            "toolu_aang_moved_0_0"
+            "toolu_catacomb_moved_0_0"
           ],
           "expected": [
-            "toolu_aang_moved_0_0"
+            "toolu_catacomb_moved_0_0"
           ],
           "known": null
         },
@@ -1127,10 +1127,10 @@
           "name": "after a move while stopped the actions are the same",
           "ok": true,
           "observed": [
-            "toolu_aang_moved_0_0"
+            "toolu_catacomb_moved_0_0"
           ],
           "expected": [
-            "toolu_aang_moved_0_0"
+            "toolu_catacomb_moved_0_0"
           ],
           "known": null
         },
@@ -1165,10 +1165,10 @@
       "steps": [
         {
           "atMs": 2329,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-pYcGCC/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-pYcGCC/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -1260,14 +1260,14 @@
           "name": "every tool use of the old and the new file is one action",
           "ok": true,
           "observed": [
-            "toolu_aang_deleted-mid-turn_0_0",
-            "toolu_aang_deleted-mid-turn_1_0",
-            "toolu_aang_deleted-mid-turn_2_0"
+            "toolu_catacomb_deleted-mid-turn_0_0",
+            "toolu_catacomb_deleted-mid-turn_1_0",
+            "toolu_catacomb_deleted-mid-turn_2_0"
           ],
           "expected": [
-            "toolu_aang_deleted-mid-turn_0_0",
-            "toolu_aang_deleted-mid-turn_1_0",
-            "toolu_aang_deleted-mid-turn_2_0"
+            "toolu_catacomb_deleted-mid-turn_0_0",
+            "toolu_catacomb_deleted-mid-turn_1_0",
+            "toolu_catacomb_deleted-mid-turn_2_0"
           ],
           "known": null
         },
@@ -1288,14 +1288,14 @@
           "name": "after a restart the actions are the same",
           "ok": true,
           "observed": [
-            "toolu_aang_deleted-mid-turn_0_0",
-            "toolu_aang_deleted-mid-turn_1_0",
-            "toolu_aang_deleted-mid-turn_2_0"
+            "toolu_catacomb_deleted-mid-turn_0_0",
+            "toolu_catacomb_deleted-mid-turn_1_0",
+            "toolu_catacomb_deleted-mid-turn_2_0"
           ],
           "expected": [
-            "toolu_aang_deleted-mid-turn_0_0",
-            "toolu_aang_deleted-mid-turn_1_0",
-            "toolu_aang_deleted-mid-turn_2_0"
+            "toolu_catacomb_deleted-mid-turn_0_0",
+            "toolu_catacomb_deleted-mid-turn_1_0",
+            "toolu_catacomb_deleted-mid-turn_2_0"
           ],
           "known": null
         }
@@ -1326,7 +1326,7 @@
           {
             "kind": "source_lost",
             "open": false,
-            "details": "Source not found after searching <tmp>/aang-profile-pYcGCC/Όνομα Επώνυμο/.claude/projects/<tmp>-aang-profile-pYcGCC--------------------q4/ac3f9bf5-d9ff-4032-bf74-1ba48b10ee5a.jsonl"
+            "details": "Source not found after searching <tmp>/catacomb-profile-pYcGCC/Όνομα Επώνυμο/.claude/projects/<tmp>-catacomb-profile-pYcGCC--------------------q4/ac3f9bf5-d9ff-4032-bf74-1ba48b10ee5a.jsonl"
           }
         ]
       },
@@ -1338,16 +1338,16 @@
       "runtimes": [
         "claude"
       ],
-      "summary": "The daemon starts before Claude ever created its projects directory (first Claude session after installing aang): hooks arrive at once, the transcript is found by the periodic tree scan",
+      "summary": "The daemon starts before Claude ever created its projects directory (first Claude session after installing catacomb): hooks arrive at once, the transcript is found by the periodic tree scan",
       "status": "known",
       "durationMs": 62827,
       "steps": [
         {
           "atMs": 1160,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-nV3DUd/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-nV3DUd/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -1412,10 +1412,10 @@
           "name": "every tool use is one action",
           "ok": true,
           "observed": [
-            "toolu_aang_first_0_0"
+            "toolu_catacomb_first_0_0"
           ],
           "expected": [
-            "toolu_aang_first_0_0"
+            "toolu_catacomb_first_0_0"
           ],
           "known": null
         },
@@ -1455,16 +1455,16 @@
       "steps": [
         {
           "atMs": 741,
-          "event": "aang install --codex",
+          "event": "catacomb install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-En804O/Όνομα Επώνυμο/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: catacomb hooks registered in <tmp>/catacomb-profile-En804O/Όνομα Επώνυμο/.codex/hooks.json\ncodex: catacomb hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
           "atMs": 840,
-          "event": "codex hooks of aang trusted as /hooks would",
+          "event": "codex hooks of catacomb trusted as /hooks would",
           "details": {
             "hooks": 12
           }
@@ -1671,10 +1671,10 @@
           "name": "the archived thread keeps its actions",
           "ok": true,
           "observed": [
-            "call_aang_1_0"
+            "call_catacomb_1_0"
           ],
           "expected": [
-            "call_aang_1_0"
+            "call_catacomb_1_0"
           ],
           "known": null
         },
@@ -1695,12 +1695,12 @@
           "name": "the resumed thread has every call once",
           "ok": true,
           "observed": [
-            "call_aang_1_0",
-            "call_aang_5_0"
+            "call_catacomb_1_0",
+            "call_catacomb_5_0"
           ],
           "expected": [
-            "call_aang_1_0",
-            "call_aang_5_0"
+            "call_catacomb_1_0",
+            "call_catacomb_5_0"
           ],
           "known": null
         },
@@ -1776,16 +1776,16 @@
       "steps": [
         {
           "atMs": 8099,
-          "event": "aang install --codex",
+          "event": "catacomb install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-IqwbsJ/Όνομα Επώνυμο/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: catacomb hooks registered in <tmp>/catacomb-profile-IqwbsJ/Όνομα Επώνυμο/.codex/hooks.json\ncodex: catacomb hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
           "atMs": 8197,
-          "event": "codex hooks of aang trusted as /hooks would",
+          "event": "codex hooks of catacomb trusted as /hooks would",
           "details": {
             "hooks": 12
           }
@@ -1874,16 +1874,16 @@
       "steps": [
         {
           "atMs": 748,
-          "event": "aang install --codex",
+          "event": "catacomb install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-J9Ql8j/Όνομα Επώνυμο/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: catacomb hooks registered in <tmp>/catacomb-profile-J9Ql8j/Όνομα Επώνυμο/.codex/hooks.json\ncodex: catacomb hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
           "atMs": 849,
-          "event": "codex hooks of aang trusted as /hooks would",
+          "event": "codex hooks of catacomb trusted as /hooks would",
           "details": {
             "hooks": 12
           }
@@ -1954,9 +1954,9 @@
           "name": "the command after the deletion is shown from hooks",
           "ok": true,
           "observed": [
-            "call_aang_1_0",
-            "call_aang_2_0",
-            "call_aang_3_0"
+            "call_catacomb_1_0",
+            "call_catacomb_2_0",
+            "call_catacomb_3_0"
           ],
           "expected": null,
           "known": null
@@ -1970,17 +1970,17 @@
         "rollout files after the turn": 0,
         "actions": [
           {
-            "call": "call_aang_3_0",
+            "call": "call_catacomb_3_0",
             "state": "unknown",
             "outcome": "unknown"
           },
           {
-            "call": "call_aang_1_0",
+            "call": "call_catacomb_1_0",
             "state": "done",
             "outcome": "ok"
           },
           {
-            "call": "call_aang_2_0",
+            "call": "call_catacomb_2_0",
             "state": "unknown",
             "outcome": "unknown"
           }
@@ -2006,7 +2006,7 @@
           {
             "kind": "source_lost",
             "open": true,
-            "details": "Source not found after searching <tmp>/aang-profile-J9Ql8j/Όνομα Επώνυμο/.codex/sessions/2026/10/07/rollout-2026-10-07T22-13-35-01a1186d-db8b-7ef1-b6b1-69a71ce43d66.jsonl"
+            "details": "Source not found after searching <tmp>/catacomb-profile-J9Ql8j/Όνομα Επώνυμο/.codex/sessions/2026/10/07/rollout-2026-10-07T22-13-35-01a1186d-db8b-7ef1-b6b1-69a71ce43d66.jsonl"
           }
         ]
       },
@@ -2018,16 +2018,16 @@
       "runtimes": [
         "claude"
       ],
-      "summary": "The aang-hook binary is missing while a Claude session runs: Claude is not blocked, the session is shown in files-only mode with hooks inactive; after the binary is back a new session has full support",
+      "summary": "The catacomb-hook binary is missing while a Claude session runs: Claude is not blocked, the session is shown in files-only mode with hooks inactive; after the binary is back a new session has full support",
       "status": "passed",
       "durationMs": 4970,
       "steps": [
         {
           "atMs": 1109,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-hflhpW/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-hflhpW/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -2040,7 +2040,7 @@
         },
         {
           "atMs": 1474,
-          "event": "aang-hook moved away"
+          "event": "catacomb-hook moved away"
         },
         {
           "atMs": 1477,
@@ -2082,7 +2082,7 @@
         },
         {
           "atMs": 3120,
-          "event": "aang-hook restored"
+          "event": "catacomb-hook restored"
         },
         {
           "atMs": 3122,
@@ -2139,15 +2139,15 @@
           "name": "the session without hooks keeps its actions",
           "ok": true,
           "observed": [
-            "toolu_aang_no-hook_0_0"
+            "toolu_catacomb_no-hook_0_0"
           ],
           "expected": [
-            "toolu_aang_no-hook_0_0"
+            "toolu_catacomb_no-hook_0_0"
           ],
           "known": null
         },
         {
-          "name": "aang status lists the session as hooks inactive",
+          "name": "catacomb status lists the session as hooks inactive",
           "ok": true,
           "observed": [
             "c13fab505b54987e9e68517d81940734"
@@ -2171,7 +2171,7 @@
           "known": null
         },
         {
-          "name": "aang status keeps only the unhooked session as hooks inactive",
+          "name": "catacomb status keeps only the unhooked session as hooks inactive",
           "ok": true,
           "observed": [
             "c13fab505b54987e9e68517d81940734"
@@ -2197,10 +2197,10 @@
       "steps": [
         {
           "atMs": 1129,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-BpTOJK/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-BpTOJK/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -2346,7 +2346,7 @@
           "known": null
         },
         {
-          "name": "aang status shows that there is no lease",
+          "name": "catacomb status shows that there is no lease",
           "ok": true,
           "observed": null,
           "expected": null,
@@ -2356,12 +2356,12 @@
           "name": "the turn without hooks is read from the transcript",
           "ok": true,
           "observed": [
-            "toolu_aang_lease-first_0_0",
-            "toolu_aang_lease-second_0_0"
+            "toolu_catacomb_lease-first_0_0",
+            "toolu_catacomb_lease-second_0_0"
           ],
           "expected": [
-            "toolu_aang_lease-first_0_0",
-            "toolu_aang_lease-second_0_0"
+            "toolu_catacomb_lease-first_0_0",
+            "toolu_catacomb_lease-second_0_0"
           ],
           "known": null
         },
@@ -2389,14 +2389,14 @@
           "name": "every tool use of the transcript is one action",
           "ok": true,
           "observed": [
-            "toolu_aang_lease-first_0_0",
-            "toolu_aang_lease-second_0_0",
-            "toolu_aang_lease-third_0_0"
+            "toolu_catacomb_lease-first_0_0",
+            "toolu_catacomb_lease-second_0_0",
+            "toolu_catacomb_lease-third_0_0"
           ],
           "expected": [
-            "toolu_aang_lease-first_0_0",
-            "toolu_aang_lease-second_0_0",
-            "toolu_aang_lease-third_0_0"
+            "toolu_catacomb_lease-first_0_0",
+            "toolu_catacomb_lease-second_0_0",
+            "toolu_catacomb_lease-third_0_0"
           ],
           "known": null
         }
@@ -2444,16 +2444,16 @@
       "runtimes": [
         "codex"
       ],
-      "summary": "Codex hooks of aang before and after trust: untrusted hooks do not run and the session is files-only; after trust the status is active and sessions have full support; a repeated aang install keeps the trust; a foreign hook inserted before the aang entry shifts the positional trust key",
+      "summary": "Codex hooks of catacomb before and after trust: untrusted hooks do not run and the session is files-only; after trust the status is active and sessions have full support; a repeated catacomb install keeps the trust; a foreign hook inserted before the catacomb entry shifts the positional trust key",
       "status": "passed",
       "durationMs": 8250,
       "steps": [
         {
           "atMs": 1424,
-          "event": "aang install --codex",
+          "event": "catacomb install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-KHW0QO/Όνομα Επώνυμο/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: catacomb hooks registered in <tmp>/catacomb-profile-KHW0QO/Όνομα Επώνυμο/.codex/hooks.json\ncodex: catacomb hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
@@ -2499,7 +2499,7 @@
         },
         {
           "atMs": 3889,
-          "event": "codex hooks of aang trusted as /hooks would",
+          "event": "codex hooks of catacomb trusted as /hooks would",
           "details": {
             "hooks": 12
           }
@@ -2539,10 +2539,10 @@
         },
         {
           "atMs": 6340,
-          "event": "aang install --codex",
+          "event": "catacomb install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-KHW0QO/Όνομα Επώνυμο/.codex/hooks.json\ncodex: aang hooks are trusted and active",
+            "stdout": "codex: catacomb hooks registered in <tmp>/catacomb-profile-KHW0QO/Όνομα Επώνυμο/.codex/hooks.json\ncodex: catacomb hooks are trusted and active",
             "stderr": ""
           }
         },
@@ -2581,7 +2581,7 @@
         },
         {
           "atMs": 7714,
-          "event": "a foreign PreToolUse hook is inserted before the aang entry"
+          "event": "a foreign PreToolUse hook is inserted before the catacomb entry"
         },
         {
           "atMs": 8221,
@@ -2620,7 +2620,7 @@
           "known": null
         },
         {
-          "name": "aang status lists it as hooks inactive",
+          "name": "catacomb status lists it as hooks inactive",
           "ok": true,
           "observed": [
             "97b1e69fe3687fab59513a20610ef889"
@@ -2680,7 +2680,7 @@
           "known": null
         },
         {
-          "name": "the shifted aang entry loses its trust and the status shows it",
+          "name": "the shifted catacomb entry loses its trust and the status shows it",
           "ok": true,
           "observed": "untrusted",
           "expected": "untrusted",
@@ -2696,16 +2696,16 @@
       "runtimes": [
         "claude"
       ],
-      "summary": "The aang plugin is disabled with claude plugin disable: aang status shows hooks disabled and a new session is files-only; after enabling, sessions have full support again",
+      "summary": "The catacomb plugin is disabled with claude plugin disable: catacomb status shows hooks disabled and a new session is files-only; after enabling, sessions have full support again",
       "status": "passed",
       "durationMs": 8998,
       "steps": [
         {
           "atMs": 1584,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-U6lE9M/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-U6lE9M/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -2729,7 +2729,7 @@
             "args": [
               "plugin",
               "disable",
-              "aang@aang"
+              "catacomb@catacomb"
             ]
           }
         },
@@ -2789,7 +2789,7 @@
             "args": [
               "plugin",
               "enable",
-              "aang@aang"
+              "catacomb@catacomb"
             ]
           }
         },
@@ -2904,16 +2904,16 @@
       "runtimes": [
         "claude"
       ],
-      "summary": "The aang plugin is installed from the marketplace, a copy sits in the fallback skills directory and another is passed with --plugin-dir: Claude loads one plugin per name, so every hook is delivered once and no double registration arises; the engine check of ADR-0004 stays a safety net",
+      "summary": "The catacomb plugin is installed from the marketplace, a copy sits in the fallback skills directory and another is passed with --plugin-dir: Claude loads one plugin per name, so every hook is delivered once and no double registration arises; the engine check of ADR-0004 stays a safety net",
       "status": "passed",
       "durationMs": 3958,
       "steps": [
         {
           "atMs": 1098,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-4808yN/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-4808yN/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -2971,7 +2971,7 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--plugin-dir",
-              "<tmp>/aang-profile-4808yN/work/aang-plugin-copy"
+              "<tmp>/catacomb-profile-4808yN/work/catacomb-plugin-copy"
             ]
           }
         },
@@ -2994,22 +2994,22 @@
       ],
       "checks": [
         {
-          "name": "one aang plugin is loaded in each session",
+          "name": "one catacomb plugin is loaded in each session",
           "ok": true,
           "observed": [
             [
-              "aang@aang"
+              "catacomb@catacomb"
             ],
             [
-              "aang@inline"
+              "catacomb@inline"
             ]
           ],
           "expected": [
             [
-              "aang@aang"
+              "catacomb@catacomb"
             ],
             [
-              "aang@inline"
+              "catacomb@inline"
             ]
           ],
           "known": null
@@ -3025,10 +3025,10 @@
           "name": "skills-copy: every tool use is one action",
           "ok": true,
           "observed": [
-            "toolu_aang_skills-copy_0_0"
+            "toolu_catacomb_skills-copy_0_0"
           ],
           "expected": [
-            "toolu_aang_skills-copy_0_0"
+            "toolu_catacomb_skills-copy_0_0"
           ],
           "known": null
         },
@@ -3043,10 +3043,10 @@
           "name": "inline-copy: every tool use is one action",
           "ok": true,
           "observed": [
-            "toolu_aang_inline-copy_0_0"
+            "toolu_catacomb_inline-copy_0_0"
           ],
           "expected": [
-            "toolu_aang_inline-copy_0_0"
+            "toolu_catacomb_inline-copy_0_0"
           ],
           "known": null
         }
@@ -3089,10 +3089,10 @@
       "steps": [
         {
           "atMs": 1202,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-jucTQV/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-jucTQV/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -3200,16 +3200,16 @@
       "steps": [
         {
           "atMs": 1175,
-          "event": "aang install --codex",
+          "event": "catacomb install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-3WTnYC/Όνομα Επώνυμο/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: catacomb hooks registered in <tmp>/catacomb-profile-3WTnYC/Όνομα Επώνυμο/.codex/hooks.json\ncodex: catacomb hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
           "atMs": 1277,
-          "event": "codex hooks of aang trusted as /hooks would",
+          "event": "codex hooks of catacomb trusted as /hooks would",
           "details": {
             "hooks": 12
           }
@@ -3271,7 +3271,7 @@
           "ok": true,
           "observed": [
             {
-              "call": "call_aang_1_0",
+              "call": "call_catacomb_1_0",
               "execution": "unknown",
               "outcome": "unknown"
             }
@@ -3283,7 +3283,7 @@
       "observations": {
         "command from hooks only": [
           {
-            "call": "call_aang_1_0",
+            "call": "call_catacomb_1_0",
             "execution": "unknown",
             "outcome": "unknown"
           }
@@ -3314,10 +3314,10 @@
       "steps": [
         {
           "atMs": 1114,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-InsJNl/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-InsJNl/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -3378,12 +3378,12 @@
           "ok": true,
           "observed": [
             {
-              "call": "toolu_aang_killed_0_0",
+              "call": "toolu_catacomb_killed_0_0",
               "execution": "done",
               "outcome": "ok"
             },
             {
-              "call": "toolu_aang_killed_1_0",
+              "call": "toolu_catacomb_killed_1_0",
               "execution": "running",
               "outcome": null
             }
@@ -3412,12 +3412,12 @@
       "observations": {
         "actions": [
           {
-            "call": "toolu_aang_killed_0_0",
+            "call": "toolu_catacomb_killed_0_0",
             "execution": "done",
             "outcome": "ok"
           },
           {
-            "call": "toolu_aang_killed_1_0",
+            "call": "toolu_catacomb_killed_1_0",
             "execution": "running",
             "outcome": null
           }
@@ -3449,10 +3449,10 @@
       "steps": [
         {
           "atMs": 1219,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-4pTWSi/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-4pTWSi/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -3479,7 +3479,7 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--add-dir",
-              "<tmp>/aang-profile-4pTWSi/Όνομα Επώνυμο/outside"
+              "<tmp>/catacomb-profile-4pTWSi/Όνομα Επώνυμο/outside"
             ]
           }
         },
@@ -3536,12 +3536,12 @@
           "name": "transcript lines name the project and then the outside directory",
           "ok": true,
           "observed": [
-            "<tmp>/aang-profile-4pTWSi/Όνομα Επώνυμο/έργο q4",
-            "<tmp>/aang-profile-4pTWSi/Όνομα Επώνυμο/outside"
+            "<tmp>/catacomb-profile-4pTWSi/Όνομα Επώνυμο/έργο q4",
+            "<tmp>/catacomb-profile-4pTWSi/Όνομα Επώνυμο/outside"
           ],
           "expected": [
-            "<tmp>/aang-profile-4pTWSi/Όνομα Επώνυμο/έργο q4",
-            "<tmp>/aang-profile-4pTWSi/Όνομα Επώνυμο/outside"
+            "<tmp>/catacomb-profile-4pTWSi/Όνομα Επώνυμο/έργο q4",
+            "<tmp>/catacomb-profile-4pTWSi/Όνομα Επώνυμο/outside"
           ],
           "known": null
         },
@@ -3549,20 +3549,20 @@
           "name": "every tool use is one action",
           "ok": true,
           "observed": [
-            "toolu_aang_drift_0_0",
-            "toolu_aang_drift_1_0"
+            "toolu_catacomb_drift_0_0",
+            "toolu_catacomb_drift_1_0"
           ],
           "expected": [
-            "toolu_aang_drift_0_0",
-            "toolu_aang_drift_1_0"
+            "toolu_catacomb_drift_0_0",
+            "toolu_catacomb_drift_1_0"
           ],
           "known": null
         },
         {
           "name": "the session cwd is the start directory",
           "ok": true,
-          "observed": "<tmp>/aang-profile-4pTWSi/Όνομα Επώνυμο/έργο q4",
-          "expected": "<tmp>/aang-profile-4pTWSi/Όνομα Επώνυμο/έργο q4",
+          "observed": "<tmp>/catacomb-profile-4pTWSi/Όνομα Επώνυμο/έργο q4",
+          "expected": "<tmp>/catacomb-profile-4pTWSi/Όνομα Επώνυμο/έργο q4",
           "known": null
         },
         {
@@ -3604,10 +3604,10 @@
       "steps": [
         {
           "atMs": 1083,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-tqwPDz/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-tqwPDz/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -3947,10 +3947,10 @@
       "steps": [
         {
           "atMs": 1089,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-GtVvRe/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-GtVvRe/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -4114,10 +4114,10 @@
       "steps": [
         {
           "atMs": 1140,
-          "event": "aang install --claude",
+          "event": "catacomb install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-CWtN6P/Όνομα Επώνυμο/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin catacomb@catacomb installed from <tmp>/catacomb-profile-CWtN6P/Όνομα Επώνυμο/.catacomb/claude-plugin\nclaude: plugin catacomb@catacomb is enabled",
             "stderr": ""
           }
         },
@@ -4273,22 +4273,22 @@
       "runtimes": [
         "codex"
       ],
-      "summary": "codex exec fork creates a run linked to its source run; a fork whose source was deleted before the daemon saw it points to a run aang does not have",
+      "summary": "codex exec fork creates a run linked to its source run; a fork whose source was deleted before the daemon saw it points to a run catacomb does not have",
       "status": "known",
       "durationMs": 5832,
       "steps": [
         {
           "atMs": 773,
-          "event": "aang install --codex",
+          "event": "catacomb install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-EsUpsR/Όνομα Επώνυμο/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: catacomb hooks registered in <tmp>/catacomb-profile-EsUpsR/Όνομα Επώνυμο/.codex/hooks.json\ncodex: catacomb hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
           "atMs": 877,
-          "event": "codex hooks of aang trusted as /hooks would",
+          "event": "codex hooks of catacomb trusted as /hooks would",
           "details": {
             "hooks": 12
           }

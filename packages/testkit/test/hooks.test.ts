@@ -3,7 +3,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
-import { spoolEnvKeys } from '@aang/contract'
+import { spoolEnvKeys } from '@catacomb/contract'
 import {
   createPlayer,
   leaseSpool,
@@ -12,7 +12,7 @@ import {
   PlaybackError,
   readSpool,
   type Profile,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import { describe, type TestContext, test } from 'vitest'
 import { hookBinary } from './artifacts.js'
 import { createFixture, isAlive, sampleBytes } from './manifests.js'
@@ -118,7 +118,7 @@ const hookTarget = (profile: Profile): { binary: string; spool: string; env: Pro
 })
 
 describe.concurrent(
-  'the player delivers hook events through the real aang-hook and OTLP requests to a receiver',
+  'the player delivers hook events through the real catacomb-hook and OTLP requests to a receiver',
   () => {
     test('hook events of both runtimes reach a leased spool without a daemon, in their original order and with their headers, the Claude pid naming the stand-in of the recorded process', async ({
       expect,

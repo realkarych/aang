@@ -15,7 +15,7 @@ import {
   type ViewSelector,
   type ViewTotals,
   type ViewVisibility,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { compareText } from '../observations/evidence.js'
 import { counted, usageTotals } from '../usage/solver.js'
 import type { ViewScene } from './scene.js'

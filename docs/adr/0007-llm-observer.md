@@ -26,7 +26,7 @@ ADR-0002: by default the observer uses the vendor of the observed solver, with a
 - The observer and the chat are launched by the daemon, never by a hook. The chat uses the same launch, isolation and backend selection mechanism (ADR-0008).
 - Launch via `spawn` without a shell; the absolute path to the CLI is resolved in advance. On Windows the daemon finds the real executable instead of the `.cmd` shim (ADR-0013).
 - The environment is cleared. On macOS and Linux `HOME`, `USER`, `LOGNAME`, `PATH=/usr/bin:/bin`, `LANG` remain; the list for Windows is set by ADR-0013. Markers and the profile's isolating variables from the spike are added (section 12: `CLAUDE_CODE_DISABLE_CLAUDE_MDS`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `ENABLE_CLAUDEAI_MCP_SERVERS=false`, `DISABLE_TELEMETRY` and others).
-- The working directory is an empty `os.tmpdir()/aang-observer/empty`. At startup the daemon checks that the directory has no ancestors with `CLAUDE.md` or `AGENTS.md`.
+- The working directory is an empty `os.tmpdir()/catacomb-observer/empty`. At startup the daemon checks that the directory has no ancestors with `CLAUDE.md` or `AGENTS.md`.
 - Hard timeout: Claude 90 s, Codex 150 s (configurable). On root exit, timeout or cancellation, the whole process tree of the call is terminated by one backend operation: a process group on macOS and Linux, a Job Object via the launcher on Windows (ADR-0013). The call slot is released only on a confirmed stop of the whole tree; closing the pipes does not count as confirmation. Without confirmation the backend gets `unavailable: process_stuck`.
 - **Backend selection.** For a run — the vendor of its root session (ADR-0002); `observer.backend` in the config overrides it. There is no automatic switch to another vendor on failure.
   - A run may contain sessions of both vendors via explicit binding. Facts and records of sessions whose vendor differs from the vendor of the backend receiving the input are sent to the observer only with `observer.crossVendor: true` in the config. Otherwise they are not interpreted, and the gap is visible.
@@ -59,7 +59,7 @@ ADR-0002: by default the observer uses the vendor of the observed solver, with a
     - a built-in plugin is admitted if in the observer profile it gives the model no tools, no MCP servers and no executable hooks (decision 9). A plugin with any tool, MCP server or hook means admission is refused. The list of admitted built-in plugins is recorded in the version admission result;
     - no transcript is written, the registry entry carries the marker;
     - a synthetic input instructing to call a tool does not lead to execution;
-    - hooks are not executed — this is checked by an independent control hook, not by `aang-hook`, which disables itself by the marker.
+    - hooks are not executed — this is checked by an independent control hook, not by `catacomb-hook`, which disables itself by the marker.
       - Admission runs in a temporary directory with a project `.claude/settings.json` in which the control hook creates a marker file.
       - Both branches differ only by the switch: the positive one — with `--setting-sources project`, the marker must appear; the negative one — the observer profile with `--setting-sources ""`, no marker.
       - If the switch is removed from the negative branch, the marker appears and admission fails.
@@ -92,8 +92,8 @@ ADR-0002: by default the observer uses the vendor of the observed solver, with a
 
 - The observer writes no transcript and no rollout: `--no-session-persistence` for Claude, `--ephemeral` for Codex. For Claude, the registry entry `sessions/<pid>.json` and a UDS socket remain for the duration of the call. The registry entry is filtered out by `entrypoint`, incoming messages from other sessions by the `crossSessionInbound: "hold"` setting.
 - Hooks are disabled in it: `--setting-sources ""` for Claude, `--disable hooks` for Codex.
-- Markers: `CLAUDE_CODE_ENTRYPOINT=aang-observer`, `--thread-source aang-observer`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE=aang_observer`, `AANG_OBSERVER=1`.
-- The hook handler and the adapters discard marked events and sessions (ADR-0004). Claude registry entries with `entrypoint: aang-observer` are ignored.
+- Markers: `CLAUDE_CODE_ENTRYPOINT=catacomb-observer`, `--thread-source catacomb-observer`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE=catacomb_observer`, `CATACOMB_OBSERVER=1`.
+- The hook handler and the adapters discard marked events and sessions (ADR-0004). Claude registry entries with `entrypoint: catacomb-observer` are ignored.
 
 ### Input
 
@@ -218,7 +218,7 @@ Verification runs in a single transaction:
 | Class | Action | Counter | Resumption |
 | --- | --- | --- | --- |
 | invalid output, reply verification failure, conflict | reply rejected entirely, batch facts → `pending` | batch attempts, at most 3; then `not_interpreted` | the next attempt — with a fresh snapshot and an error description |
-| isolation violation (`init`, `unsupported`) | reply rejected, backend `disabled: isolation`, facts stay `pending` | — | only a new version admission: via `aang doctor --admit` or on a CLI version change |
+| isolation violation (`init`, `unsupported`) | reply rejected, backend `disabled: isolation`, facts stay `pending` | — | only a new version admission: via `catacomb doctor --admit` or on a CLI version change |
 | authorization | backend `unavailable: auth`, facts in the queue | batch budget not spent | `auth status` every 10 min without a model call |
 | subscription limit | backend `unavailable: limit`, facts in the queue | batch budget not spent | after the reset time if the CLI reports it, otherwise after 30 min; one probe on a synthetic input, then the interval doubles up to 4 h |
 | timeout, network | pause from 10 s to 5 min, at most 6 times in a row; then `unavailable: transient` | batch budget not spent | probes on a synthetic input, as for the limit |

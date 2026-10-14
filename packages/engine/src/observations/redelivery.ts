@@ -1,5 +1,5 @@
-import type { DedupeKey, FactId, SessionKey } from '@aang/contract'
-import { canonicalJson } from '@aang/contract/ids'
+import type { DedupeKey, FactId, SessionKey } from '@catacomb/contract'
+import { canonicalJson } from '@catacomb/contract/ids'
 import { compareText, type Evidence, grouped, type ObservationSource, sessionEvidence } from './evidence.js'
 
 export interface HookRedelivery {

@@ -1,4 +1,4 @@
-import { readSpool } from '@aang/testkit'
+import { readSpool } from '@catacomb/testkit'
 
 export interface HookRecord extends Readonly<Record<string, unknown>> {
   readonly hook_event_name: string

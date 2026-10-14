@@ -1,4 +1,4 @@
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 import { ScenarioError } from './scenario-error.js'
 
 const inputKey = '$input'

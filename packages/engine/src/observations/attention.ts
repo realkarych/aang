@@ -6,9 +6,9 @@ import {
   type EpochNs,
   type Question,
   type SessionKey,
-} from '@aang/contract'
-import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
-import type { Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { canonicalJson, contentHash, objectId } from '@catacomb/contract/ids'
+import type { Transaction } from '@catacomb/store'
 import { type AttentionItemDraft, applyChangeSet, type ModelChangeDraft } from '../model/journal.js'
 import { compareText } from './evidence.js'
 import type { Grounds, QuestionOutcome } from './questions.js'

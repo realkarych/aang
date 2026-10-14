@@ -22,9 +22,9 @@ import {
   type Session,
   type SessionId,
   type SessionKey,
-} from '@aang/contract'
-import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
-import type { RawRecordReader, Store } from '@aang/store'
+} from '@catacomb/contract'
+import { canonicalJson, contentHash, objectId } from '@catacomb/contract/ids'
+import type { RawRecordReader, Store } from '@catacomb/store'
 import { parse as parseToml } from 'smol-toml'
 import { agentKey, compareText } from '../observations/evidence.js'
 import {

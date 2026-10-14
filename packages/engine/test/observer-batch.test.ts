@@ -14,8 +14,8 @@ import {
   type RunId,
   type SessionId,
   type StageId,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
 import {
   applyObserverResponse,
   beginObserverFollowUp,
@@ -24,8 +24,8 @@ import {
   observerInputTokens,
   recordRunContext,
   startObserverBatch,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { assert, expect, onTestFinished, test } from 'vitest'
 import { hookBatch } from './batches.js'
 import { factsOf, gapsOf, recordsOf, sessionKey, startEngine } from './harness.js'

@@ -1,6 +1,6 @@
 import { readdir, rm, stat } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
-import { claudePluginId, uninstallClaudePlugin } from '@aang/hook'
+import { claudePluginId, uninstallClaudePlugin } from '@catacomb/hook'
 import { pathForms } from './anonymize.js'
 import { removeCodexHooks } from './codex-hooks.js'
 import { type Collected, loadCollected } from './collect.js'
@@ -74,7 +74,7 @@ const removeWorkDir = async (layout: ChecklistLayout, keepResults: boolean): Pro
 
 const revertClaude = async (layout: ChecklistLayout, state: ChecklistState): Promise<ChecklistState> => {
   await uninstallClaudePlugin({
-    aangHome: layout.aangHome,
+    catacombHome: layout.catacombHome,
     claude: { command: state.claude.command, configDir: state.claude.configDir },
   })
   const reverted: ChecklistState = { ...state, claude: { ...state.claude, registered: false } }
@@ -91,23 +91,23 @@ export const cleanup = async ({ dir, keepResults, roots }: CleanupOptions): Prom
   const notes: string[] = []
   if (state.claude.registered) {
     state = await revertClaude(layout, state)
-    done.push(`- plugin ${claudePluginId} and the aang marketplace removed from the Claude user scope`)
+    done.push(`- plugin ${claudePluginId} and the catacomb marketplace removed from the Claude user scope`)
   }
   if (state.codex !== null) {
     const codex = state.codex
     const removal = await removeCodexHooks(codex)
     done.push(
       removal.missingFile
-        ? `- ${codex.hooksFile} not found, no aang entries to remove`
+        ? `- ${codex.hooksFile} not found, no catacomb entries to remove`
         : removal.deletedFile
           ? `- ${codex.hooksFile} was created by prepare and has been removed`
-          : `- aang entries removed from ${codex.hooksFile}: ${String(removal.removed)}, neutralized in place: ${String(removal.neutralized)}`,
+          : `- catacomb entries removed from ${codex.hooksFile}: ${String(removal.removed)}, neutralized in place: ${String(removal.neutralized)}`,
     )
     if (codex.backup !== null) {
       notes.push(`- backup of hooks.json before prepare: ${codex.backup} (delete it after checking)`)
     }
     notes.push(
-      `- Codex does not remove aang hook trust entries in ${join(codex.codexHome, 'config.toml')} (hooks.state."${codex.hooksFile}:<event>:i:j"); remove them by hand if you do not need them`,
+      `- Codex does not remove catacomb hook trust entries in ${join(codex.codexHome, 'config.toml')} (hooks.state."${codex.hooksFile}:<event>:i:j"); remove them by hand if you do not need them`,
     )
     state = { ...state, codex: null }
     await writeState(layout, state)

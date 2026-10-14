@@ -2,9 +2,9 @@ import { appendFile, type FileHandle, mkdir, mkdtemp, open, readFile, readdir, r
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { codexAdapter } from '@aang/adapter-codex'
-import { CollectedRecord, type ParseResult } from '@aang/contract'
-import { createPlayer, createProfile, loadManifest, leaseSpool } from '@aang/testkit'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { CollectedRecord, type ParseResult } from '@catacomb/contract'
+import { createPlayer, createProfile, loadManifest, leaseSpool } from '@catacomb/testkit'
 import { afterEach, expect, test, vi } from 'vitest'
 import { createCapture } from '../dist/capture.js'
 import { recordSession, verifyRecording, type RecordContext, type RecordOptions } from '../dist/index.js'
@@ -14,11 +14,11 @@ const runtimeScript = fileURLToPath(new URL('./runtime.ts', import.meta.url))
 const hookScript = fileURLToPath(new URL('./hook-event.ts', import.meta.url))
 const longSession = fileURLToPath(new URL('./long-session.ts', import.meta.url))
 const samples = new URL('../../../docs/research/samples/', import.meta.url)
-const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
+const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook')
 const os = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
 
 const options = async (runtime: 'claude' | 'codex' = 'claude'): Promise<RecordOptions> => {
-  const directory = await mkdtemp(join(tmpdir(), 'aang-record-test-'))
+  const directory = await mkdtemp(join(tmpdir(), 'catacomb-record-test-'))
   temporary.push(directory)
   return {
     runtime,
@@ -186,7 +186,7 @@ const pendingDeletion = async (path: string): Promise<FileHandle> => {
 }
 
 test.runIf(process.platform === 'win32')('a scan during a command keeps a source that another process is deleting or holds exclusively as captured, reads it in a later scan, a checkpoint rejects it', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'aang-record-test-'))
+  const root = await mkdtemp(join(tmpdir(), 'catacomb-record-test-'))
   temporary.push(root)
   const home = join(root, 'home')
   const roots = { home, claude: join(home, '.claude'), codex: join(home, '.codex') }
@@ -760,10 +760,10 @@ test.each([
 
 test('rejects a missing, directory or non-executable hook binary before running the scenario', async () => {
   const config = await options()
-  const plain = join(dirname(config.fixturesRoot), 'aang-hook')
+  const plain = join(dirname(config.fixturesRoot), 'catacomb-hook')
   await writeFile(plain, '', { mode: 0o644 })
   const calls: string[] = []
-  for (const hookBinary of ['packages/hook/bin/missing-aang-hook', 'packages/hook/bin', ...(process.platform === 'win32' ? [] : [plain])]) {
+  for (const hookBinary of ['packages/hook/bin/missing-catacomb-hook', 'packages/hook/bin', ...(process.platform === 'win32' ? [] : [plain])]) {
     await expect(recordSession({ ...config, hookBinary }, () => { calls.push(hookBinary); return Promise.resolve() }), hookBinary).rejects.toThrow(/Hook binary/)
   }
   expect(calls).toEqual([])

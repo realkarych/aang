@@ -4,9 +4,9 @@ import { chmod, mkdir, mkdtemp, readdir, realpath, rename, rm, utimes, writeFile
 import { tmpdir, userInfo } from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { codexAdapter } from '@aang/adapter-codex'
-import { type CollectorService, createCollector, type ReadRetry } from '@aang/collector'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { type CollectorService, createCollector, type ReadRetry } from '@catacomb/collector'
 import {
   type CollectedGap,
   type CollectedRecord,
@@ -16,7 +16,7 @@ import {
   type PruneBoundary,
   type RegistrationTag,
   type Runtime,
-} from '@aang/contract'
+} from '@catacomb/contract'
 
 type Awaitable<T> = T | Promise<T>
 
@@ -68,7 +68,7 @@ export interface HookEvent {
 }
 
 export const createSandbox = async (register: Register): Promise<Sandbox> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-collector-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-collector-')))
   const cleanups: (() => Awaitable<void>)[] = []
   register(async () => {
     for (const cleanup of cleanups.reverse()) {
@@ -156,7 +156,7 @@ export const runCollector = (
 
 export const spoolBytes = ({ runtime = 'claude', registration = 'plugin', env = {}, payload }: HookEvent): Buffer =>
   Buffer.concat([
-    Buffer.from(`aang-spool/1 ${runtime} ${registration}\n`, 'utf8'),
+    Buffer.from(`catacomb-spool/1 ${runtime} ${registration}\n`, 'utf8'),
     ...Object.entries(env).map(([key, value]) => Buffer.from(`${key}=${value}\0`, 'utf8')),
     Buffer.from([0]),
     typeof payload === 'string' ? Buffer.from(payload, 'utf8') : payload,

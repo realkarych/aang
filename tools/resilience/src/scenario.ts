@@ -1,4 +1,4 @@
-import type { ConfigInput } from '@aang/testkit'
+import type { ConfigInput } from '@catacomb/testkit'
 import type { CliName } from './clis.js'
 import type { Area } from './journal.js'
 import type { Lab, LabPaths, Scripts } from './lab.js'

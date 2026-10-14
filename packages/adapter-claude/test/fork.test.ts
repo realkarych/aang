@@ -1,5 +1,5 @@
-import { claudeAdapter } from '@aang/adapter-claude'
-import { EpochNs, type FactDraft } from '@aang/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { EpochNs, type FactDraft } from '@catacomb/contract'
 import { describe, test } from 'vitest'
 import { transcriptRecords } from './samples.js'
 

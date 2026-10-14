@@ -1,7 +1,7 @@
 import { accessSync, closeSync, constants, existsSync, mkdirSync, openSync, readSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, isAbsolute, join, parse, resolve } from 'node:path'
-import type { Runtime } from '@aang/contract'
+import type { Runtime } from '@catacomb/contract'
 import type { CliCommand } from './process.js'
 
 export type InheritedEnvironment = Readonly<Record<string, string | undefined>>
@@ -21,9 +21,9 @@ export const cleanEnvironment = (runtime: Runtime, source: InheritedEnvironment)
   }
   const systemRoot = environment.SystemRoot ?? 'C:\\Windows'
   environment.PATH = windows ? [join(systemRoot, 'System32'), systemRoot, join(systemRoot, 'System32', 'Wbem')].join(';') : '/usr/bin:/bin'
-  environment.AANG_OBSERVER = '1'
+  environment.CATACOMB_OBSERVER = '1'
   if (runtime === 'claude') Object.assign(environment, {
-    CLAUDE_CODE_ENTRYPOINT: 'aang-observer',
+    CLAUDE_CODE_ENTRYPOINT: 'catacomb-observer',
     CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1',
     CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
     ENABLE_CLAUDEAI_MCP_SERVERS: 'false',
@@ -31,7 +31,7 @@ export const cleanEnvironment = (runtime: Runtime, source: InheritedEnvironment)
     DISABLE_ERROR_REPORTING: '1',
     DISABLE_AUTOUPDATER: '1',
   })
-  else environment.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = 'aang_observer'
+  else environment.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = 'catacomb_observer'
   return environment
 }
 
@@ -83,7 +83,7 @@ const checkAncestors = (directory: string): void => {
 }
 
 export const prepareWorkspace = (temporaryDirectory = tmpdir()): string => {
-  const directory = resolve(temporaryDirectory, 'aang-observer', 'empty')
+  const directory = resolve(temporaryDirectory, 'catacomb-observer', 'empty')
   checkAncestors(directory)
   mkdirSync(directory, { recursive: true, mode: 0o700 })
   checkAncestors(realpathSync(directory))

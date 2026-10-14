@@ -8,9 +8,9 @@ import {
   type SupportKey,
   type SupportMatrix,
   supportKeyText,
-} from '@aang/contract'
-import { readSupportMatrix } from '@aang/contract/support-file'
-import { createCodexBackend } from '@aang/observer'
+} from '@catacomb/contract'
+import { readSupportMatrix } from '@catacomb/contract/support-file'
+import { createCodexBackend } from '@catacomb/observer'
 import { importObservers, serializeMatrix, withObserver } from './matrix.js'
 import { matrixPath, readMatrix } from './run.js'
 import { readVerification, type SupportVerification } from './verification.js'
@@ -30,7 +30,7 @@ const isolationOs = (): OperatingSystem =>
   process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
 
 export const checkCodexIsolation = async (options: CodexIsolationOptions): Promise<IsolationCheck> => {
-  const temporaryDirectory = await realpath(await mkdtemp(join(tmpdir(), 'aang-isolation-')))
+  const temporaryDirectory = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-isolation-')))
   try {
     const backend = createCodexBackend({
       cli: options.cli,

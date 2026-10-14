@@ -1,5 +1,5 @@
-import { ObserverCallId, type ObserverOp } from '@aang/contract'
-import { applyChangeSet, applyObserverResponse } from '@aang/engine'
+import { ObserverCallId, type ObserverOp } from '@catacomb/contract'
+import { applyChangeSet, applyObserverResponse } from '@catacomb/engine'
 import { expect, test } from 'vitest'
 import { at, byRule, drafts, put, runA, stages } from './model.js'
 import {

@@ -1,4 +1,4 @@
-import type { ActionKind, JsonValue } from '@aang/contract'
+import type { ActionKind, JsonValue } from '@catacomb/contract'
 import { z } from 'zod'
 import { actionEnded, actionStarted, type CallTiming, joinText, type LineContext, type LineFacts } from './facts.js'
 import { BoundedJson, readJson } from './json.js'

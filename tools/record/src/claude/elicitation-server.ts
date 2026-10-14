@@ -43,7 +43,7 @@ const pending = new Map<string, (result: unknown) => void>()
 let requests = 0
 const request = (method: string, params: Readonly<Record<string, unknown>>): Promise<unknown> => {
   requests += 1
-  const id = `aang-${String(requests)}`
+  const id = `catacomb-${String(requests)}`
   const answered = new Promise<unknown>((resolve) => {
     pending.set(id, resolve)
   })
@@ -86,7 +86,7 @@ const client = { url: false }
 const confirmLink = async (): Promise<Record<string, unknown>> => {
   if (!client.url) return text('The client does not support URL elicitation', true)
   links += 1
-  const elicitationId = `aang-link-${String(links)}`
+  const elicitationId = `catacomb-link-${String(links)}`
   const visited = new Promise<void>((resolve) => {
     visits.set(elicitationId, resolve)
   })
@@ -103,7 +103,7 @@ const handle = async (id: z.infer<typeof Id>, method: string, params: unknown): 
     const initialize = Initialize.parse(params)
     client.url = initialize.capabilities?.elicitation?.url !== undefined
     note({ event: 'initialize', protocolVersion: initialize.protocolVersion, elicitation: initialize.capabilities?.elicitation ?? null })
-    send({ id, result: { protocolVersion: initialize.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'aang-elicitation', version: '1.0.0' } } })
+    send({ id, result: { protocolVersion: initialize.protocolVersion, capabilities: { tools: {} }, serverInfo: { name: 'catacomb-elicitation', version: '1.0.0' } } })
     return
   }
   if (method === 'ping') {

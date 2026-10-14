@@ -36,7 +36,7 @@ export const childrenFinished = (session: ScenarioSession, count: number) => asy
 
 export const subagentScript = (session: ScenarioSession, key: string): StubScript => ({
   [key]: [
-    [collaboration('spawn_agent', { task_name: 'scout', message: '[aang:scout] Run `echo scout` and report.' }), collaboration('spawn_agent', { task_name: 'builder', message: '[aang:builder] Run `echo builder` and report.' })],
+    [collaboration('spawn_agent', { task_name: 'scout', message: '[catacomb:scout] Run `echo scout` and report.' }), collaboration('spawn_agent', { task_name: 'builder', message: '[catacomb:builder] Run `echo builder` and report.' })],
     { calls: [collaboration('wait_agent', { timeout_ms: 30_000 })], when: childrenFinished(session, 2) },
   ],
   scout: [[shell('echo scout')]],

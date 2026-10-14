@@ -9,9 +9,9 @@ import type {
   Session,
   SessionId,
   SessionKey,
-} from '@aang/contract'
-import { canonicalJson, objectId, runId } from '@aang/contract/ids'
-import type { ObservationDraft, Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { canonicalJson, objectId, runId } from '@catacomb/contract/ids'
+import type { ObservationDraft, Transaction } from '@catacomb/store'
 import {
   type AgentIdentity,
   agentIdentity,

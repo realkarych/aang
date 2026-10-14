@@ -1,6 +1,6 @@
-import { ChangeSeq, GapKey, RawSeq, RunId } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
-import type { Change, Store } from '@aang/store'
+import { ChangeSeq, GapKey, RawSeq, RunId } from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
+import type { Change, Store } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { createHome } from './home.js'
 import {

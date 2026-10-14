@@ -1,4 +1,4 @@
-model_provider = "aang_stub"
+model_provider = "catacomb_stub"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
 check_for_update_on_startup = false
@@ -6,8 +6,8 @@ check_for_update_on_startup = false
 [features]
 plugins = false
 
-[model_providers.aang_stub]
-name = "aang stub"
+[model_providers.catacomb_stub]
+name = "catacomb stub"
 base_url = "http://127.0.0.1:33465/v1"
 wire_api = "responses"
 requires_openai_auth = false

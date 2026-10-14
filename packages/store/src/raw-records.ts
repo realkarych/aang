@@ -8,7 +8,7 @@ import {
   RawSeq,
   type Runtime,
   type StreamKey,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { decodeJson, decodeText, encodeJson, encodeText } from './codec.js'
 import { insertInto, prepareStatement, type WriteContext } from './context.js'
 

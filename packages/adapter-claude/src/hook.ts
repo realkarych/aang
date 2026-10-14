@@ -1,5 +1,5 @@
-import type { CollectedRecord, JsonValue, ParseResult, RuntimeEnv, SpoolEnv } from '@aang/contract'
-import { canonicalJson, contentHash } from '@aang/contract/ids'
+import type { CollectedRecord, JsonValue, ParseResult, RuntimeEnv, SpoolEnv } from '@catacomb/contract'
+import { canonicalJson, contentHash } from '@catacomb/contract/ids'
 import { z } from 'zod'
 import { spawnedAgents } from './agents.js'
 import { callStarted } from './calls.js'

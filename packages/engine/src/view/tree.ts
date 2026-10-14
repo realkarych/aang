@@ -1,4 +1,4 @@
-import type { Action, ActionId, AgentId, Link, StageId, ViewElement } from '@aang/contract'
+import type { Action, ActionId, AgentId, Link, StageId, ViewElement } from '@catacomb/contract'
 import { once, type ViewScene } from './scene.js'
 
 export interface Subtree {

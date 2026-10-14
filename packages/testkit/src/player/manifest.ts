@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { RegistrationTag, Runtime } from '@aang/contract'
+import { RegistrationTag, Runtime } from '@catacomb/contract'
 import { z } from 'zod'
 
 export const PlayerRoot = z.enum(['home', 'claude', 'codex'])

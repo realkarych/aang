@@ -1,5 +1,5 @@
-import { runId } from '@aang/contract/ids'
-import { sampleScenarioManifest } from '@aang/testkit'
+import { runId } from '@catacomb/contract/ids'
+import { sampleScenarioManifest } from '@catacomb/testkit'
 import { expect, test } from './fixtures.js'
 import { dock } from './screens.js'
 
@@ -71,7 +71,7 @@ test('on a narrow screen the chat opens over the map and closes again', async ({
 test('old usage and changes links open the remaining screens', async ({ page, player }) => {
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto('/?view=usage')
-  await expect(page.getByRole('link', { name: 'aang' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'catacomb' })).toBeVisible()
   await expect(page.getByText('No runs yet').or(page.locator(`a[href="?run=${claudeRun}"]`))).toBeVisible()
   await page.goto(`/?run=${claudeRun}&mode=changes`)
   await expect(page.getByRole('region', { name: 'Stage map' })).toBeVisible()

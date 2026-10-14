@@ -1,5 +1,5 @@
 {
-  "format": "aang-recording/1",
+  "format": "catacomb-recording/1",
   "runtime": "claude",
   "engine_version": "2.1.289",
   "app_version": null,
@@ -9,9 +9,9 @@
   "model": "stub",
   "recorded_at": "2026-10-10T09:10:27.324Z",
   "expected_facts": [
-    "The user hook notes-guard comes from a settings file (--settings; the settings option of query() in the SDK) and runs on SessionStart, UserPromptSubmit, PostToolUse for Bash and Stop next to the aang hook",
+    "The user hook notes-guard comes from a settings file (--settings; the settings option of query() in the SDK) and runs on SessionStart, UserPromptSubmit, PostToolUse for Bash and Stop next to the catacomb hook",
     "SessionStart prints plain text (hook_success); UserPromptSubmit and PostToolUse return additionalContext (hook_additional_context), PostToolUse also a systemMessage (hook_system_message)",
-    "Stop exits with 1 (hook_non_blocking_error); stop_hook_summary lists the notes-guard command with an error next to the aang hook"
+    "Stop exits with 1 (hook_non_blocking_error); stop_hook_summary lists the notes-guard command with an error next to the catacomb hook"
   ],
   "control_events": [
     {

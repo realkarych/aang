@@ -13,10 +13,10 @@ import {
   RunSnapshot,
   type Stage,
   type StageId,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import { createEngine, createReadQueries, startChat, verifyCitations } from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import { createEngine, createReadQueries, startChat, verifyCitations } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import {
   agentStageTitle,
   branchStageTitles,
@@ -39,7 +39,7 @@ import {
   reshapedStageTitles,
   reviewRequestText,
   splitStageTitles,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { codexHooks, codexRolloutFile, millisecond, otelDecision } from './attention-fixtures.js'
 import { hookBatch, jsonlFile, snapshotBatch } from './batches.js'
@@ -787,7 +787,7 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
   })
 })
 
-const sampleCwd = '/tmp/aang-spike/cc-transcripts/run'
+const sampleCwd = '/tmp/catacomb-spike/cc-transcripts/run'
 
 const askedQuestion = 'Which database should the parser use?'
 

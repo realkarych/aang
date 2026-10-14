@@ -1,4 +1,4 @@
-import type { StageId } from '@aang/contract'
+import type { StageId } from '@catacomb/contract'
 import ELK, { type ElkExtendedEdge, type ElkNode, type ElkPoint } from 'elkjs/lib/elk.bundled.js'
 import type { VisibleMap } from './map-graph.js'
 

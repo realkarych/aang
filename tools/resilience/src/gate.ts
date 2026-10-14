@@ -17,7 +17,7 @@ const posixGate = (cli: Cli): string =>
   [
     '#!/bin/sh',
     `case "$1" in ${allowedCommands[cli.name].map(posixQuote).join('|')}) exec ${posixQuote(cli.command)} "$@" ;; esac`,
-    `echo "aang resilience: ${cli.name} $1 is not allowed for the daemon" >&2`,
+    `echo "catacomb resilience: ${cli.name} $1 is not allowed for the daemon" >&2`,
     `exit ${String(gateExitCode)}`,
     '',
   ].join('\n')
@@ -26,7 +26,7 @@ const nodeGate = [
   "import { spawnSync } from 'node:child_process'",
   'const [real, allowed, ...args] = process.argv.slice(2)',
   "if (!allowed.split(',').includes(args[0] ?? '')) {",
-  '  process.stderr.write(`aang resilience: ${args[0] ?? ""} is not allowed for the daemon\\n`)',
+  '  process.stderr.write(`catacomb resilience: ${args[0] ?? ""} is not allowed for the daemon\\n`)',
   `  process.exit(${String(gateExitCode)})`,
   '}',
   "const result = spawnSync(real, args, { stdio: 'inherit', windowsHide: true })",
@@ -35,7 +35,7 @@ const nodeGate = [
 ].join('\n')
 
 const execShim = (): string =>
-  join(dirname(dirname(fileURLToPath(import.meta.resolve('@aang/testkit')))), 'bin', 'exec-shim.exe')
+  join(dirname(dirname(fileURLToPath(import.meta.resolve('@catacomb/testkit')))), 'bin', 'exec-shim.exe')
 
 export const writeGate = async (directory: string, cli: Cli): Promise<string> => {
   await mkdir(directory, { recursive: true })

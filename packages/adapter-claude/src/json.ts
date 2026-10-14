@@ -1,4 +1,4 @@
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 
 export type JsonObject = { readonly [key: string]: JsonValue }
 

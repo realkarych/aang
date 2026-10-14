@@ -6,7 +6,7 @@ Status: accepted by the owner 2026-10-02.
 
 E.1 intake must keep unknown and unparsed session records in scope (ADR-0005), determine scope by the first `cwd` of the root session, and exclude the observer (ADR-0004). The facts from `parse` are not enough: for `unknown` and `invalid` there are none, even though the record may name the session. The adapter knows the runtime formats; `engine` must not parse them on its own.
 
-Basis: [PR #25](https://github.com/realkarych/aang/pull/25), the preliminary contract for E.1, and comment 3 of its cross-review. The owner explicitly approved ADR-0014 in the PR #25 fix session of 2026-10-02. This ADR extends the adapter interface from ADR-0011.
+Basis: [PR #25](https://github.com/realkarych/catacomb/pull/25), the preliminary contract for E.1, and comment 3 of its cross-review. The owner explicitly approved ADR-0014 in the PR #25 fix session of 2026-10-02. This ADR extends the adapter interface from ADR-0011.
 
 ## Decision
 
@@ -24,10 +24,10 @@ Add to `Adapter` a mandatory pure method `owner(record: CollectedRecord): Record
 
 ### Sources of evidence
 
-- Hooks of both runtimes: the session from `session_id`, the agent thread from `agent_id`, the directory from `cwd`. `SessionStart` with `source` `startup`, `clear` or `fork` opens a root session; `resume` and `compact` continue the previous one. An agent record does not open a root session. Spool markers: `CLAUDE_CODE_ENTRYPOINT=aang-observer` and `CODEX_INTERNAL_ORIGINATOR_OVERRIDE=aang_observer`.
-- Claude transcript lines: `sessionId`, `agentId`, `cwd`, the marker `entrypoint: aang-observer`. A line does not itself declare the start of a session: when the file is read from the beginning, `engine` determines the root's first line with a directory by position.
+- Hooks of both runtimes: the session from `session_id`, the agent thread from `agent_id`, the directory from `cwd`. `SessionStart` with `source` `startup`, `clear` or `fork` opens a root session; `resume` and `compact` continue the previous one. An agent record does not open a root session. Spool markers: `CLAUDE_CODE_ENTRYPOINT=catacomb-observer` and `CODEX_INTERNAL_ORIGINATOR_OVERRIDE=catacomb_observer`.
+- Claude transcript lines: `sessionId`, `agentId`, `cwd`, the marker `entrypoint: catacomb-observer`. A line does not itself declare the start of a session: when the file is read from the beginning, `engine` determines the root's first line with a directory by position.
 - Claude files: the owner of an agent meta file, a workflow snapshot and a workflow log line is determined by path; the owner of a team config by `leadSessionId`. A deleted team config without a payload yields no owner.
-- Codex rollout: the root session and the thread are determined by the stream key. The root thread's `session_meta` opens the session; `session_meta` and `turn_context` may name the directory. Markers in `session_meta`: `thread_source: aang-observer` or `originator: aang_observer`. An error in one field does not erase a valid directory or another marker.
+- Codex rollout: the root session and the thread are determined by the stream key. The root thread's `session_meta` opens the session; `session_meta` and `turn_context` may name the directory. Markers in `session_meta`: `thread_source: catacomb-observer` or `originator: catacomb_observer`. An error in one field does not erase a valid directory or another marker.
 
 ### Responsibility boundary
 

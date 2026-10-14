@@ -1,5 +1,5 @@
-import { type CollectedRecord, DedupeKey } from '@aang/contract'
-import { canonicalJson, contentHash } from '@aang/contract/ids'
+import { type CollectedRecord, DedupeKey } from '@catacomb/contract'
+import { canonicalJson, contentHash } from '@catacomb/contract/ids'
 import { ordinalOf } from './line.js'
 import { otelKeyParts } from './otel.js'
 import { decodeStream } from './stream.js'

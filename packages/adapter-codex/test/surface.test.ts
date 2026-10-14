@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
-import { codexAdapter } from '@aang/adapter-codex'
-import type { FactDraft, SurfaceClaim } from '@aang/contract'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import type { FactDraft, SurfaceClaim } from '@catacomb/contract'
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
 import { factsOf, record, sampleObject, streamFrom } from './rollout-records.js'
@@ -106,7 +106,7 @@ describe('every originator × source combination seen in real rollouts', () => {
     'Codex Desktop | vscode | user': session(assumed('codex_desktop')),
     'Codex Desktop | thread_spawn | subagent': { agent: 'subagent' },
     'Codex Desktop | other | guardian_review': { agent: 'guardian' },
-    'aang_observer | exec | aang-observer': session(null, true),
+    'catacomb_observer | exec | catacomb-observer': session(null, true),
   }
 
   test('has a classification', () => {
@@ -143,7 +143,7 @@ test.each<[string, MetaShape, Classification]>([
   ],
   [
     'an observer launched with its thread source keeps the exec surface and is marked',
-    { originator: 'codex_exec', source: 'exec', thread_source: 'aang-observer' },
+    { originator: 'codex_exec', source: 'exec', thread_source: 'catacomb-observer' },
     session(observed('codex_exec'), true),
   ],
 ])('%s', (_name, shape, classification) => {

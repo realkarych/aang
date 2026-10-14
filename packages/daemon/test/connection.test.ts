@@ -13,10 +13,10 @@ import {
   type SupportMatrix,
   supportMatrixFormat,
   type SupportRow,
-} from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
-import { claudePluginId, codexHookCommand, deployHookBinary, installClaudePlugin, installCodexHooks } from '@aang/hook'
-import { resolveCli } from '@aang/observer'
+} from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
+import { claudePluginId, codexHookCommand, deployHookBinary, installClaudePlugin, installCodexHooks } from '@catacomb/hook'
+import { resolveCli } from '@catacomb/observer'
 import {
   type ClaudeScenario,
   type CodexScenario,
@@ -24,7 +24,7 @@ import {
   type FakeCommand,
   installFakeClaude,
   installFakeCodex,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import type { TestContext } from 'vitest'
 import { describe, test } from 'vitest'
 import { bearer, createHome, type Home, type RunningDaemon, startDaemon } from './daemon.js'
@@ -112,7 +112,7 @@ const connect = async (
   const codexHome = join(home.root, '.codex')
   await mkdir(claudeHome, { recursive: true })
   await mkdir(codexHome, { recursive: true })
-  await deployHookBinary({ aangHome: home.paths.home, hookBinarySource: hookBinary })
+  await deployHookBinary({ catacombHome: home.paths.home, hookBinarySource: hookBinary })
   await writeConfig(home, {
     cli: { claude: claude.executable, codex: codex.executable },
     collector: { rootsScanIntervalMs: 200 },
@@ -123,8 +123,8 @@ const connect = async (
 
 const staleHooks = JSON.stringify({
   hooks: {
-    SessionStart: [{ hooks: [{ type: 'command', command: '~/src/aang/bin/aang hook', timeout: 2 }] }],
-    Stop: [{ hooks: [{ type: 'command', command: '~/src/aang/bin/aang hook', timeout: 2 }] }],
+    SessionStart: [{ hooks: [{ type: 'command', command: '~/src/catacomb/bin/catacomb hook', timeout: 2 }] }],
+    Stop: [{ hooks: [{ type: 'command', command: '~/src/catacomb/bin/catacomb hook', timeout: 2 }] }],
   },
 })
 
@@ -144,11 +144,11 @@ const writeRollout = async (codexHome: string, workspace: string): Promise<void>
 const fakeCalls = (fake: Pick<FakeCli<never>, 'calls'>, command: FakeCommand) => fake.calls().filter((call) => call.command === command)
 
 const unreadableHolder =
-  "$ErrorActionPreference = 'Stop'; $held = [System.IO.File]::Open($env:AANG_HELD_FILE, 'CreateNew', 'ReadWrite', 'None'); [Console]::Out.WriteLine('held'); Start-Sleep -Seconds 300"
+  "$ErrorActionPreference = 'Stop'; $held = [System.IO.File]::Open($env:CATACOMB_HELD_FILE, 'CreateNew', 'ReadWrite', 'None'); [Console]::Out.WriteLine('held'); Start-Sleep -Seconds 300"
 
 const holdUnreadable = async (path: string): Promise<ChildProcess> => {
   const holder = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', unreadableHolder], {
-    env: { ...process.env, AANG_HELD_FILE: path },
+    env: { ...process.env, CATACOMB_HELD_FILE: path },
     stdio: ['ignore', 'pipe', 'inherit'],
     windowsHide: true,
   })
@@ -161,11 +161,11 @@ const holdUnreadable = async (path: string): Promise<ChildProcess> => {
 }
 
 const appServerLaunchersQuery =
-  "Get-CimInstance Win32_Process -Filter \"Name = 'aang-hook.exe' AND ParentProcessId = $env:AANG_PARENT\" | Where-Object { $_.CommandLine -like '* app-server*' } | ForEach-Object { $_.ProcessId }"
+  "Get-CimInstance Win32_Process -Filter \"Name = 'catacomb-hook.exe' AND ParentProcessId = $env:CATACOMB_PARENT\" | Where-Object { $_.CommandLine -like '* app-server*' } | ForEach-Object { $_.ProcessId }"
 
 const appServerLauncher = async (): Promise<number> => {
   const { stdout } = await runFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', appServerLaunchersQuery], {
-    env: { ...process.env, AANG_PARENT: String(process.pid) },
+    env: { ...process.env, CATACOMB_PARENT: String(process.pid) },
     windowsHide: true,
   })
   const [launcher, ...others] = stdout.split(/\s+/).filter((word) => word !== '').map(Number)
@@ -217,7 +217,7 @@ const supportRow = (row: Pick<SupportRow, 'runtime' | 'surface' | 'engine_versio
 
 describe('the static hooks state of ADR-0004 in /api/status', () => {
   test(
-    'Codex hooks go from not installed through untrusted to active and disabled, stale aang entries never count, and a session without hook events stays visible',
+    'Codex hooks go from not installed through untrusted to active and disabled, stale catacomb entries never count, and a session without hook events stays visible',
     { timeout: 60_000 },
     async ({ expect, onTestFinished }) => {
       const { home, workspace, codex, codexHome } = await connect(onTestFinished, { hooks: 'trusted' })
@@ -228,7 +228,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       expect(stale.not_observable).toEqual(unobservable)
 
       codex.setScenario({ hooks: 'untrusted' })
-      const installation = await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+      const installation = await installCodexHooks({ catacombHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
       expect(installation.status).toBe('untrusted')
       await writeRollout(codexHome, workspace)
       const untrusted = await statusUntil(
@@ -254,7 +254,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
 
       codex.setScenario({ hooks: 'trusted' })
-      await writeFile(join(codexHome, 'config.toml'), '[hooks.state."aang"]\ntrusted_hash = "sha256:aang"\n')
+      await writeFile(join(codexHome, 'config.toml'), '[hooks.state."catacomb"]\ntrusted_hash = "sha256:catacomb"\n')
       await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
 
       codex.setScenario({ hooks: 'disabled' })
@@ -268,7 +268,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
   )
 
   test(
-    'without aang hooks in hooks.json the daemon starts no codex app-server, neither at start nor on changes of hooks.json and config.toml nor on an explicit check',
+    'without catacomb hooks in hooks.json the daemon starts no codex app-server, neither at start nor on changes of hooks.json and config.toml nor on an explicit check',
     { timeout: 60_000 },
     async ({ expect, onTestFinished }) => {
       const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'trusted' })
@@ -294,7 +294,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'untrusted' })
       const daemon = await startDaemon(home, onTestFinished)
       await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
-      const options = { aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome }
+      const options = { catacombHome: home.paths.home, hookBinarySource: hookBinary, codexHome }
 
       await installCodexHooks({ ...options, codex })
       await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'untrusted')
@@ -308,7 +308,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
         timeoutMs: 60_000,
       })
       await waitUntil(() => existsSync(hold.started))
-      await writeFile(join(codexHome, 'config.toml'), '[hooks.state."aang"]\ntrusted_hash = "sha256:aang"\n')
+      await writeFile(join(codexHome, 'config.toml'), '[hooks.state."catacomb"]\ntrusted_hash = "sha256:catacomb"\n')
       await sleep(quietPeriodMs)
 
       expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
@@ -339,7 +339,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       codex.setScenario({ hooks: 'trusted' })
       const config = join(codexHome, 'config.toml')
       for (let change = 0; change < 4; change += 1) {
-        await appendFile(config, `[hooks.state."aang-${String(change)}"]\ntrusted_hash = "sha256:aang"\n`)
+        await appendFile(config, `[hooks.state."catacomb-${String(change)}"]\ntrusted_hash = "sha256:catacomb"\n`)
         await sleep(250)
       }
       await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
@@ -362,7 +362,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       const daemon = await startDaemon(home, onTestFinished)
       await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
 
-      const installation = await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+      const installation = await installCodexHooks({ catacombHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
       expect(installation.status).toBe('active')
       await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
       await sleep(quietPeriodMs)
@@ -397,7 +397,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'trusted' })
       const daemon = await startDaemon(home, onTestFinished)
       await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
-      const installation = await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+      const installation = await installCodexHooks({ catacombHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
       expect(installation.status).toBe('active')
       await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
       await sleep(quietPeriodMs)
@@ -431,7 +431,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       await waitUntil(() => fakeCalls(claude, 'plugin').length === 1)
 
       await installClaudePlugin({
-        aangHome: home.paths.home,
+        catacombHome: home.paths.home,
         hookBinarySource: hookBinary,
         claude: { command: claude.executable, configDir: null },
       })
@@ -496,7 +496,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
     async ({ expect, onTestFinished }) => {
       const { home, codex, codexHome } = await connect(onTestFinished, {})
       await writeFile(join(codexHome, 'hooks.json'), registeredHooks(home))
-      const holder = await holdUnreadable(join(codexHome, 'hooks.json.aang-lock'))
+      const holder = await holdUnreadable(join(codexHome, 'hooks.json.catacomb-lock'))
       onTestFinished(() => release(holder))
       const daemon = await startDaemon(home, onTestFinished)
       await sleep(2_000)
@@ -512,10 +512,10 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
   )
 })
 
-const installedCodex = process.env.AANG_ISOLATION_CODEX
+const installedCodex = process.env.CATACOMB_ISOLATION_CODEX
 
 test.skipIf(installedCodex === undefined)(
-  'with the installed Codex CLI the aang hooks registered through its own app-server show as untrusted in /api/status',
+  'with the installed Codex CLI the catacomb hooks registered through its own app-server show as untrusted in /api/status',
   { timeout: 120_000 },
   async ({ expect, onTestFinished }) => {
     const home = await createHome(onTestFinished)
@@ -524,7 +524,7 @@ test.skipIf(installedCodex === undefined)(
     await writeConfig(home, { cli: { claude: join(home.root, 'no-cli', 'claude') } })
     const codex = resolveCli('codex', installedCodex ?? 'codex', process.env)
 
-    const installation = await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+    const installation = await installCodexHooks({ catacombHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
     const daemon = await startDaemon(home, onTestFinished)
     const checked = await checkHooks(daemon, home)
 

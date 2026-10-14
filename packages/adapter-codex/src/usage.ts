@@ -1,4 +1,4 @@
-import type { FactDraft, TokenUsage, UsageTotalSource } from '@aang/contract'
+import type { FactDraft, TokenUsage, UsageTotalSource } from '@catacomb/contract'
 import { z } from 'zod'
 import {
   fact,

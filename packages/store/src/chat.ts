@@ -10,7 +10,7 @@ import {
   Runtime,
   type StageId,
   type ViewRuleId,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { decodeJson, encodeFlag, encodeJson } from './codec.js'
 import { prepareStatement, type WriteContext } from './context.js'
 

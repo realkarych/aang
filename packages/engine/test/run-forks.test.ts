@@ -6,9 +6,9 @@ import {
   type RunId,
   type Runtime,
   type SessionId,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import type { Store } from '@catacomb/store'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { hookBatch, jsonlFile } from './batches.js'
 import { factsOf, sessionKey, startEngine } from './harness.js'

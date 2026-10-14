@@ -1,4 +1,4 @@
-import type { ChatMessage, RunId, RunSnapshot } from '@aang/contract'
+import type { ChatMessage, RunId, RunSnapshot } from '@catacomb/contract'
 import { type RefObject, useCallback, useEffect, useReducer, useRef } from 'react'
 import { failureText, NotFound, readChat, readRun, SignedOut } from './api.js'
 import { applyEvent } from './feed.js'

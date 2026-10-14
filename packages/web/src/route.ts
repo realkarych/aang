@@ -1,7 +1,7 @@
-import { RunId, StageId } from '@aang/contract'
+import { RunId, StageId } from '@catacomb/contract'
 import { type MouseEvent, useCallback, useSyncExternalStore } from 'react'
 
-const navigated = 'aang:navigate'
+const navigated = 'catacomb:navigate'
 
 const subscribe = (notify: () => void): (() => void) => {
   window.addEventListener('popstate', notify)

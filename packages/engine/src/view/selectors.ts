@@ -1,4 +1,4 @@
-import type { Action, Agent, Stage, ViewElement, ViewSelector } from '@aang/contract'
+import type { Action, Agent, Stage, ViewElement, ViewSelector } from '@catacomb/contract'
 import type { ViewScene } from './scene.js'
 
 const folded = (text: string): string => text.trim().toLowerCase()

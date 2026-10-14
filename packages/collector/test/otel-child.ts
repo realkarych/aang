@@ -1,5 +1,5 @@
-import { createCollector } from '@aang/collector'
-import { Config, type CollectorBatch } from '@aang/contract'
+import { createCollector } from '@catacomb/collector'
+import { Config, type CollectorBatch } from '@catacomb/contract'
 
 const [spool, claude, codex, mode] = process.argv.slice(2)
 if (spool === undefined || claude === undefined || codex === undefined) {

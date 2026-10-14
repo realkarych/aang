@@ -1,4 +1,4 @@
-import type { OperatingSystem, Runtime, Surface } from '@aang/contract'
+import type { OperatingSystem, Runtime, Surface } from '@catacomb/contract'
 import type { CreatedEntries } from './capture.js'
 import { recordSession, type RecordContext } from './record.js'
 import { type ModelMode, type ProfileHome, recordingOs } from './schema.js'

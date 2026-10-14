@@ -1,16 +1,16 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { Config } from '@aang/contract'
-import { configFileName } from '@aang/contract/config-file'
-import { aangHomePaths } from '@aang/contract/home'
+import { Config } from '@catacomb/contract'
+import { configFileName } from '@catacomb/contract/config-file'
+import { catacombHomePaths } from '@catacomb/contract/home'
 import type { z } from 'zod'
 import { type DaemonLaunch, launchDaemon, type RunningDaemon } from './daemon.js'
 import { type Environment, profileEnvironment } from './environment.js'
 
 export type ConfigInput = z.input<typeof Config>
 
-export type ProfileRoot = 'home' | 'claude' | 'codex' | 'aang'
+export type ProfileRoot = 'home' | 'claude' | 'codex' | 'catacomb'
 
 export interface ProfileOptions {
   readonly homeName?: string
@@ -22,7 +22,7 @@ export interface Profile {
   readonly home: string
   readonly claude: string
   readonly codex: string
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly spool: string
   readonly env: Environment
   readonly configure: (config: ConfigInput) => Promise<void>
@@ -60,21 +60,21 @@ const serializeConfig = (config: ConfigInput, defaults: ConfigInput = {}): strin
 
 export const createProfile = async ({ homeName = 'home', config = {} }: ProfileOptions = {}): Promise<Profile> => {
   serializeConfig(config)
-  const temporary = await mkdtemp(join(tmpdir(), 'aang-profile-'))
+  const temporary = await mkdtemp(join(tmpdir(), 'catacomb-profile-'))
   try {
     const root = await realpath(temporary)
     const home = join(root, homeName)
     const claude = join(home, '.claude')
     const codex = join(home, '.codex')
-    const aangHome = join(home, '.aang')
-    const paths = aangHomePaths(aangHome)
-    const roots: Readonly<Record<ProfileRoot, string>> = { home, claude, codex, aang: aangHome }
+    const catacombHome = join(home, '.catacomb')
+    const paths = catacombHomePaths(catacombHome)
+    const roots: Readonly<Record<ProfileRoot, string>> = { home, claude, codex, catacomb: catacombHome }
     const env = profileEnvironment(process.env, {
       HOME: home,
       USERPROFILE: home,
       CLAUDE_CONFIG_DIR: claude,
       CODEX_HOME: codex,
-      AANG_HOME: aangHome,
+      CATACOMB_HOME: catacombHome,
     })
     const daemons = new Set<RunningDaemon>()
 
@@ -86,7 +86,7 @@ export const createProfile = async ({ homeName = 'home', config = {} }: ProfileO
     }
 
     const configure = async (next: ConfigInput): Promise<void> => {
-      await write('aang', configFileName, serializeConfig(next, absentClis(root)))
+      await write('catacomb', configFileName, serializeConfig(next, absentClis(root)))
     }
 
     const stopOrKill = async (daemon: RunningDaemon): Promise<void> => {
@@ -96,7 +96,7 @@ export const createProfile = async ({ homeName = 'home', config = {} }: ProfileO
     for (const directory of [claude, codex]) {
       await mkdir(directory, { recursive: true })
     }
-    await mkdir(aangHome, { recursive: true, mode: 0o700 })
+    await mkdir(catacombHome, { recursive: true, mode: 0o700 })
     await configure(config)
 
     return {
@@ -104,7 +104,7 @@ export const createProfile = async ({ homeName = 'home', config = {} }: ProfileO
       home,
       claude,
       codex,
-      aangHome,
+      catacombHome,
       spool: paths.spool,
       env,
       configure,

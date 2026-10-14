@@ -16,17 +16,17 @@ import {
   type RunId,
   type Runtime,
   type SessionId,
-} from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
 import {
   applyObserverResponse,
   type BatchLimits,
   beginObserverCall,
   type ObserverResponseResult,
   startObserverBatch,
-} from '@aang/engine'
-import type { Store } from '@aang/store'
-import { type ObserverScenarioReply, runScenarioScript } from '@aang/testkit'
+} from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
+import { type ObserverScenarioReply, runScenarioScript } from '@catacomb/testkit'
 import { factsOf } from './harness.js'
 
 const iso = (at: EpochNs): string => new Date(Number(at / 1_000_000n)).toISOString()

@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { spoolLayout } from '@aang/contract'
+import { spoolLayout } from '@catacomb/contract'
 import { resolveExpect } from '../expect.js'
 import { hookRecords, hooksNamed } from '../hooks.js'
 import type { Scenario } from '../scenario.js'
@@ -25,7 +25,7 @@ match_max 200000
 set stty_init "rows 40 cols 160"
 set env(TERM) xterm-256color
 proc fail {message} {
-  send_user "aang-tui: $message\n"
+  send_user "catacomb-tui: $message\n"
   exit 2
 }
 proc count_matching {files pattern} {
@@ -142,7 +142,7 @@ const tools = stubScenario({
   script: { 'tui-tools': [[shell('echo hi')], [patch('result.json', '{"status": "ok"}')]] },
   run: async (context) => {
     const { session } = context
-    const rollout = await driveTui(context, 'tools', '[aang:tui-tools] Run `echo hi`, add result.json with a patch, then reply done.')
+    const rollout = await driveTui(context, 'tools', '[catacomb:tui-tools] Run `echo hi`, add result.json with a patch, then reply done.')
     check(completedItems(rollout, 'CommandExecution').length === 1 && completedItems(rollout, 'FileChange').length === 1, 'the command and the patch completed')
     check(await exists(join(session.project, 'result.json')), 'result.json was written')
     check(hooksNamed(await hookRecords(session.spool), 'SessionEnd').length === 1, 'SessionEnd fired on exit')
@@ -164,7 +164,7 @@ const approval = stubScenario({
   },
   run: async (context) => {
     const { session, telemetry } = context
-    const rollout = await driveTui(context, 'approval', '[aang:tui-approval] Create approved.txt with `touch approved.txt` and ask for approval.', ['-s', 'read-only'])
+    const rollout = await driveTui(context, 'approval', '[catacomb:tui-approval] Create approved.txt with `touch approved.txt` and ask for approval.', ['-s', 'read-only'])
     const hooks = await hookRecords(session.spool)
     const request = hooksNamed(hooks, 'PermissionRequest', { key: 'tool_name', value: 'Bash' })
     const started = hooksNamed(hooks, 'PreToolUse', { key: 'tool_name', value: 'Bash' })[0]
@@ -190,7 +190,7 @@ const interrupt = stubScenario({
   script: { 'tui-interrupt': [[shell('sleep 30', { yield_time_ms: 30_000 })]] },
   run: async (context) => {
     const { session } = context
-    const rollout = await driveTui(context, 'interrupt', '[aang:tui-interrupt] Run `sleep 30`, then reply done.')
+    const rollout = await driveTui(context, 'interrupt', '[catacomb:tui-interrupt] Run `sleep 30`, then reply done.')
     check(events(rollout, 'turn_aborted').some((event) => event['reason'] === 'interrupted'), 'the turn was aborted by the interrupt')
     check(responseItems(rollout, 'function_call_output').some((item) => String(item['output']).includes('aborted by user')), 'the running command was aborted')
     const hooks = await hookRecords(session.spool)

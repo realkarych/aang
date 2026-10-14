@@ -14,8 +14,8 @@ import {
   RunId,
   Runtime,
   UsageReport,
-} from '@aang/contract'
-import { MapPredicate } from '@aang/record'
+} from '@catacomb/contract'
+import { MapPredicate } from '@catacomb/record'
 import { z } from 'zod'
 import { Digest, FixedProfile, RecordingPath } from './profile.js'
 
@@ -26,7 +26,7 @@ export const measurementFiles = {
   report: 'report.json',
   summary: 'report.md',
   home: 'home',
-  aang: 'aang',
+  catacomb: 'catacomb',
 } as const
 
 const epochMs = z.int().nonnegative()
@@ -142,7 +142,7 @@ export const PlayedRecording = z.strictObject({
 export type PlayedRecording = z.infer<typeof PlayedRecording>
 
 export const Measurement = z.strictObject({
-  format: z.literal('aang-freshness-measurement/1'),
+  format: z.literal('catacomb-freshness-measurement/1'),
   profile_digest: Digest,
   daemon_version: z.string(),
   started_at: epochMs,
@@ -176,7 +176,7 @@ export const AnnotatedEvent = z.strictObject({
 export type AnnotatedEvent = z.infer<typeof AnnotatedEvent>
 
 export const Annotations = z.strictObject({
-  format: z.literal('aang-freshness-annotations/1'),
+  format: z.literal('catacomb-freshness-annotations/1'),
   events: z.array(AnnotatedEvent),
 })
 export type Annotations = z.infer<typeof Annotations>

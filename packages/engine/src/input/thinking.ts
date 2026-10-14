@@ -1,4 +1,4 @@
-import type { JsonValue, RawChannel, RawRecord } from '@aang/contract'
+import type { JsonValue, RawChannel, RawRecord } from '@catacomb/contract'
 
 type JsonObject = { readonly [key: string]: JsonValue }
 

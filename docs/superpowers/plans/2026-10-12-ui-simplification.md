@@ -2,18 +2,18 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Reduce the aang web UI to a chat list, a full-screen stage map and a collapsible chat panel, as decided by the owner.
+**Goal:** Reduce the catacomb web UI to a chat list, a full-screen stage map and a collapsible chat panel, as decided by the owner.
 
 **Architecture:** Web-only rework of `packages/web` plus one read-model field (`RunSummary.cwd`). The map, chat, SSE feed and API stay; the views around them are deleted. Each task is one PR of the stack described in the spec, with its own E2E cycle.
 
-**Tech Stack:** React 19, Vite 8, `@xyflow/react` 12 + `elkjs`, plain CSS, Zod contracts, Playwright E2E with `@aang/testkit` fake observer scenarios, pnpm, Node 26.
+**Tech Stack:** React 19, Vite 8, `@xyflow/react` 12 + `elkjs`, plain CSS, Zod contracts, Playwright E2E with `@catacomb/testkit` fake observer scenarios, pnpm, Node 26.
 
 **Spec:** `docs/superpowers/specs/2026-10-12-ui-simplification-design.md`
 
 ## Global Constraints
 
 - No comments or docstrings in any source file (AGENTS.md). Explanations go to ADRs, READMEs and PR descriptions.
-- E2E first; unit tests only for an atomic fragment E2E cannot cover (AGENTS.md, ADR-0012). Mocks only at external boundaries; the observer LLM is faked through `@aang/testkit` scenarios.
+- E2E first; unit tests only for an atomic fragment E2E cannot cover (AGENTS.md, ADR-0012). Mocks only at external boundaries; the observer LLM is faked through `@catacomb/testkit` scenarios.
 - Colour is always paired with an icon or label (RFC §5).
 - Backend change is limited to `RunSummary.cwd` (spec D4, D9). No endpoint, table, observer behaviour or CLI command is removed. The chat system prompt may be adjusted only if Task 5 shows filter requests do not produce view rules.
 - `localStorage` access is wrapped in try/catch; the UI works without it.
@@ -62,15 +62,15 @@ The run screen shows a status strip, a facts header, an attention zone, the map,
 3. The chat panel is on the right of the map and collapses to a rail. Selecting a stage narrows the chat and shows a stage summary at its top.
 4. Narrowing the map to a goal uses the existing chat view rules. Active rules are chips above the map; ✕ revokes the rule.
 5. Attention: a badge on the stage, a "waiting for you" chip in the header for items without a stage, a count in the chat list. No attention zone; no viewed or dismiss controls.
-6. Observation health: one dot in the header, only when a non-coverage lamp is not normal; the popover lists the problems. `aang status` keeps the details.
-7. Trace, plan history, "Since last review" and the usage page are removed from the UI. `aang usage` stays.
+6. Observation health: one dot in the header, only when a non-coverage lamp is not normal; the popover lists the problems. `catacomb status` keeps the details.
+7. Trace, plan history, "Since last review" and the usage page are removed from the UI. `catacomb usage` stays.
 8. `RunSummary` gains `cwd`: the root session's working directory, shown as the project folder in the chat list.
 9. The backend, API, tables and observer are unchanged. Endpoints used only by removed views stay served.
 
 ## Consequences
 
 - Supersedes in ADR-0008: the attention zone, "Since last view", the view-rules list and the status-bar clauses. Chat with citations, map version binding and view rules as a mechanism stay.
-- Supersedes in ADR-0009: the usage UI. The three ledgers and `aang usage` stay.
+- Supersedes in ADR-0009: the usage UI. The three ledgers and `catacomb usage` stay.
 - Supersedes in ADR-0010: the display of the unverified-version and unrecognized-records signals in the status bar; they move into the health dot popover.
 - E2E scenarios of removed views are deleted; the RFC scenario coverage table in `docs/plan/mvp.md` is rewritten.
 - RFC §2 "returning to results" loses its dedicated mode; the chat answers "what changed" questions.
@@ -117,7 +117,7 @@ Implementation PRs (Tasks 2–7) may be developed, but they merge only after the
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `e2e/runs.test.ts` (reuse its existing imports and `test.use`; add `claudeOriginal`, `runOf` from `./samples.js` and `sampleScenarioManifest` from `@aang/testkit` if not imported):
+Append to `e2e/runs.test.ts` (reuse its existing imports and `test.use`; add `claudeOriginal`, `runOf` from `./samples.js` and `sampleScenarioManifest` from `@catacomb/testkit` if not imported):
 
 ```ts
 test('a run summary carries the working directory of its root session', async ({ daemon, player }) => {
@@ -182,7 +182,7 @@ git commit -m "Run summary: the root session's working directory (ADR-0015)"
 - Create test: `e2e/layout.test.ts`
 
 **Interfaces:**
-- Produces: `ChatDock` component `({ children: ReactNode }) => ReactElement` rendering `<aside aria-label="Chat panel">` with a toggle button named "Collapse chat" / "Expand chat"; storage key `aang:chat-collapsed`.
+- Produces: `ChatDock` component `({ children: ReactNode }) => ReactElement` rendering `<aside aria-label="Chat panel">` with a toggle button named "Collapse chat" / "Expand chat"; storage key `catacomb:chat-collapsed`.
 - Produces: `Route = { screen: 'runs' } | { screen: 'run'; run: RunId }`; `runHref(run)`, `stageHref(run, stage)`, `selectStage`, `replaceStage` keep their names without the `mode` parameter.
 - Produces in `e2e/screens.ts`: `dock(page): Locator` = `page.getByRole('complementary', { name: 'Chat panel' })`, `versionOf(daemon, run): Promise<number>`.
 
@@ -191,8 +191,8 @@ git commit -m "Run summary: the root session's working directory (ADR-0015)"
 Create `e2e/layout.test.ts`:
 
 ```ts
-import { runId } from '@aang/contract/ids'
-import { sampleScenarioManifest } from '@aang/testkit'
+import { runId } from '@catacomb/contract/ids'
+import { sampleScenarioManifest } from '@catacomb/testkit'
 import { expect, test } from './fixtures.js'
 import { dock } from './screens.js'
 
@@ -264,7 +264,7 @@ test('on a narrow screen the chat opens over the map and closes again', async ({
 test('old usage and changes links open the remaining screens', async ({ page, player }) => {
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto('/?view=usage')
-  await expect(page.getByRole('link', { name: 'aang' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'catacomb' })).toBeVisible()
   await expect(page.getByText('No runs yet').or(page.locator(`a[href="?run=${claudeRun}"]`))).toBeVisible()
   await page.goto(`/?run=${claudeRun}&mode=changes`)
   await expect(page.getByRole('region', { name: 'Stage map' })).toBeVisible()
@@ -290,7 +290,7 @@ Create `packages/web/src/chat-dock.tsx`:
 import { type ReactElement, type ReactNode, useEffect, useState } from 'react'
 import './dock.css'
 
-const collapsedKey = 'aang:chat-collapsed'
+const collapsedKey = 'catacomb:chat-collapsed'
 const wideQuery = '(min-width: 1100px)'
 
 const storedCollapsed = (): boolean => {
@@ -485,7 +485,7 @@ const Masthead = ({ title }: { readonly title: string | null }): ReactElement =>
   return (
     <header className="masthead">
       <a className="wordmark" href={listHref} onClick={navigate}>
-        aang
+        catacomb
       </a>
       {title === null ? null : (
         <nav className="masthead-nav" aria-label="Navigation">
@@ -525,7 +525,7 @@ export const versionOf = async (daemon: RunningDaemon, run: RunId): Promise<numb
     .version
 ```
 
-(import `endpoints` from `@aang/contract` and `RunningDaemon` from `@aang/testkit`).
+(import `endpoints` from `@catacomb/contract` and `RunningDaemon` from `@catacomb/testkit`).
 - `e2e/map.test.ts`, `e2e/chat.test.ts`: replace `versionShown(page)`/`versionNow(page)`/`fact(page, 'Map version')` with `versionOf(daemon, claudeRun)`; delete assertions on `.facts`.
 - `e2e/chat.test.ts`: delete `rules`/`activeRules` assertions (Task 5 adds chips); keep the chat assertions.
 - `e2e/shell.test.ts`, `e2e/codex.test.ts`: delete tests and assertions whose subject is the trace, plan facts or facts list; keep run-list, live stream, sign-in and lamps assertions (Task 6 rewrites lamps).
@@ -567,9 +567,9 @@ git commit -m "Web: map and collapsible chat panel; remove trace, plan facts, si
 Create `e2e/stage-focus.test.ts`:
 
 ```ts
-import { endpoints } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import { mainStageTitle, observerScenarios, preparationStageTitle, sampleScenarioManifest } from '@aang/testkit'
+import { endpoints } from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
+import { mainStageTitle, observerScenarios, preparationStageTitle, sampleScenarioManifest } from '@catacomb/testkit'
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures.js'
 import { dock } from './screens.js'
@@ -636,7 +636,7 @@ Expected: FAIL: no region "Selected stage".
 Create `packages/web/src/stage-summary.tsx`:
 
 ```tsx
-import type { AttentionItem, Stage } from '@aang/contract'
+import type { AttentionItem, Stage } from '@catacomb/contract'
 import type { ReactElement } from 'react'
 import { BasisBadge, ExecutionBadge } from './badges.js'
 import { attentionKindLabel } from './labels.js'
@@ -772,8 +772,8 @@ git commit -m "Web: stage selection focuses the chat with a stage summary; remov
 Create `e2e/attention-badges.test.ts`:
 
 ```ts
-import { runId } from '@aang/contract/ids'
-import { checksBlockerText, checksStageTitle, observerScenarios, sampleScenarioManifest } from '@aang/testkit'
+import { runId } from '@catacomb/contract/ids'
+import { checksBlockerText, checksStageTitle, observerScenarios, sampleScenarioManifest } from '@catacomb/testkit'
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures.js'
 import { claudeOriginal, runOf } from './samples.js'
@@ -917,7 +917,7 @@ Delete `agentLabel`, `team`, the `DecisionBadge`, `stageOriginLabel`, `actionFor
 Create `packages/web/src/filter-chips.tsx`:
 
 ```tsx
-import type { RunSnapshot, ViewRuleId } from '@aang/contract'
+import type { RunSnapshot, ViewRuleId } from '@catacomb/contract'
 import { type ReactElement, useState } from 'react'
 import { failureText, revokeViewRule, SignedOut } from './api.js'
 import { fullHint, shortIds, useKnownAgents } from './short-ids.js'
@@ -1027,7 +1027,7 @@ Expected: PASS. If the filter chip test fails because the fake chat scenario did
 
 - [ ] **Step 9: Manual check of a real filter request**
 
-With a real `claude` CLI as the observer (`aang start` from this branch's build, `aang watch` a project, run a short session), ask in the chat: "show only the stages about tests". Expected: the answer carries a view rule and a chip appears. If no rule is produced in three attempts, edit `chatSystemPrompt` in `packages/observer/src/prompt.ts` to state that requests to show only, hide, focus on or group parts of the map must be answered with a `view_rule`, rebuild and repeat. Record the outcome in the PR description.
+With a real `claude` CLI as the observer (`catacomb start` from this branch's build, `catacomb watch` a project, run a short session), ask in the chat: "show only the stages about tests". Expected: the answer carries a view rule and a chip appears. If no rule is produced in three attempts, edit `chatSystemPrompt` in `packages/observer/src/prompt.ts` to state that requests to show only, hide, focus on or group parts of the map must be answered with a `view_rule`, rebuild and repeat. Record the outcome in the PR description.
 
 - [ ] **Step 10: Commit**
 
@@ -1076,7 +1076,7 @@ test('a healthy install shows no health dot even though cloud surfaces are not o
   )
   expect(surfaces.length).toBeGreaterThan(0)
   await page.goto('/')
-  await expect(page.getByRole('link', { name: 'aang' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'catacomb' })).toBeVisible()
   await expect(healthDot(page)).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'Observation status' })).toHaveCount(0)
 })
@@ -1146,7 +1146,7 @@ export const HealthDot = ({ lamps }: { readonly lamps: readonly Lamp[] }): React
             ])}
           </ul>
           <p className="health-note">
-            Details: <code>aang status</code>
+            Details: <code>catacomb status</code>
           </p>
         </div>
       ) : null}

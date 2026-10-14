@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { type SupportKey, supportKeyText, supportMatrixFormat, type SupportRow, supportRowOf } from '@aang/contract'
-import { readSupportMatrix } from '@aang/contract/support-file'
+import { type SupportKey, supportKeyText, supportMatrixFormat, type SupportRow, supportRowOf } from '@catacomb/contract'
+import { readSupportMatrix } from '@catacomb/contract/support-file'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { matrixPath, supportGaps, verificationFormat, verificationPath } from '../dist/index.js'
 import { cliOptions, ownerChecklist, placementCheck, supportCli, temporaryDirectory, writeVerification } from './fixtures.js'
@@ -9,7 +9,7 @@ import { cliOptions, ownerChecklist, placementCheck, supportCli, temporaryDirect
 const workspace = async (): Promise<{ readonly root: string; readonly sessions: string; readonly support: string }> => {
   const root = await temporaryDirectory((cleanup) => {
     onTestFinished(cleanup)
-  }, 'aang-support-verification-')
+  }, 'catacomb-support-verification-')
   await mkdir(join(root, 'sessions'))
   return { root, sessions: join(root, 'sessions'), support: join(root, 'support') }
 }
@@ -89,9 +89,9 @@ describe('owner checklists in the support matrix', () => {
 })
 
 const report = (finishedAt: string, access: string, results: readonly Readonly<Record<string, unknown>>[]) => ({
-  format: 'aang-surface-check/1',
+  format: 'catacomb-surface-check/1',
   finished_at: finishedAt,
-  image: 'aang-surface-check:2.1.289-0.160.0',
+  image: 'catacomb-surface-check:2.1.289-0.160.0',
   access: { result: access, detail: 'OAuth on Linux' },
   results,
 })

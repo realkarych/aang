@@ -1,6 +1,6 @@
 import { realpath } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
-import type { CheckContract, ScopeDecision } from '@aang/contract'
+import type { CheckContract, ScopeDecision } from '@catacomb/contract'
 import { readGit } from './git.js'
 
 export interface WatchedRoot {

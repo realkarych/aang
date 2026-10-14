@@ -1,6 +1,6 @@
-import type { AgentId, AgentKey, AgentRef, Fact, FactId, SessionKey } from '@aang/contract'
-import { canonicalJson, objectId } from '@aang/contract/ids'
-import type { Transaction } from '@aang/store'
+import type { AgentId, AgentKey, AgentRef, Fact, FactId, SessionKey } from '@catacomb/contract'
+import { canonicalJson, objectId } from '@catacomb/contract/ids'
+import type { Transaction } from '@catacomb/store'
 import { agentKey, byContent, type Evidence, ofKind } from './evidence.js'
 
 export interface Refinement {

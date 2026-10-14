@@ -1,9 +1,9 @@
-import type { CollectedRecord, JsonValue, RecordOwner, RecordThread } from '@aang/contract'
+import type { CollectedRecord, JsonValue, RecordOwner, RecordThread } from '@catacomb/contract'
 import { parseJson, stringField } from './json.js'
 import { sessionKey } from './keys.js'
 import { snapshotFile, workflowJournal } from './paths.js'
 
-const observerEntrypoint = 'aang-observer'
+const observerEntrypoint = 'catacomb-observer'
 const sessionStartEvent = 'SessionStart'
 const startSources: ReadonlySet<string> = new Set(['startup', 'clear', 'fork'])
 

@@ -1,9 +1,9 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { ChatInput, type ChatMessage, chatOutputJsonSchema, EpochNs, type JsonValue, type RunId } from '@aang/contract'
-import { defaultChatLimits, startChat } from '@aang/engine'
-import { ChatClosedError, chatSystemPrompt, createChat, type ChatOptions } from '@aang/observer'
-import type { ClaudeReply, CodexReply, FakeCall } from '@aang/testkit'
+import { ChatInput, type ChatMessage, chatOutputJsonSchema, EpochNs, type JsonValue, type RunId } from '@catacomb/contract'
+import { defaultChatLimits, startChat } from '@catacomb/engine'
+import { ChatClosedError, chatSystemPrompt, createChat, type ChatOptions } from '@catacomb/observer'
+import type { ClaudeReply, CodexReply, FakeCall } from '@catacomb/testkit'
 import { expect, test } from 'vitest'
 import { briefed, createScene, structured, until } from './scene.js'
 

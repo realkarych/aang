@@ -1,4 +1,4 @@
-import { StreamKey } from '@aang/contract'
+import { StreamKey } from '@catacomb/contract'
 import { z } from 'zod'
 import { readJson } from './json.js'
 import { readLine } from './line.js'

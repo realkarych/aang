@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { CollectedGap, CollectedRecord, CollectorBatch, EpochNs } from '@aang/contract'
+import type { CollectedGap, CollectedRecord, CollectorBatch, EpochNs } from '@catacomb/contract'
 import { describeError } from './errors.js'
 import { filterOtel, isObject, type OtelEnvelope, otelPayloads } from './otel-envelope.js'
 import { epochNs, nowNs } from './time.js'

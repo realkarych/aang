@@ -8,7 +8,7 @@ import {
   type ViewRule,
   type ViewSelector,
   type ViewTotals,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { plural, whole } from './format.js'
 import { actionForms, agentForms, outcomeLabel } from './labels.js'
 

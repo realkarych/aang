@@ -7,9 +7,9 @@ import {
   type JsonValue,
   type RunDelta,
   type SessionKey,
-} from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import { type CodexReply, installFakeCodex } from '@aang/testkit'
+} from '@catacomb/contract'
+import { runId } from '@catacomb/contract/ids'
+import { type CodexReply, installFakeCodex } from '@catacomb/testkit'
 import { test } from 'vitest'
 import { bearer, startDaemon } from './daemon.js'
 import { configure, installLauncher, observerEnvironment, progressOf, settled } from './observers.js'

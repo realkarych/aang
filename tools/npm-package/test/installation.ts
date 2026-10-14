@@ -1,9 +1,9 @@
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { type Completed, npm, run } from '../dist/index.js'
+import { catacombPackageName, type Completed, npm, run } from '../dist/index.js'
 
-export type Command = 'aang' | 'aang-hook'
+export type Command = 'catacomb' | 'catacomb-hook'
 
 export interface CommandOptions {
   readonly env?: NodeJS.ProcessEnv
@@ -36,12 +36,12 @@ interface Layout {
 }
 
 const globalLayout = (prefix: string): Layout => ({
-  packageDirectory: windows ? join(prefix, 'node_modules', 'aang') : join(prefix, 'lib', 'node_modules', 'aang'),
+  packageDirectory: windows ? join(prefix, 'node_modules', catacombPackageName) : join(prefix, 'lib', 'node_modules', catacombPackageName),
   bin: (command) => (windows ? join(prefix, `${command}.cmd`) : join(prefix, 'bin', command)),
 })
 
 const projectLayout = (prefix: string): Layout => ({
-  packageDirectory: join(prefix, 'node_modules', 'aang'),
+  packageDirectory: join(prefix, 'node_modules', catacombPackageName),
   bin: (command) => join(prefix, 'node_modules', '.bin', windows ? `${command}.cmd` : command),
 })
 
@@ -50,13 +50,13 @@ export const install = async (
   scope: InstallScope,
   flags: readonly string[] = [],
 ): Promise<Installation> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-npm-install-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-npm-install-')))
   const remove = (): Promise<void> => rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
   const prefix = join(root, 'prefix')
   try {
     await mkdir(prefix)
     const scopeFlags = scope === 'global' ? ['--global'] : []
-    await npm(['install', ...scopeFlags, '--prefix', prefix, '--registry', registry, ...flags, 'aang'], {
+    await npm(['install', ...scopeFlags, '--prefix', prefix, '--registry', registry, ...flags, catacombPackageName], {
       cwd: root,
       env: npmEnvironment(root),
     })

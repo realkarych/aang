@@ -1,4 +1,4 @@
-import type { CollectedRecord, ParseResult } from '@aang/contract'
+import type { CollectedRecord, ParseResult } from '@catacomb/contract'
 import { z } from 'zod'
 import { interAgentMessage } from './agents.js'
 import { customToolCall, functionCall, toolOutput } from './calls.js'

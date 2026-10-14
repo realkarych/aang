@@ -1,4 +1,4 @@
-import { UsageReport, type JournalRates, type JournalTotals, type UsageTotals } from '@aang/contract'
+import { UsageReport, type JournalRates, type JournalTotals, type UsageTotals } from '@catacomb/contract'
 import { describe, test } from 'vitest'
 
 const idle: UsageTotals = {

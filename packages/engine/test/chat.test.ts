@@ -1,4 +1,4 @@
-import { ChangeSeq, type ChatInput, type ChatNeed, ChatOutput, FactId, RunId, StageId, TempId } from '@aang/contract'
+import { ChangeSeq, type ChatInput, type ChatNeed, ChatOutput, FactId, RunId, StageId, TempId } from '@catacomb/contract'
 import {
   answerChat,
   ChatError,
@@ -12,9 +12,9 @@ import {
   resolveObserverNeeds,
   startChat,
   verifyCitations,
-} from '@aang/engine'
-import { objectId } from '@aang/contract/ids'
-import type { Store } from '@aang/store'
+} from '@catacomb/engine'
+import { objectId } from '@catacomb/contract/ids'
+import type { Store } from '@catacomb/store'
 import { expect, test } from 'vitest'
 import { recordsOf, sessionKey } from './harness.js'
 import { at } from './model.js'

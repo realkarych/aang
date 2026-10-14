@@ -5,7 +5,7 @@ Date: 2026-10-03, rerun — 2026-10-04. Branch: `feat/d6-app-server-live`.
 
 ## 0. Scope, versions, method
 
-We check the side effects of our own stdio process `codex app-server`, which `@aang/hook` (D.4) launches for `initialize` and `hooks/list`: sqlite, logs, caches, network, MCP launch, threads, configs and trust. By the owner's decision (2026-10-03) the experiment runs directly in the regular `~/.codex` without a copy of the profile. The working directory is a separate test project in a temporary directory. User configs were intentionally not changed; the state before and after is recorded (section 3).
+We check the side effects of our own stdio process `codex app-server`, which `@catacomb/hook` (D.4) launches for `initialize` and `hooks/list`: sqlite, logs, caches, network, MCP launch, threads, configs and trust. By the owner's decision (2026-10-03) the experiment runs directly in the regular `~/.codex` without a copy of the profile. The working directory is a separate test project in a temporary directory. User configs were intentionally not changed; the state before and after is recorded (section 3).
 
 **Versions and environment:**
 
@@ -24,7 +24,7 @@ Run phases:
    - 5 s without requests, then `initialize` with the same `clientInfo` as D.4, and `initialized`;
    - another 5 s, then `hooks/list {}` and `hooks/list {cwds: [~/.codex]}`;
    - 20 s, stdin closed; snapshot S2.
-3. Three product calls `codexHooksState({ codexHome: ~/.codex, codex: { command } })` from the built `@aang/hook`: the process working directory is `codexHome`, `initialize` → `hooks/list`, SIGKILL of the process group right after the reply. Snapshot S3.
+3. Three product calls `codexHooksState({ codexHome: ~/.codex, codex: { command } })` from the built `@catacomb/hook`: the process working directory is `codexHome`, `initialize` → `hooks/list`, SIGKILL of the process group right after the reply. Snapshot S3.
 4. A 30 s control window, snapshot S4.
 5. Trust reconciliation: a short `initialize` + `hooks/list` session, stdin closed. Snapshot S5.
 
@@ -70,20 +70,20 @@ There were four runs on the regular profile: 22:37, 22:48 and 22:52 MSK on Octob
    Over a 30-second session this is 42 rows (about 12 KB) in `logs_2.sqlite`, rewritten plugin catalog caches and markers of 10 remote plugins, and probably `models_cache.json`.
 5. **The D.4 product path leaves almost no traces** (Obs). A call lasts 35–53 ms; the process is killed before the background tasks write anything: no log rows and no cache writes. After SIGKILL there remain the directory `tmp/arg0/codex-arg0*` (removed by the next launch of any `codex`) and the sqlite service files `-wal`/`-shm` of the `goals_1` and `memories_1` databases. The product process probably starts a network connection (Inf): in the short reconciliation session a TCP connection to `chatgpt.com` is already open 47 ms after start, right after the reply to `hooks/list`.
 6. **In a profile without remote plugins (without ChatGPT authorization) every short launch leaves an empty directory `.tmp/git-XXXXXX`** (Obs, disposable profile, section 8). Instead of remote plugins, a git synchronization of `github.com/openai/plugins` runs there. The directory remains both on SIGKILL and on a normal stdin close; a long session removes it.
-7. **On the owner's profile `codexHooksState` returns `active` even though there is no current aang installation** (Obs). `~/.codex/hooks.json` has three stale `~/src/aang/bin/aang hook` entries from a previous installation: the binary is gone, the entries are trusted and enabled. `isAangCommand` attributes them to aang. Before G.7 the state must be determined by the current entry (section 2, item 2).
+7. **On the owner's profile `codexHooksState` returns `active` even though there is no current catacomb installation** (Obs). `~/.codex/hooks.json` has three stale `~/src/catacomb/bin/catacomb hook` entries from a previous installation: the binary is gone, the entries are trusted and enabled. `isCatacombCommand` attributes them to catacomb. Before G.7 the state must be determined by the current entry (section 2, item 2).
 
 ## 2. Escalated to the owner
 
 1. **Condition for using the trust check — an ADR-0004 amendment in this PR.** `hooks/list` itself is safe, but every app-server launch starts background network tasks on behalf of the user. If such a process is not killed immediately, it writes logs and caches to `CODEX_HOME`. The proposal has been added to ADR-0004 (section "Channels"):
    - the process exits immediately after the `hooks/list` reply — D.4 already does this;
-   - the check runs only on an event: install and uninstall, `aang status`, `doctor`, daemon start, a change to `hooks.json` or `config.toml`. The daemon keeps the last state and does not launch app-server on every `/api/status` request or on a timer.
+   - the check runs only on an event: install and uninstall, `catacomb status`, `doctor`, daemon start, a change to `hooks.json` or `config.toml`. The daemon keeps the last state and does not launch app-server on every `/api/status` request or on a timer.
 
    Owner approval is required: the G.7 implementation depends on it.
-2. **False `active` from stale entries (D.4, before G.7).** `codexHooksState` attributes any `aang hook` or `aang-hook` entry to aang and derives the state from them. On the owner's profile these are three trusted entries of a previous installation, so the result is `active`, although there is no current entry and no binary either. The D.4 installer neutralizes such entries, as ADR-0004 requires, so there will be no error after installation. Before installation, G.7 and `doctor` would show "active" instead of "not installed".
+2. **False `active` from stale entries (D.4, before G.7).** `codexHooksState` attributes any `catacomb hook` or `catacomb-hook` entry to catacomb and derives the state from them. On the owner's profile these are three trusted entries of a previous installation, so the result is `active`, although there is no current entry and no binary either. The D.4 installer neutralizes such entries, as ADR-0004 requires, so there will be no error after installation. Before installation, G.7 and `doctor` would show "active" instead of "not installed".
 
-   Proposal: determine the state by the entry with the expected command — the absolute path `<AANG_HOME>/bin/aang-hook` and arguments `codex user <spool>`. Stale entries should be shown as a separate flag. This is a change to the D.4 code and possibly to the state values in the API, so it is not part of this PR. A decision is needed on which PR does it: a separate one before G.7 or as part of G.7.
-3. **`.tmp/git-XXXXXX` litter in profiles without remote plugins.** Every short app-server launch leaves an empty directory (HEAD, objects, refs) in Codex's internal directory. aang does not write to it and does not clean it. With event-only checks (item 1) the growth is bounded by the number of checks. This is a known limitation, not a reason to change the check method; for information.
-4. **Requests to OpenAI go out with the aang user agent.** In the instrumented session, model and plugin requests came from a process with `clientInfo.name = "aang"`; its `userAgent` is `aang/0.160.0 (…) (aang; 0.0.0)`. This concerns only our own process: unlike the shared daemon (spike, section 10), the `originator` of other threads does not change. For information.
+   Proposal: determine the state by the entry with the expected command — the absolute path `<CATACOMB_HOME>/bin/catacomb-hook` and arguments `codex user <spool>`. Stale entries should be shown as a separate flag. This is a change to the D.4 code and possibly to the state values in the API, so it is not part of this PR. A decision is needed on which PR does it: a separate one before G.7 or as part of G.7.
+3. **`.tmp/git-XXXXXX` litter in profiles without remote plugins.** Every short app-server launch leaves an empty directory (HEAD, objects, refs) in Codex's internal directory. catacomb does not write to it and does not clean it. With event-only checks (item 1) the growth is bounded by the number of checks. This is a known limitation, not a reason to change the check method; for information.
+4. **Requests to OpenAI go out with the catacomb user agent.** In the instrumented session, model and plugin requests came from a process with `clientInfo.name = "catacomb"`; its `userAgent` is `catacomb/0.160.0 (…) (catacomb; 0.0.0)`. This concerns only our own process: unlike the shared daemon (spike, section 10), the `originator` of other threads does not change. For information.
 
 ## 3. State before and after
 
@@ -103,7 +103,7 @@ S0 (before the first launch) and S5 (after the trust reconciliation) of the four
 | Daemon sockets `/tmp/codex-daemon-<uid>` | 2 files | 2 files |
 | `<codex>/app-server-control` | none | none |
 
-The `[hooks.state]` entries belong to `herdr-agent-state.sh` and to the stale `aang hook` entries (item 7 of section 1). The `trusted_hash` values in `result.json` are replaced with placeholders `TRUSTED_HASH_1`–`TRUSTED_HASH_4`, identical before and after.
+The `[hooks.state]` entries belong to `herdr-agent-state.sh` and to the stale `catacomb hook` entries (item 7 of section 1). The `trusted_hash` values in `result.json` are replaced with placeholders `TRUSTED_HASH_1`–`TRUSTED_HASH_4`, identical before and after.
 
 ## 4. Instrumented session
 
@@ -132,7 +132,7 @@ Timeline of the fourth run, time from process start (Obs):
 
 | Call | Duration | Result | Leftovers |
 | --- | --- | --- | --- |
-| 1 | 35 ms | `active`, 3 "aang entries" (stale, section 2, item 2) | no processes |
+| 1 | 35 ms | `active`, 3 "catacomb entries" (stale, section 2, item 2) | no processes |
 | 2 | 50 ms | the same | no processes |
 | 3 | 53 ms | the same | no processes |
 
@@ -188,7 +188,7 @@ The owner's regular profile has no git synchronization: `.tmp/plugins` has not b
 
 ## 10. Created sessions (for deletion)
 
-No threads or sessions were created: `state_5.threads` is 419 before and after, there are no threads with `originator: aang` or with a working directory in the temporary project, and no new files in `sessions/`. There is nothing to delete.
+No threads or sessions were created: `state_5.threads` is 419 before and after, there are no threads with `originator: catacomb` or with a working directory in the temporary project, and no new files in `sessions/`. There is nothing to delete.
 
 Traces left in `~/.codex`:
 
@@ -203,8 +203,8 @@ No `tmp/arg0` and `.tmp/git-*` directories from our launches remained in `~/.cod
 ```sh
 pnpm build
 node docs/research/samples/codex-app-server-live/run.mjs --codex /opt/homebrew/bin/codex > result.json
-mkdir -p /tmp/aang-d6-home && printf '[features]\nhooks = true\n' > /tmp/aang-d6-home/config.toml
-node docs/research/samples/codex-app-server-live/run.mjs --codex /opt/homebrew/bin/codex --codex-home /tmp/aang-d6-home --control 10 > result-disposable.json
+mkdir -p /tmp/catacomb-d6-home && printf '[features]\nhooks = true\n' > /tmp/catacomb-d6-home/config.toml
+node docs/research/samples/codex-app-server-live/run.mjs --codex /opt/homebrew/bin/codex --codex-home /tmp/catacomb-d6-home --control 10 > result-disposable.json
 ```
 
 Without `--codex-home` the script works with the regular `~/.codex`. The parameters `--control`, `--before-initialize`, `--after-initialize` and `--after-list` set pauses in seconds, `--runs` — the number of product calls.

@@ -6,7 +6,7 @@ import {
   hookBinaryName,
   installClaudePlugin,
   uninstallClaudePlugin,
-} from '@aang/hook'
+} from '@catacomb/hook'
 import { describe, inject, test } from 'vitest'
 import { cleanExit, readSpoolEvents, runProcess, typicalEnv, typicalPayload, withoutNames } from './hook.js'
 import { createInstallHome, type InstallHome, readJson, sampleText } from './install.js'
@@ -35,11 +35,11 @@ const expectedEvents = Object.keys(spikePlugin._layout['hooks/hooks.json'].hooks
 const binaries = inject('hookBinaries')
 
 const install = (home: InstallHome, claude = home.fakeClaude().cli, hookBinarySource = binaries.plain) =>
-  installClaudePlugin({ aangHome: home.aangHome, hookBinarySource, claude })
+  installClaudePlugin({ catacombHome: home.catacombHome, hookBinarySource, claude })
 
 const installCalls = (home: InstallHome): string[][] => [
   ['plugin', 'marketplace', 'add', home.paths.claudePlugin, '--scope', 'user', '--json'],
-  ['plugin', 'install', 'aang@aang', '--scope', 'user', '--json'],
+  ['plugin', 'install', 'catacomb@catacomb', '--scope', 'user', '--json'],
 ]
 
 const pluginSnapshot = async (home: InstallHome): Promise<Record<string, Buffer>> => {
@@ -50,7 +50,7 @@ const pluginSnapshot = async (home: InstallHome): Promise<Record<string, Buffer>
 }
 
 describe('Claude plugin installation through the local marketplace', () => {
-  test('install copies the binary unchanged into AANG_HOME/bin, generates the plugin and registers it in user scope', async ({
+  test('install copies the binary unchanged into CATACOMB_HOME/bin, generates the plugin and registers it in user scope', async ({
     expect,
     onTestFinished,
   }) => {
@@ -59,14 +59,14 @@ describe('Claude plugin installation through the local marketplace', () => {
 
     const installation = await install(home, claude.cli)
 
-    expect(installation).toEqual({ binary: join(home.aangHome, 'bin', hookBinaryName), plugin: home.paths.claudePlugin })
-    expect(home.paths.claudePlugin).toBe(join(home.aangHome, 'claude-plugin'))
+    expect(installation).toEqual({ binary: join(home.catacombHome, 'bin', hookBinaryName), plugin: home.paths.claudePlugin })
+    expect(home.paths.claudePlugin).toBe(join(home.catacombHome, 'claude-plugin'))
     expect((await readFile(installation.binary)).equals(await readFile(binaries.plain))).toBe(true)
     expect(claude.argv()).toEqual(installCalls(home))
     expect(await claudePluginState(claude.cli)).toBe('enabled')
   })
 
-  test('the plugin registers every Claude event except Worktree*, MessageDisplay and PreModelSwitch in exec form with the absolute paths of AANG_HOME', async ({
+  test('the plugin registers every Claude event except Worktree*, MessageDisplay and PreModelSwitch in exec form with the absolute paths of CATACOMB_HOME', async ({
     expect,
     onTestFinished,
   }) => {
@@ -84,8 +84,8 @@ describe('Claude plugin installation through the local marketplace', () => {
           hooks: [
             {
               type: 'command',
-              command: join(home.aangHome, 'bin', hookBinaryName),
-              args: ['claude', 'plugin', join(home.aangHome, 'spool')],
+              command: join(home.catacombHome, 'bin', hookBinaryName),
+              args: ['claude', 'plugin', join(home.catacombHome, 'spool')],
               timeout: 2,
             },
           ],
@@ -94,7 +94,7 @@ describe('Claude plugin installation through the local marketplace', () => {
     }
   })
 
-  test('a handler of the generated plugin, launched without a shell as Claude does, records the event in the spool of the overridden AANG_HOME', async ({
+  test('a handler of the generated plugin, launched without a shell as Claude does, records the event in the spool of the overridden CATACOMB_HOME', async ({
     expect,
     onTestFinished,
   }) => {
@@ -140,7 +140,7 @@ describe('Claude plugin installation through the local marketplace', () => {
     expect(await claudePluginState(claude.cli)).toBe('not_installed')
     await install(home, claude.cli)
 
-    await claude.run(['plugin', 'disable', 'aang@aang'])
+    await claude.run(['plugin', 'disable', 'catacomb@catacomb'])
 
     expect(await claudePluginState(claude.cli)).toBe('disabled')
     await install(home, claude.cli)
@@ -174,12 +174,12 @@ describe('Claude plugin installation through the local marketplace', () => {
     const claude = home.fakeClaude()
     await install(home, claude.cli)
 
-    await uninstallClaudePlugin({ aangHome: home.aangHome, claude: claude.cli })
-    await uninstallClaudePlugin({ aangHome: home.aangHome, claude: claude.cli })
+    await uninstallClaudePlugin({ catacombHome: home.catacombHome, claude: claude.cli })
+    await uninstallClaudePlugin({ catacombHome: home.catacombHome, claude: claude.cli })
 
     const uninstallCalls = [
-      ['plugin', 'uninstall', 'aang@aang', '--scope', 'user', '--json'],
-      ['plugin', 'marketplace', 'remove', 'aang', '--scope', 'user', '--json'],
+      ['plugin', 'uninstall', 'catacomb@catacomb', '--scope', 'user', '--json'],
+      ['plugin', 'marketplace', 'remove', 'catacomb', '--scope', 'user', '--json'],
     ]
     expect(claude.argv()).toEqual([...installCalls(home), ...uninstallCalls, ...uninstallCalls])
     expect(await claudePluginState(claude.cli)).toBe('not_installed')
@@ -217,7 +217,7 @@ describe('Claude plugin installation through the local marketplace', () => {
       reason: 'claude_cli',
       message: expect.stringContaining('claude plugin marketplace add') as unknown,
     })
-    await expect(uninstallClaudePlugin({ aangHome: home.aangHome, claude: notClaude })).rejects.toMatchObject({
+    await expect(uninstallClaudePlugin({ catacombHome: home.catacombHome, claude: notClaude })).rejects.toMatchObject({
       reason: 'claude_cli',
     })
     await expect(claudePluginState(failingList)).rejects.toMatchObject({ reason: 'claude_cli' })

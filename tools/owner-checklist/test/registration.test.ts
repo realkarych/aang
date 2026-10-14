@@ -1,7 +1,7 @@
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { claudePluginId, claudePluginState } from '@aang/hook'
-import { installFakeClaude } from '@aang/testkit'
+import { claudePluginId, claudePluginState } from '@catacomb/hook'
+import { installFakeClaude } from '@catacomb/testkit'
 import { describe, test } from 'vitest'
 import {
   collect,
@@ -46,7 +46,7 @@ const foreignHooks: HooksDocument = {
   hooks: {
     SessionStart: [
       { hooks: [{ type: 'command', command: 'python3 /opt/logger.py SessionStart', timeout: 5 }] },
-      { hooks: [{ type: 'command', command: '~/src/aang/bin/aang hook', timeout: 2 }] },
+      { hooks: [{ type: 'command', command: '~/src/catacomb/bin/catacomb hook', timeout: 2 }] },
     ],
     PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo pre' }] }],
     Stop: [],
@@ -78,7 +78,7 @@ const cleanup = (sandbox: Sandbox, args: readonly string[] = []) =>
   ])
 
 describe.skipIf(process.platform === 'win32')('owner checklist registration on macOS and Linux', () => {
-  test('--codex-hooks appends aang entries after foreign ones with a backup and cleanup restores the file', async ({
+  test('--codex-hooks appends catacomb entries after foreign ones with a backup and cleanup restores the file', async ({
     expect,
     onTestFinished,
   }) => {
@@ -93,7 +93,7 @@ describe.skipIf(process.platform === 'win32')('owner checklist registration on m
     const state = await stateOf(sandbox)
     const command = state.codex?.command ?? ''
     expect(command).toBe(
-      `'${join(state.dir, 'aang-home', 'bin', 'aang-hook')}' codex user '${join(state.dir, 'aang-home', 'spool')}'`,
+      `'${join(state.dir, 'catacomb-home', 'bin', 'catacomb-hook')}' codex user '${join(state.dir, 'catacomb-home', 'spool')}'`,
     )
     const installed = await readJson<HooksDocument>(hooksFile)
     const ours = { hooks: [{ type: 'command', command, timeout: 2 }] }
@@ -103,9 +103,9 @@ describe.skipIf(process.platform === 'win32')('owner checklist registration on m
     expect(installed.hooks.CustomFutureEvent).toEqual(foreignHooks.hooks.CustomFutureEvent)
     expect(installed.other).toEqual({ keep: true })
     expect(((await stat(hooksFile)).mode & 0o777).toString(8)).toBe('640')
-    expect(state.codex?.backup).toMatch(/hooks\.json\.aang-d7-backup-/)
+    expect(state.codex?.backup).toMatch(/hooks\.json\.catacomb-d7-backup-/)
     expect(await readFile(state.codex?.backup ?? '', 'utf8')).toBe(original)
-    const outside = join(sandbox.home, 'aang-desktop-probe-outside')
+    const outside = join(sandbox.home, 'catacomb-desktop-probe-outside')
     expect(await readdir(outside)).toEqual([])
     expect(prepared.stdout).toContain(outside)
 
@@ -162,7 +162,7 @@ describe.skipIf(process.platform === 'win32')('owner checklist registration on m
     expect(left.hooks.Stop).toEqual([{ hooks: [{ type: 'command', command: 'true', timeout: 2 }] }, foreign])
   })
 
-  test('marketplace mode installs the aang plugin in user scope with the claude CLI and cleanup uninstalls it', async ({
+  test('marketplace mode installs the catacomb plugin in user scope with the claude CLI and cleanup uninstalls it', async ({
     expect,
     onTestFinished,
   }) => {
@@ -174,7 +174,7 @@ describe.skipIf(process.platform === 'win32')('owner checklist registration on m
     expect(prepared.stderr).toBe('')
     expect(prepared.status).toBe(0)
     const state = await stateOf(sandbox)
-    const pluginDir = join(state.dir, 'aang-home', 'claude-plugin')
+    const pluginDir = join(state.dir, 'catacomb-home', 'claude-plugin')
     expect(fake.calls().map((call) => call.argv)).toEqual([
       ['plugin', 'list', '--json'],
       ['plugin', 'marketplace', 'add', pluginDir, '--scope', 'user', '--json'],
@@ -192,7 +192,7 @@ describe.skipIf(process.platform === 'win32')('owner checklist registration on m
     expect(await exists(state.dir)).toBe(false)
   })
 
-  test('marketplace mode refuses to take over an aang plugin that is already installed', async ({
+  test('marketplace mode refuses to take over an catacomb plugin that is already installed', async ({
     expect,
     onTestFinished,
   }) => {

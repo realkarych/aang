@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { Runtime } from './primitives.js'
 
 export const spoolFormat = {
-  magic: 'aang-spool/1',
+  magic: 'catacomb-spool/1',
   headerFieldSeparator: ' ',
   headerLineTerminator: '\n',
   envAssignment: '=',

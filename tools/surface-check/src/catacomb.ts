@@ -5,9 +5,9 @@ import {
   type RunSnapshot,
   type RunSummary,
   type StatusResponse,
-} from '@aang/contract'
+} from '@catacomb/contract'
 
-export interface AangCommand {
+export interface CatacombCommand {
   readonly command: string
   readonly prefix: readonly string[]
 }
@@ -18,18 +18,18 @@ export interface Completed {
   readonly stderr: string
 }
 
-export interface Aang {
+export interface Catacomb {
   readonly run: (args: readonly string[], timeoutMs?: number) => Promise<Completed>
   readonly ok: (args: readonly string[], timeoutMs?: number) => Promise<string>
 }
 
-export const aangCommand = (value: string): AangCommand =>
+export const catacombCommand = (value: string): CatacombCommand =>
   value.endsWith('.js') ? { command: process.execPath, prefix: [value] } : { command: value, prefix: [] }
 
 const exitCode = (error: unknown): number =>
   typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'number' ? error.code : 1
 
-export const createAang = (command: AangCommand, env: Readonly<Record<string, string>>): Aang => {
+export const createCatacomb = (command: CatacombCommand, env: Readonly<Record<string, string>>): Catacomb => {
   const run = (args: readonly string[], timeoutMs = 120_000): Promise<Completed> =>
     new Promise((resolve) => {
       execFile(
@@ -46,7 +46,7 @@ export const createAang = (command: AangCommand, env: Readonly<Record<string, st
     ok: async (args, timeoutMs) => {
       const result = await run(args, timeoutMs)
       if (result.code !== 0) {
-        throw new Error(`aang ${args.join(' ')} exited with ${String(result.code)}\n${result.stdout}${result.stderr}`)
+        throw new Error(`catacomb ${args.join(' ')} exited with ${String(result.code)}\n${result.stdout}${result.stderr}`)
       }
       return result.stdout
     },
@@ -56,7 +56,7 @@ export const createAang = (command: AangCommand, env: Readonly<Record<string, st
 export const signInLink = (stdout: string): URL => {
   const line = stdout.split('\n').find((candidate) => /^https?:\/\/\S+\/auth\/\S+$/.test(candidate.trim()))
   if (line === undefined) {
-    throw new Error(`aang open printed no sign-in link: ${stdout}`)
+    throw new Error(`catacomb open printed no sign-in link: ${stdout}`)
   }
   return new URL(line.trim())
 }
@@ -64,7 +64,7 @@ export const signInLink = (stdout: string): URL => {
 export const otelEndpoint = (stdout: string): string => {
   const endpoint = /endpoint = ("[^"]+")/.exec(stdout)?.[1]
   if (endpoint === undefined) {
-    throw new Error(`aang otel-config printed no endpoint: ${stdout}`)
+    throw new Error(`catacomb otel-config printed no endpoint: ${stdout}`)
   }
   return JSON.parse(endpoint) as string
 }

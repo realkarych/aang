@@ -1,11 +1,11 @@
-import type { RawSeq } from '@aang/contract'
+import type { RawSeq } from '@catacomb/contract'
 
 export class StoreLockedError extends Error {
   override readonly name = 'StoreLockedError'
   readonly home: string
 
   constructor(home: string) {
-    super(`another writer holds the aang store in ${home}`)
+    super(`another writer holds the catacomb store in ${home}`)
     this.home = home
   }
 }
@@ -16,7 +16,7 @@ export class StoreVersionError extends Error {
   readonly supported: number
 
   constructor(found: number, supported: number) {
-    super(`aang store schema version ${String(found)} is newer than the supported version ${String(supported)}`)
+    super(`catacomb store schema version ${String(found)} is newer than the supported version ${String(supported)}`)
     this.found = found
     this.supported = supported
   }

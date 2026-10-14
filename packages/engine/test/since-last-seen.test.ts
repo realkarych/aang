@@ -14,8 +14,8 @@ import {
   type Stage,
   TempId,
   type ViewPosition,
-} from '@aang/contract'
-import { createReadQueries, createViewState, InvalidPositionError } from '@aang/engine'
+} from '@catacomb/contract'
+import { createReadQueries, createViewState, InvalidPositionError } from '@catacomb/engine'
 import { describe, expect, test } from 'vitest'
 import type { HookDelivery } from './batches.js'
 import { startEngine } from './harness.js'

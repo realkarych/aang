@@ -9,9 +9,9 @@ import {
   type ReparseResponse,
   type SessionKey,
   type StreamKey,
-} from '@aang/contract'
-import { canonicalJson, objectId } from '@aang/contract/ids'
-import type { Observation, Store, Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import { canonicalJson, objectId } from '@catacomb/contract/ids'
+import type { Observation, Store, Transaction } from '@catacomb/store'
 import { normalizeOtel } from '../ingest/otel.js'
 import { queueFacts } from '../ingest/queue.js'
 import { type Adapters, collectedFields, sessionName } from '../ingest/records.js'

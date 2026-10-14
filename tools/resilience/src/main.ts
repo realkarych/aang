@@ -15,7 +15,7 @@ const { values } = parseArgs({
     only: { type: 'string', multiple: true },
     claude: { type: 'string' },
     codex: { type: 'string' },
-    aang: { type: 'string' },
+    catacomb: { type: 'string' },
     list: { type: 'boolean', default: false },
     keep: { type: 'boolean', default: false },
   },
@@ -30,7 +30,7 @@ if (values.list) {
 }
 
 const repository = fileURLToPath(new URL('../../../', import.meta.url))
-const aangEntry = resolve(values.aang ?? join(repository, 'packages', 'aang', 'dist', 'main.js'))
+const catacombEntry = resolve(values.catacomb ?? join(repository, 'packages', 'catacomb', 'dist', 'main.js'))
 const out = resolve(values.out)
 const selected = scenarios.filter(
   (scenario) =>
@@ -76,7 +76,7 @@ const writeReport = async (): Promise<void> => {
     publishable(`${JSON.stringify(report, (_key, value: unknown) => (typeof value === 'bigint' ? value.toString() : value), 2)}\n`),
   )
   const lines = [
-    `# aang Q.4 resilience on ${platform()} ${release()} ${arch()}`,
+    `# catacomb Q.4 resilience on ${platform()} ${release()} ${arch()}`,
     '',
     `claude ${clis.claude.version}, codex ${clis.codex.version}`,
     '',
@@ -98,7 +98,7 @@ for (const scenario of selected) {
   let error: unknown = null
   const lab = await createLab({
     clis,
-    aangEntry,
+    catacombEntry,
     journal,
     ...(scenario.scripts === undefined ? {} : { scripts: scenario.scripts }),
     ...(scenario.config === undefined ? {} : { config: scenario.config }),

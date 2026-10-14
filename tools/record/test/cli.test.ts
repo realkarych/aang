@@ -4,20 +4,20 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { loadManifest } from '@aang/testkit'
+import { loadManifest } from '@catacomb/testkit'
 import { expect, test } from 'vitest'
 
 const exec = promisify(execFile)
 const cli = fileURLToPath(new URL('../dist/main.js', import.meta.url))
 
 test('CLI runs an explicit scenario module and verifies the published recording', async () => {
-  const temporary = await mkdtemp(join(tmpdir(), 'aang-record-cli-'))
+  const temporary = await mkdtemp(join(tmpdir(), 'catacomb-record-cli-'))
   try {
     const scenario = join(temporary, 'scenario.mjs')
     const options = {
       runtime: 'claude', engineVersion: 'test', surface: 'claude_cli', scenario: 'cli',
       expectedFacts: ['An action completes'], fixturesRoot: join(temporary, 'sessions'),
-      hookBinary: resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook'),
+      hookBinary: resolve('packages/hook/bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook'),
     }
     const fake = fileURLToPath(new URL('./runtime.ts', import.meta.url))
     await writeFile(scenario, `export const options = ${JSON.stringify(options)}\nexport const run = async (session) => { await session.run(${JSON.stringify(process.execPath)}, [${JSON.stringify(fake)}, 'claude', 'first']) }\n`)
@@ -34,7 +34,7 @@ test('CLI runs an explicit scenario module and verifies the published recording'
 })
 
 test('CLI passes the regular Codex home option of a scenario module to the recorder', async () => {
-  const temporary = await mkdtemp(join(tmpdir(), 'aang-record-cli-'))
+  const temporary = await mkdtemp(join(tmpdir(), 'catacomb-record-cli-'))
   try {
     const codexHome = join(temporary, 'codex-home')
     await mkdir(join(codexHome, 'sessions'), { recursive: true })
@@ -42,7 +42,7 @@ test('CLI passes the regular Codex home option of a scenario module to the recor
     const options = {
       runtime: 'codex', engineVersion: 'test', surface: 'codex_exec', scenario: 'regular', model: 'live', codexHome: 'regular',
       expectedFacts: ['A rollout appears in the regular Codex home'], fixturesRoot: join(temporary, 'sessions'),
-      hookBinary: resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook'),
+      hookBinary: resolve('packages/hook/bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook'),
     }
     const fake = fileURLToPath(new URL('./scenario-runtime.ts', import.meta.url))
     const module = (mode: string): string => `export const options = ${JSON.stringify({ ...options, codexHome: mode })}\nexport const run = async (session) => { await session.run(${JSON.stringify(process.execPath)}, [${JSON.stringify(fake)}, 'regular', 'thread-cli-1']) }\n`
@@ -65,7 +65,7 @@ test('CLI lists an unreadable directory of the regular Claude home instead of fa
     context.skip()
     return
   }
-  const temporary = await mkdtemp(join(tmpdir(), 'aang-record-cli-'))
+  const temporary = await mkdtemp(join(tmpdir(), 'catacomb-record-cli-'))
   const home = join(temporary, 'home')
   const scratch = join(temporary, 'tmp')
   const locked = join(home, '.claude', 'private-cache')
@@ -79,7 +79,7 @@ test('CLI lists an unreadable directory of the regular Claude home instead of fa
     const options = {
       runtime: 'claude', engineVersion: 'test', surface: 'claude_cli', scenario: 'regular', model: 'live', claudeHome: 'regular',
       expectedFacts: ['A transcript appears in the regular Claude home'], fixturesRoot: join(temporary, 'sessions'),
-      hookBinary: resolve('packages/hook/bin', 'aang-hook'),
+      hookBinary: resolve('packages/hook/bin', 'catacomb-hook'),
     }
     const fake = fileURLToPath(new URL('./scenario-runtime.ts', import.meta.url))
     await writeFile(scenario, `export const options = ${JSON.stringify(options)}\nexport const run = async (session) => { await session.run(${JSON.stringify(process.execPath)}, [${JSON.stringify(fake)}, 'regular-claude', ${JSON.stringify(session)}]) }\n`)

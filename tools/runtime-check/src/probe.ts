@@ -112,7 +112,7 @@ write({
 })
 
 if (action === 'exit') {
-  process.stderr.write('aang runtime check probe exit\n')
+  process.stderr.write('catacomb runtime check probe exit\n')
   process.exitCode = Number(argument)
 } else if (action === 'sleep') {
   await sleep(Number(argument))

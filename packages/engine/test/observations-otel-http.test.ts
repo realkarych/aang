@@ -1,5 +1,5 @@
-import { createCollector } from '@aang/collector'
-import { type CollectorBatch, Config } from '@aang/contract'
+import { createCollector } from '@catacomb/collector'
+import { type CollectorBatch, Config } from '@catacomb/contract'
 import { expect, onTestFinished, test } from 'vitest'
 import { hookBatch, joinBatches } from './batches.js'
 import { adapters, factsOf, recordsOf, startEngine } from './harness.js'
@@ -66,11 +66,11 @@ test.each(
   let receiver = await startReceiver(roots)
   const record = decisionRecord(otelThread, {
     ...(missing === 'complete' ? {} : { [missing]: undefined }),
-    ...(scope === 'otel-observer' ? { originator: 'aang_observer' } : {}),
+    ...(scope === 'otel-observer' ? { originator: 'catacomb_observer' } : {}),
   })
   const log = { ...JSON.parse(record.payload) as Record<string, unknown>, timeUnixNano: eventTime }
   const body = envelope(log)
-  const env = scope === 'observer' ? { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' } : {}
+  const env = scope === 'observer' ? { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'catacomb_observer' } : {}
   const root = hookBatch({
     runtime: 'codex',
     file: 'start.evt',

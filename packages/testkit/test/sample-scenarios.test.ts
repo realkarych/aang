@@ -11,7 +11,7 @@ import {
   type SampleScenario,
   sampleScenarioManifest,
   sampleScenarios,
-} from '@aang/testkit'
+} from '@catacomb/testkit'
 import { describe, type TestContext, test } from 'vitest'
 import { createFixture, linesOf, sampleBytes } from './manifests.js'
 
@@ -22,7 +22,7 @@ interface SampleFile {
   readonly sample: string
 }
 
-const project = 'projects/-tmp-aang-spike-cc-transcripts-run'
+const project = 'projects/-tmp-catacomb-spike-cc-transcripts-run'
 const subagents = `${project}/86f93ed5-1acd-4c6e-8c60-f1c98335c2ef/subagents`
 
 const main: SampleFile = {

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFile, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
-import { codexHookCommand, isAangCommand } from './codex-command.js'
+import { codexHookCommand, isCatacombCommand } from './codex-command.js'
 import { isErrorCode, jsonText, replaceFile } from './files.js'
 import { hookInstallPaths } from './layout.js'
 
@@ -35,7 +35,7 @@ const CodexHooksRecord = z.strictObject({
 export const isObject = (value: unknown): value is JsonObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export const aangHandlers = (groups: unknown): JsonObject[] =>
+export const catacombHandlers = (groups: unknown): JsonObject[] =>
   (Array.isArray(groups) ? groups : [])
     .flatMap((group: unknown) => (isObject(group) && Array.isArray(group.hooks) ? (group.hooks as unknown[]) : []))
     .filter(
@@ -43,7 +43,7 @@ export const aangHandlers = (groups: unknown): JsonObject[] =>
         isObject(handler) &&
         handler.type === 'command' &&
         typeof handler.command === 'string' &&
-        isAangCommand(handler.command),
+        isCatacombCommand(handler.command),
     )
 
 const readOptional = (path: string): Promise<Buffer | null> =>
@@ -77,41 +77,41 @@ const lacksCommand = (content: Buffer | null, command: string): boolean => {
   return (
     isObject(hooks) &&
     Object.values(hooks).every(
-      (groups) => Array.isArray(groups) && aangHandlers(groups).every((handler) => handler.command !== command),
+      (groups) => Array.isArray(groups) && catacombHandlers(groups).every((handler) => handler.command !== command),
     )
   )
 }
 
-export const readCodexHooksFiles = async (aangHome: string, codexHome: string): Promise<CodexHooksFiles> => {
+export const readCodexHooksFiles = async (catacombHome: string, codexHome: string): Promise<CodexHooksFiles> => {
   const home = resolve(codexHome)
   const [hooks, config] = await Promise.all([
     readOptional(join(home, codexHooksFileName)),
     readOptional(join(home, codexConfigFileName)),
   ])
-  return { unregistered: lacksCommand(hooks, codexHookCommand(aangHome)), fingerprint: `${digest(hooks)}:${digest(config)}` }
+  return { unregistered: lacksCommand(hooks, codexHookCommand(catacombHome)), fingerprint: `${digest(hooks)}:${digest(config)}` }
 }
 
-export const unchangedFingerprint = async (aangHome: string, codexHome: string, files: CodexHooksFiles): Promise<string | null> =>
-  (await readCodexHooksFiles(aangHome, codexHome)).fingerprint === files.fingerprint ? files.fingerprint : null
+export const unchangedFingerprint = async (catacombHome: string, codexHome: string, files: CodexHooksFiles): Promise<string | null> =>
+  (await readCodexHooksFiles(catacombHome, codexHome)).fingerprint === files.fingerprint ? files.fingerprint : null
 
-export const writeCodexHooksRecord = (aangHome: string, codexHome: string, check: CodexHooksCheck): Promise<void> => {
-  const path = hookInstallPaths(aangHome).codexHooksRecord
+export const writeCodexHooksRecord = (catacombHome: string, codexHome: string, check: CodexHooksCheck): Promise<void> => {
+  const path = hookInstallPaths(catacombHome).codexHooksRecord
   if (check.fingerprint === null) {
     return rm(path, { force: true })
   }
   const record: z.input<typeof CodexHooksRecord> = {
     codex_home: resolve(codexHome),
-    command: codexHookCommand(aangHome),
+    command: codexHookCommand(catacombHome),
     fingerprint: check.fingerprint,
     status: check.status,
   }
   return replaceFile(path, jsonText(record), recordMode)
 }
 
-export const readCodexHooksRecord = async (aangHome: string, codexHome: string): Promise<CodexHooksCheck | null> => {
-  const content = await readOptional(hookInstallPaths(aangHome).codexHooksRecord)
+export const readCodexHooksRecord = async (catacombHome: string, codexHome: string): Promise<CodexHooksCheck | null> => {
+  const content = await readOptional(hookInstallPaths(catacombHome).codexHooksRecord)
   const record = content === null ? undefined : CodexHooksRecord.safeParse(parsed(content)).data
-  return record === undefined || record.codex_home !== resolve(codexHome) || record.command !== codexHookCommand(aangHome)
+  return record === undefined || record.codex_home !== resolve(codexHome) || record.command !== codexHookCommand(catacombHome)
     ? null
     : { status: record.status, fingerprint: record.fingerprint }
 }

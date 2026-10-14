@@ -10,8 +10,8 @@ import type {
   SessionId,
   Stage,
   StageId,
-} from '@aang/contract'
-import type { Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import type { Transaction } from '@catacomb/store'
 import { interpretable } from '../ingest/queue.js'
 import { applyChangeSet, type ModelChangeDraft, type ModelEntityDraft } from '../model/journal.js'
 import { endObserverCalls } from '../model/observer.js'

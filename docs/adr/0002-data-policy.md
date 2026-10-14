@@ -8,10 +8,10 @@ RFC §8 and §10 require agreeing on the transmitted data, masking and retention
 
 ## Decision
 
-- All aang data is stored only locally, in its own SQLite, indefinitely until manually deleted with a CLI command.
+- All catacomb data is stored only locally, in its own SQLite, indefinitely until manually deleted with a CLI command.
 - The observer and the chat use the already authorized Claude Code or Codex CLI; by default, the vendor of the observed solver, overridable in the config.
 - Masking of paths, personal data and secrets is not required in the MVP. A ready-made popular secret-detection library may be plugged in if this takes no noticeable effort; we do not write our own masking rules.
-- Instructions inside transcripts are passed to the observer as data; the observer gets no tools that write outside the aang store.
+- Instructions inside transcripts are passed to the observer as data; the observer gets no tools that write outside the catacomb store.
 
 ## Consequences
 

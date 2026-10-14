@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs'
-import { codexAdapter } from '@aang/adapter-codex'
+import { codexAdapter } from '@catacomb/adapter-codex'
 import {
   type CollectedPosition,
   type CollectedRecord,
@@ -8,7 +8,7 @@ import {
   FactDraft,
   type ParseResult,
   StreamKey,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { expect } from 'vitest'
 
 const rolloutSamples = new URL('../../../docs/research/samples/codex-cli/rollout/', import.meta.url)

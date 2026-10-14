@@ -1,5 +1,5 @@
-import { claudeAdapter } from '@aang/adapter-claude'
-import { FactDraft, type JsonValue } from '@aang/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { FactDraft, type JsonValue } from '@catacomb/contract'
 import { describe, test } from 'vitest'
 import { cliEnv, factsOf, hookRecord, type JsonObject, lineRecord, readJsonSample } from './samples.js'
 

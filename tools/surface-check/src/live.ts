@@ -3,13 +3,13 @@ import { chmod, copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } fr
 import { createServer } from 'node:net'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
-import type { OperatingSystem, Placement, Runtime } from '@aang/contract'
-import { configFileName } from '@aang/contract/config-file'
-import { writeClaudePlugin } from '@aang/hook'
-import { createProcessRunner } from '@aang/observer'
-import type { Engine, RunOptions, RunOutput, Scenario, ScenarioSession } from '@aang/record'
-import { leaseSpool } from '@aang/testkit'
-import { type Aang, type AangCommand, type ApiClient, createAang, otelEndpoint, signIn, signInLink } from './aang.js'
+import type { OperatingSystem, Placement, Runtime } from '@catacomb/contract'
+import { configFileName } from '@catacomb/contract/config-file'
+import { writeClaudePlugin } from '@catacomb/hook'
+import { createProcessRunner } from '@catacomb/observer'
+import type { Engine, RunOptions, RunOutput, Scenario, ScenarioSession } from '@catacomb/record'
+import { leaseSpool } from '@catacomb/testkit'
+import { type Catacomb, type CatacombCommand, type ApiClient, createCatacomb, otelEndpoint, signIn, signInLink } from './catacomb.js'
 
 export interface LiveOptions {
   readonly scenario: Scenario
@@ -17,7 +17,7 @@ export interface LiveOptions {
   readonly runtime: Runtime
   readonly os: OperatingSystem
   readonly placement: Placement
-  readonly aang: AangCommand
+  readonly catacomb: CatacombCommand
   readonly hookBinary: string
   readonly cli: Readonly<Record<Runtime, string | null>>
   readonly bind: string | null
@@ -31,12 +31,12 @@ export interface LiveProfile {
   readonly project: string
   readonly claude: string
   readonly codex: string
-  readonly aangHome: string
+  readonly catacombHome: string
 }
 
 export interface LiveRun {
   readonly profile: LiveProfile
-  readonly aang: Aang
+  readonly catacomb: Catacomb
   readonly api: ApiClient | null
   readonly installed: readonly string[]
   readonly restarts: number
@@ -46,9 +46,9 @@ export interface LiveRun {
   readonly remove: () => Promise<void>
 }
 
-const scenarioPluginName = 'aang-scenario'
+const scenarioPluginName = 'catacomb-scenario'
 const commandTimeoutMs = 300_000
-const strippedPrefixes = ['ANTHROPIC_', 'OPENAI_', 'AANG_', 'CLAUDE_CODE_', 'CLAUDE_AGENT_SDK_', 'CLAUDE_PLUGIN_', 'CODEX_', 'GITHUB_TOKEN', 'ACTIONS_']
+const strippedPrefixes = ['ANTHROPIC_', 'OPENAI_', 'CATACOMB_', 'CLAUDE_CODE_', 'CLAUDE_AGENT_SDK_', 'CLAUDE_PLUGIN_', 'CODEX_', 'GITHUB_TOKEN', 'ACTIONS_']
 const strippedNames = new Set(['CLAUDE_CONFIG_DIR', 'AI_AGENT'])
 
 const inheritedEnv = (): Record<string, string> =>
@@ -89,7 +89,7 @@ const renamePlugin = async (directory: string): Promise<void> => {
 
 const createProfile = async (base: string): Promise<LiveProfile> => {
   await mkdir(base, { recursive: true })
-  const root = await realpath(await mkdtemp(join(base, 'aang-surface-')))
+  const root = await realpath(await mkdtemp(join(base, 'catacomb-surface-')))
   const home = join(root, 'home')
   const profile: LiveProfile = {
     root,
@@ -97,7 +97,7 @@ const createProfile = async (base: string): Promise<LiveProfile> => {
     project: join(home, 'project'),
     claude: join(home, '.claude'),
     codex: join(home, '.codex'),
-    aangHome: join(home, '.aang'),
+    catacombHome: join(home, '.catacomb'),
   }
   const runtimeRoots = [
     join(profile.claude, 'projects'),
@@ -106,7 +106,7 @@ const createProfile = async (base: string): Promise<LiveProfile> => {
     join(profile.codex, 'sessions'),
     join(profile.codex, 'archived_sessions'),
   ]
-  for (const directory of [profile.project, ...runtimeRoots, profile.aangHome, join(root, 'work')]) {
+  for (const directory of [profile.project, ...runtimeRoots, profile.catacombHome, join(root, 'work')]) {
     await mkdir(directory, { recursive: true, mode: 0o700 })
   }
   return profile
@@ -121,7 +121,7 @@ const writeConfig = async (profile: LiveProfile, options: LiveOptions, apiPort: 
     otel: { port: await freePort() },
     watch: { all: false },
   }
-  await writeFile(join(profile.aangHome, configFileName), `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
+  await writeFile(join(profile.catacombHome, configFileName), `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
 }
 
 const describe = (error: unknown): string => (error instanceof Error ? error.message : String(error))
@@ -144,25 +144,25 @@ export const startLive = async (options: LiveOptions): Promise<LiveRun> => {
     USERPROFILE: profile.home,
     CLAUDE_CONFIG_DIR: profile.claude,
     CODEX_HOME: profile.codex,
-    AANG_HOME: profile.aangHome,
+    CATACOMB_HOME: profile.catacombHome,
   }
-  const aang = createAang(options.aang, env)
+  const catacomb = createCatacomb(options.catacomb, env)
   const bind = options.bind === null ? [] : ['--bind', options.bind]
   const installed: string[] = []
   const state: { restarts: number; api: ApiClient | null; error: string | null } = { restarts: 0, api: null, error: null }
   const connect = async (): Promise<void> => {
-    await aang.ok(['start', ...bind])
-    state.api = await signIn(signInLink(await aang.ok(['open'])))
+    await catacomb.ok(['start', ...bind])
+    state.api = await signIn(signInLink(await catacomb.ok(['open'])))
   }
   const runner = createProcessRunner({ windowsLauncher: options.hookBinary, temporaryDirectory: profile.root })
   const controller = new AbortController()
   const prepare = async (): Promise<void> => {
     if (installed.length === 0) {
-      await aang.ok(['stop'])
-      installed.push(await aang.ok(['install', `--${options.runtime}`], commandTimeoutMs))
+      await catacomb.ok(['stop'])
+      installed.push(await catacomb.ok(['install', `--${options.runtime}`], commandTimeoutMs))
       await connect()
     }
-    await aang.run(['status'], commandTimeoutMs)
+    await catacomb.run(['status'], commandTimeoutMs)
   }
   const run = async (command: string, args: readonly string[], runOptions: RunOptions = {}): Promise<RunOutput> => {
     await prepare()
@@ -170,7 +170,7 @@ export const startLive = async (options: LiveOptions): Promise<LiveRun> => {
       command,
       args: options.runtime === 'claude' ? beforeOperands(args, ['--plugin-dir', plugin]) : [...args],
       cwd: profile.project,
-      env: { ...env, AANG_RECORD_SPOOL: spool, AANG_RECORD_HOOK: scenarioHook, ...runOptions.env },
+      env: { ...env, CATACOMB_RECORD_SPOOL: spool, CATACOMB_RECORD_HOOK: scenarioHook, ...runOptions.env },
       input: '',
       timeoutMs: runOptions.timeoutMs ?? commandTimeoutMs,
       signal: controller.signal,
@@ -183,12 +183,12 @@ export const startLive = async (options: LiveOptions): Promise<LiveRun> => {
   }
   const stop = async (): Promise<void> => {
     controller.abort()
-    await aang.run(['stop'])
+    await catacomb.run(['stop'])
   }
   try {
     await connect()
-    await aang.ok(['watch', profile.project])
-    const otlp = otelEndpoint(await aang.ok(['otel-config']))
+    await catacomb.ok(['watch', profile.project])
+    const otlp = otelEndpoint(await catacomb.ok(['otel-config']))
     const session: ScenarioSession = {
       os: options.os,
       claudeHome: 'isolated',
@@ -208,7 +208,7 @@ export const startLive = async (options: LiveOptions): Promise<LiveRun> => {
         if (label !== 'daemon-restart') {
           return
         }
-        await aang.ok(['stop'])
+        await catacomb.ok(['stop'])
         await connect()
         state.restarts += 1
       },
@@ -220,7 +220,7 @@ export const startLive = async (options: LiveOptions): Promise<LiveRun> => {
   }
   return {
     profile,
-    aang,
+    catacomb,
     api: state.api,
     installed,
     restarts: state.restarts,

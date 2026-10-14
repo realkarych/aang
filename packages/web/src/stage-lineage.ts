@@ -1,4 +1,4 @@
-import type { Stage, StageId, StageLifecycle } from '@aang/contract'
+import type { Stage, StageId, StageLifecycle } from '@catacomb/contract'
 import { stageRevisionLabel } from './labels.js'
 
 export type StageRevision = Exclude<StageLifecycle['state'], 'active'>

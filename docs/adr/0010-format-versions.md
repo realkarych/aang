@@ -39,7 +39,7 @@ RFC §7 allows declaring support only for a specific version and launch method a
   - reconnection: daemon restart during a session;
   - source loss: deletion, move, archive.
 - **Recording.** The dev tool `tools/record` runs the real CLIs in a temporary project with a hooks recorder via `--plugin-dir` (Claude) and anonymizes the result according to the rules of the spike's appendix A, including Windows home paths.
-  - The recorder is the real `aang-hook` into a temporary spool with a valid lease: without a lease it silently writes nothing (ADR-0004).
+  - The recorder is the real `catacomb-hook` into a temporary spool with a valid lease: without a lease it silently writes nothing (ADR-0004).
   - Recording happens on the OS it is meant for; WSL does not count as a Windows recording.
   - Codex scenarios with hooks (hooks, subagents, fork, TUI) are recorded with a Responses API stub in a temporary `CODEX_HOME`. The scenario with the real model is recorded without hooks, in the regular home with `--ignore-user-config`: copying the authorization into a temporary home is forbidden (spike, section 13.1).
   - Desktop engines are recorded in emulation mode (spike, section 11).
@@ -89,8 +89,8 @@ RFC §7 allows declaring support only for a specific version and launch method a
   - contract tests for all scenarios above on recordings of this OS: a scenario is not recorded or does not pass;
   - E2E scenarios 1 and 4 (ADR-0012) on reference sessions of this surface and OS do not run or do not pass.
 - If Desktop does not pass both scenarios, the limitation is put to the owner rather than silently excluded.
-- Support is declared per exact engine version. An unverified version works in tolerant mode; the UI shows it in the status bar, without an alarming mark on every session. The status-bar display is superseded by ADR-0015: an unverified version does not light the health dot and is shown only in `aang status`.
-- `aang doctor` lists the versions encountered and their status. The appearance of a new version is a signal to record reference sessions for it.
+- Support is declared per exact engine version. An unverified version works in tolerant mode; the UI shows it in the status bar, without an alarming mark on every session. The status-bar display is superseded by ADR-0015: an unverified version does not light the health dot and is shown only in `catacomb status`.
+- `catacomb doctor` lists the versions encountered and their status. The appearance of a new version is a signal to record reference sessions for it.
 
 ### Current state of versions
 
@@ -102,7 +102,7 @@ RFC §7 allows declaring support only for a specific version and launch method a
 ## Consequences
 
 - Each new runtime version requires recording and running reference sessions. This is a permanent maintenance cost: Claude releases patches almost daily.
-- A format update does not break collection: at worst the number of unrecognized records grows, and after the parser is fixed `aang reparse` parses them.
+- A format update does not break collection: at worst the number of unrecognized records grows, and after the parser is fixed `catacomb reparse` parses them.
 
 ## Owner decisions
 

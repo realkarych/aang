@@ -21,14 +21,14 @@ The measurement on R.4 recordings remains with the item: there are no recordings
 
 The machine was not dedicated: other development sessions, Codex Desktop and unrelated `codex` processes were running. The live series started right after the Docker image was built: load average was 24 at the start and 4.7 at the end of the series.
 
-**Profile.** The script [`samples/observer-measurement/run.mjs`](samples/observer-measurement/run.mjs) takes the profile from the built `@aang/observer`, not from a copy of the command line:
+**Profile.** The script [`samples/observer-measurement/run.mjs`](samples/observer-measurement/run.mjs) takes the profile from the built `@catacomb/observer`, not from a copy of the command line:
 
 - argv — `claudeArguments` and `codexArguments` (F.2, F.5). This is the ADR-0007 profile: the commands of section 12 of the spike, `--settings '{"crossSessionInbound":"hold"}'` for Claude, and an explicit model;
 - environment — `cleanEnvironment`;
-- working directory — `prepareWorkspace`, that is, `<tmp>/aang-observer/empty` with an ancestor check;
+- working directory — `prepareWorkspace`, that is, `<tmp>/catacomb-observer/empty` with an ancestor check;
 - CLI path — `resolveCli`.
 
-Only the schema and the system prompt are replaced: instead of the contract ones — `observer-schema.json` and `system_prompt_override` from the spike's `observer-prompt.json`. Stdin is arranged as in the spike: instructions, the line `Run marker: aang-observer-run <uuid>` with a new uuid on every call, and `observer-input.json`. This is 10 events of an ETL task and stages S1–S3 (`model_version: 7`), with an injection in the output of test `e05` and an `AskUserQuestion` question in `e10`. The models are `claude-opus-5-5` and `gpt-6.1-sol` (decision 2 of ADR-0007). Effort is the CLI default; for `gpt-6.1-sol` the catalog has `default_reasoning_level: low`, which is the model's lowest level.
+Only the schema and the system prompt are replaced: instead of the contract ones — `observer-schema.json` and `system_prompt_override` from the spike's `observer-prompt.json`. Stdin is arranged as in the spike: instructions, the line `Run marker: catacomb-observer-run <uuid>` with a new uuid on every call, and `observer-input.json`. This is 10 events of an ETL task and stages S1–S3 (`model_version: 7`), with an injection in the output of test `e05` and an `AskUserQuestion` question in `e10`. The models are `claude-opus-5-5` and `gpt-6.1-sol` (decision 2 of ADR-0007). Effort is the CLI default; for `gpt-6.1-sol` the catalog has `default_reasoning_level: low`, which is the model's lowest level.
 
 **Variants:**
 
@@ -286,8 +286,8 @@ The sample is a single synthetic batch; no comparison of backend and effort qual
 
 - **Claude sessions.** Two live series — of the first version of the report and the current one — of 20 calls each with `--no-session-persistence`, plus 2 more in the trial round of the first. There are no transcripts or project directories (checked by id). The registry entry `~/.claude/sessions/<pid>.json` is deleted by the CLI itself on exit.
 - **Codex threads.** Twice 20 calls with `--ephemeral`, plus 2 trial ones. There are no rollouts or shell snapshots (checked by thread id). There are likely lines in `~/.codex/logs_2.sqlite` (D.6) — not checked. There is no need to delete them manually, and while Codex is running it must not be done.
-- **Temporary directories on macOS** — `$TMPDIR/aang-f3-*`, one per script run; five as of the report. The stub series directories contain temporary `claude-config` and `codex-home` without authorization. Deletion: `rm -rf "$TMPDIR"/aang-f3-*`.
-- **Docker image** `aang-f3-linux:local` (about 3.3 GB): `node:26` with `strace` and the CLIs from npm. Deletion: `docker rmi aang-f3-linux:local`. Containers were run with `--rm`.
+- **Temporary directories on macOS** — `$TMPDIR/catacomb-f3-*`, one per script run; five as of the report. The stub series directories contain temporary `claude-config` and `codex-home` without authorization. Deletion: `rm -rf "$TMPDIR"/catacomb-f3-*`.
+- **Docker image** `catacomb-f3-linux:local` (about 3.3 GB): `node:26` with `strace` and the CLIs from npm. Deletion: `docker rmi catacomb-f3-linux:local`. Containers were run with `--rm`.
 
 The user's `~/.claude` and `~/.codex` were not changed. Authorization was copied neither into the container nor into the repository.
 
@@ -304,17 +304,17 @@ node $D/run.mjs --mode stub --runs 10 --variants claude,codex,codex-no-snapshot 
 Linux — the same script in an image with `strace` and the CLIs from npm:
 
 ```sh
-mkdir -p /tmp/aang-f3-image && cat > /tmp/aang-f3-image/Dockerfile <<'EOF'
+mkdir -p /tmp/catacomb-f3-image && cat > /tmp/catacomb-f3-image/Dockerfile <<'EOF'
 FROM node:26
 RUN apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq strace procps >/dev/null && rm -rf /var/lib/apt/lists/*
 RUN npm install --global --silent --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code@2.1.289 @openai/codex@0.160.0
 EOF
-docker build -q -t aang-f3-linux:local /tmp/aang-f3-image
-docker run --rm --init -v "$PWD:/repo:ro" aang-f3-linux:local su node -s /bin/bash -c \
+docker build -q -t catacomb-f3-linux:local /tmp/catacomb-f3-image
+docker run --rm --init -v "$PWD:/repo:ro" catacomb-f3-linux:local su node -s /bin/bash -c \
   "cd /home/node && node /repo/$D/run.mjs --mode check --out /tmp/r.json >&2 && cat /tmp/r.json" > $D/result-linux-check.json
-docker run --rm --init --cap-add=SYS_PTRACE -v "$PWD:/repo:ro" aang-f3-linux:local su node -s /bin/bash -c \
+docker run --rm --init --cap-add=SYS_PTRACE -v "$PWD:/repo:ro" catacomb-f3-linux:local su node -s /bin/bash -c \
   "cd /home/node && node /repo/$D/run.mjs --mode stub --runs 10 --variants claude,codex,codex-no-snapshot --interval-ms 0 --strace /usr/bin/strace --out /tmp/r.json >&2 && cat /tmp/r.json" > $D/result-linux-stub.json
-docker run --rm --init -v "$PWD:/repo:ro" aang-f3-linux:local bash -c "printf 'sleep 3\n' > /home/node/.profile && chown node /home/node/.profile && su node -s /bin/bash -c \
+docker run --rm --init -v "$PWD:/repo:ro" catacomb-f3-linux:local bash -c "printf 'sleep 3\n' > /home/node/.profile && chown node /home/node/.profile && su node -s /bin/bash -c \
   'cd /home/node && node /repo/$D/run.mjs --mode stub --runs 5 --variants codex,codex-no-snapshot --interval-ms 0 --out /tmp/r.json >&2 && cat /tmp/r.json'" > $D/result-linux-slow-profile.json
 ```
 

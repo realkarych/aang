@@ -6,7 +6,7 @@ import { deployHookBinary } from './binary.js'
 import { type CodexAppServerOptions, listCodexHooks } from './codex-app-server.js'
 import { codexHookCommand } from './codex-command.js'
 import {
-  aangHandlers,
+  catacombHandlers,
   codexHooksFileName,
   type CodexHooksStatus,
   isObject,
@@ -45,7 +45,7 @@ const codexHookEvents: readonly string[] = [
 
 const hookTimeoutSeconds = 2
 const neutralCommand = process.platform === 'win32' ? 'exit 0' : 'true'
-const lockSuffix = '.aang-lock'
+const lockSuffix = '.catacomb-lock'
 const newHooksFileMode = 0o600
 const hooksFileAttempts = 5
 
@@ -54,7 +54,7 @@ export interface CodexHooksOptions {
 }
 
 export interface CodexHooksInstallOptions extends CodexAppServerOptions {
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly hookBinarySource: string
 }
 
@@ -171,7 +171,7 @@ const readHooksDocument = (file: HooksFile): HooksDocument => {
 }
 
 const backupName = (target: string): string =>
-  `${target}.aang-backup-${new Date().toISOString().replace(/[-:.]/g, '')}-${randomBytes(2).toString('hex')}`
+  `${target}.catacomb-backup-${new Date().toISOString().replace(/[-:.]/g, '')}-${randomBytes(2).toString('hex')}`
 
 const readHooks = async (codexHome: string): Promise<LoadedHooks> => {
   const file = await readHooksFile(codexHome)
@@ -256,15 +256,15 @@ export const withCodexHooksLock = async <T>(codexHome: string, signal: AbortSign
   }
 }
 
-const aangGroup = (command: string): JsonObject => ({
+const catacombGroup = (command: string): JsonObject => ({
   hooks: [{ type: 'command', command, timeout: hookTimeoutSeconds }],
 })
 
-const registerAang = ({ hooks }: HooksDocument, command: string): boolean => {
+const registerCatacomb = ({ hooks }: HooksDocument, command: string): boolean => {
   let changed = false
   for (const [event, groups] of Object.entries(hooks)) {
     let registered = false
-    for (const handler of aangHandlers(groups)) {
+    for (const handler of catacombHandlers(groups)) {
       if (handler.command === command && !registered) {
         registered = true
       } else {
@@ -273,19 +273,19 @@ const registerAang = ({ hooks }: HooksDocument, command: string): boolean => {
       }
     }
     if (codexHookEvents.includes(event) && !registered && Array.isArray(groups)) {
-      groups.push(aangGroup(command))
+      groups.push(catacombGroup(command))
       changed = true
     }
   }
   for (const event of codexHookEvents.filter((name) => hooks[name] === undefined)) {
-    hooks[event] = [aangGroup(command)]
+    hooks[event] = [catacombGroup(command)]
     changed = true
   }
   return changed
 }
 
-const neutralizeAang = ({ hooks }: HooksDocument): boolean => {
-  const handlers = Object.values(hooks).flatMap(aangHandlers)
+const neutralizeCatacomb = ({ hooks }: HooksDocument): boolean => {
+  const handlers = Object.values(hooks).flatMap(catacombHandlers)
   for (const handler of handlers) {
     handler.command = neutralCommand
   }
@@ -293,28 +293,28 @@ const neutralizeAang = ({ hooks }: HooksDocument): boolean => {
 }
 
 export const installCodexHooks = async (options: CodexHooksInstallOptions): Promise<CodexHooksInstallation> => {
-  const { aangHome, codexHome } = options
+  const { catacombHome, codexHome } = options
   const initial = await readHooks(codexHome)
-  const binary = hookInstallPaths(aangHome).binary
-  const command = codexHookCommand(aangHome)
+  const binary = hookInstallPaths(catacombHome).binary
+  const command = codexHookCommand(catacombHome)
   const list = () => listCodexHooks(options, options.hookBinarySource)
   const { backup, status } = await changeHooksFile(codexHome, initial.file, async (loaded) => {
     const before = await list()
     await deployHookBinary(options)
-    const changed = registerAang(loaded.document, command)
+    const changed = registerCatacomb(loaded.document, command)
     const outcome: SaveOutcome = changed ? await saveHooksDocument(loaded) : { saved: true, backup: null }
     if (!outcome.saved) {
       return null
     }
     try {
-      const files = await readCodexHooksFiles(aangHome, codexHome)
+      const files = await readCodexHooksFiles(catacombHome, codexHome)
       const after = await list()
       verifyForeignTrust(before, after)
       const check = {
-        status: codexHooksStateOf(after, aangHome).status,
-        fingerprint: await unchangedFingerprint(aangHome, codexHome, files),
+        status: codexHooksStateOf(after, catacombHome).status,
+        fingerprint: await unchangedFingerprint(catacombHome, codexHome, files),
       }
-      await writeCodexHooksRecord(aangHome, codexHome, check)
+      await writeCodexHooksRecord(catacombHome, codexHome, check)
       return { done: { backup: outcome.backup, status: check.status } }
     } catch (error) {
       if (changed) {
@@ -328,9 +328,9 @@ export const installCodexHooks = async (options: CodexHooksInstallOptions): Prom
 
 export const uninstallCodexHooks = async ({ codexHome }: CodexHooksOptions): Promise<CodexHooksChange> => {
   const initial = await readHooks(codexHome)
-  const backup = neutralizeAang(initial.document)
+  const backup = neutralizeCatacomb(initial.document)
     ? await changeHooksFile(codexHome, initial.file, async (loaded) => {
-        if (!neutralizeAang(loaded.document)) {
+        if (!neutralizeCatacomb(loaded.document)) {
           return { done: null }
         }
         const outcome = await saveHooksDocument(loaded)

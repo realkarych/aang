@@ -1,5 +1,5 @@
-import type { ScopeDecision, SessionKey, StreamKey } from '@aang/contract'
-import type { SessionDecision, Store, Transaction } from '@aang/store'
+import type { ScopeDecision, SessionKey, StreamKey } from '@catacomb/contract'
+import type { SessionDecision, Store, Transaction } from '@catacomb/store'
 import { streamOwner } from '../observations/sources.js'
 import { prunedSession } from './prune.js'
 import { type Adapters, sessionName } from './records.js'

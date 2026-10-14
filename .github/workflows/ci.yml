@@ -64,4 +64,4 @@ jobs:
           go-version-file: packages/hook/go.mod
           cache: false
       - run: go vet ./...
-      - run: go build -trimpath -o "$RUNNER_TEMP/aang-hook-$GOOS-$GOARCH/" ./cmd/aang-hook
+      - run: go build -trimpath -o "$RUNNER_TEMP/catacomb-hook-$GOOS-$GOARCH/" ./cmd/catacomb-hook

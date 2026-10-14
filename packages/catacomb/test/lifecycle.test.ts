@@ -7,47 +7,47 @@ import { createSandbox, type SpoolView, startedPid } from './sandbox.js'
 const posix = process.platform !== 'win32'
 const permissionsRestrict = posix && process.getuid?.() !== 0
 
-describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME', () => {
+describe.concurrent('catacomb start, stop and status manage one daemon per CATACOMB_HOME', () => {
   test('start runs a daemon on loopback that holds a spool lease, and a second start is refused', async ({
     expect,
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished)
 
-    const started = await sandbox.aang('start')
+    const started = await sandbox.catacomb('start')
 
     expect(started.code).toBe(0)
-    expect(started.stdout).toMatch(/^aang started: pid [0-9]+, http:\/\/127\.0\.0\.1:[0-9]+$/m)
+    expect(started.stdout).toMatch(/^catacomb started: pid [0-9]+, http:\/\/127\.0\.0\.1:[0-9]+$/m)
     const state = await sandbox.daemonState()
     expect(state).toMatchObject({ pid: startedPid(started), api: { host: '127.0.0.1' } })
     expect(await sandbox.hookWrites()).toBe(true)
     if (posix) {
-      expect((await stat(sandbox.aangHome)).mode & 0o777).toBe(0o700)
-      expect((await stat(join(sandbox.aangHome, 'token'))).mode & 0o777).toBe(0o600)
+      expect((await stat(sandbox.catacombHome)).mode & 0o777).toBe(0o700)
+      expect((await stat(join(sandbox.catacombHome, 'token'))).mode & 0o777).toBe(0o600)
     }
 
-    const second = await sandbox.aang('start')
+    const second = await sandbox.catacomb('start')
 
     expect(second.code).toBe(1)
-    expect(second.stderr).toContain(`an aang daemon is already running for ${sandbox.aangHome}`)
+    expect(second.stderr).toContain(`an catacomb daemon is already running for ${sandbox.catacombHome}`)
     expect(await sandbox.daemonState()).toEqual(state)
     expect(isAlive(startedPid(started))).toBe(true)
     expect(await sandbox.hookWrites()).toBe(true)
 
-    const foreground = await sandbox.aang('start', '--foreground')
+    const foreground = await sandbox.catacomb('start', '--foreground')
 
     expect(foreground.code).toBe(1)
-    expect(foreground.stderr).toContain('an aang daemon is already running')
+    expect(foreground.stderr).toContain('an catacomb daemon is already running')
     expect(await sandbox.daemonState()).toEqual(state)
   })
 
-  test('a relative AANG_HOME names the same home for start, status, open and stop', async ({
+  test('a relative CATACOMB_HOME names the same home for start, status, open and stop', async ({
     expect,
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished, { spool: { leaseTtlMs: 600_000 } }, { relativeHome: true })
 
-    const started = await sandbox.aang('start')
+    const started = await sandbox.catacomb('start')
 
     expect(started.code).toBe(0)
     const pid = startedPid(started)
@@ -56,15 +56,15 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     const view = await sandbox.spoolView()
     expect(await sandbox.hookWrites()).toBe(true)
     expect(Math.max(...view.leaseExpiries) * 1000).toBeLessThanOrEqual(Date.now() + 600_000)
-    const status = await sandbox.aang('status')
-    expect(status.stdout).toContain(`aang home: ${sandbox.aangHome}\n`)
+    const status = await sandbox.catacomb('status')
+    expect(status.stdout).toContain(`catacomb home: ${sandbox.catacombHome}\n`)
     expect(status.stdout).toContain(`daemon: running, pid ${String(pid)}, `)
-    const link = (await sandbox.aang('open')).stdout.trim()
+    const link = (await sandbox.catacomb('open')).stdout.trim()
     expect((await fetch(link, { redirect: 'manual' })).status).toBe(200)
 
-    expect(await sandbox.aang('stop')).toMatchObject({ code: 0, stdout: `aang stopped: pid ${String(pid)}\n` })
+    expect(await sandbox.catacomb('stop')).toMatchObject({ code: 0, stdout: `catacomb stopped: pid ${String(pid)}\n` })
     expect(isAlive(pid)).toBe(false)
-    expect(await readdir(sandbox.aangHome)).not.toContain('aang home')
+    expect(await readdir(sandbox.catacombHome)).not.toContain('catacomb home')
   })
 
   test('stop shuts the daemon down through the API, removes the lease, keeps the stop marker, and the next start lifts it', async ({
@@ -72,31 +72,31 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished)
-    const pid = startedPid(await sandbox.aang('start'))
+    const pid = startedPid(await sandbox.catacomb('start'))
 
-    const stopped = await sandbox.aang('stop')
+    const stopped = await sandbox.catacomb('stop')
 
-    expect(stopped, await readFile(join(sandbox.aangHome, 'daemon.log'), 'utf8')).toMatchObject({
+    expect(stopped, await readFile(join(sandbox.catacombHome, 'daemon.log'), 'utf8')).toMatchObject({
       code: 0,
-      stdout: `aang stopped: pid ${String(pid)}\n`,
+      stdout: `catacomb stopped: pid ${String(pid)}\n`,
     })
     expect(isAlive(pid)).toBe(false)
     expect(await sandbox.daemonState()).toBeNull()
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
     expect(await sandbox.hookWrites()).toBe(false)
-    const status = await sandbox.aang('status')
+    const status = await sandbox.catacomb('status')
     expect(status.code).toBe(0)
     expect(status.stdout).toContain('daemon: not running\n')
     expect(status.stdout).toContain('lease: none\n')
     expect(status.stdout).toContain('stop marker: set\n')
 
-    const restarted = await sandbox.aang('start')
+    const restarted = await sandbox.catacomb('start')
 
     expect(restarted.code).toBe(0)
     expect((await sandbox.spoolView()).stopped).toBe(false)
     expect(await sandbox.hookWrites()).toBe(true)
-    expect((await sandbox.aang('status')).stdout).toMatch(/^stop marker: not set$/m)
-    expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
+    expect((await sandbox.catacomb('status')).stdout).toMatch(/^stop marker: not set$/m)
+    expect(await sandbox.catacomb('stop')).toMatchObject({ code: 0 })
   })
 
   test('stop after the daemon was killed removes the lease itself and reports that nothing is running', async ({
@@ -104,15 +104,15 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished)
-    const pid = startedPid(await sandbox.aang('start'))
+    const pid = startedPid(await sandbox.catacomb('start'))
     kill(pid)
     await waitUntil(() => !isAlive(pid))
     expect(await sandbox.hookWrites()).toBe(true)
 
-    const stopped = await sandbox.aang('stop')
+    const stopped = await sandbox.catacomb('stop')
 
     expect(stopped.code).toBe(0)
-    expect(stopped.stdout).toContain('aang is not running; the spool lease is removed and the stop marker is set')
+    expect(stopped.stdout).toContain('catacomb is not running; the spool lease is removed and the stop marker is set')
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
     expect(await sandbox.hookWrites()).toBe(false)
     expect(await sandbox.daemonState()).toBeNull()
@@ -123,7 +123,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished, { spool: { leaseTtlMs: 2_000, leaseRenewIntervalMs: 300 } })
-    const pid = startedPid(await sandbox.aang('start'))
+    const pid = startedPid(await sandbox.catacomb('start'))
     const renewedUntil = Date.now() + 3_500
     while (Date.now() < renewedUntil) {
       expect(await sandbox.hookWrites()).toBe(true)
@@ -149,10 +149,10 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
       const sandbox = await createSandbox(onTestFinished, {
         spool: { checkIntervalMs: 200, leaseRenewIntervalMs: 300 },
       })
-      const pid = startedPid(await sandbox.aang('start'))
+      const pid = startedPid(await sandbox.catacomb('start'))
       await suspend(pid)
 
-      const stopped = await sandbox.aang('stop')
+      const stopped = await sandbox.catacomb('stop')
 
       expect(stopped.code).toBe(1)
       expect(stopped.stderr).toContain(`process ${String(pid)} is alive`)
@@ -160,7 +160,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
       expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
       expect(await sandbox.hookWrites()).toBe(false)
 
-      const refused = await sandbox.aang('start')
+      const refused = await sandbox.catacomb('start')
 
       expect(refused.code).toBe(1)
       expect(refused.stderr).toContain('already running')
@@ -178,12 +178,12 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
       expect(await sandbox.hookWrites()).toBe(false)
       expect(await sandbox.daemonState()).toBeNull()
 
-      const restarted = await sandbox.aang('start')
+      const restarted = await sandbox.catacomb('start')
 
       expect(restarted.code).toBe(0)
       expect((await sandbox.spoolView()).stopped).toBe(false)
       expect(await sandbox.hookWrites()).toBe(true)
-      expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
+      expect(await sandbox.catacomb('stop')).toMatchObject({ code: 0 })
     },
   )
 
@@ -192,7 +192,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished, { spool: { thresholdBytes: 1_000, checkIntervalMs: 100 } })
-    await sandbox.aang('start')
+    await sandbox.catacomb('start')
     const ready = join(sandbox.spool, 'new')
     await writeFile(join(ready, 'first-event'), 'x'.repeat(1_500))
 
@@ -201,7 +201,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: false })
     expect(await sandbox.hookWrites()).toBe(false)
     await writeFile(join(ready, 'second-event'), 'y'.repeat(300))
-    const status = await sandbox.aang('status')
+    const status = await sandbox.catacomb('status')
     expect(status.stdout).toContain('spool: 2 files, 1800 bytes\n')
     expect(status.stdout).toContain('lease: none\n')
     expect(status.stdout).toContain('threshold: 1000 bytes\n')
@@ -212,18 +212,18 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
 
     await waitUntil(() => sandbox.hookWrites())
     expect((await sandbox.daemonState())?.spool_over_threshold).toBeNull()
-    expect((await sandbox.aang('status')).stdout).not.toContain('over threshold since')
-    expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
+    expect((await sandbox.catacomb('status')).stdout).not.toContain('over threshold since')
+    expect(await sandbox.catacomb('stop')).toMatchObject({ code: 0 })
   })
 
   test.runIf(permissionsRestrict)(
     'a daemon that cannot remove its lease while stopping still closes its API and exits',
     async ({ expect, onTestFinished }) => {
       const sandbox = await createSandbox(onTestFinished)
-      const pid = startedPid(await sandbox.aang('start'))
+      const pid = startedPid(await sandbox.catacomb('start'))
       const state = await sandbox.daemonState()
       if (state === null) {
-        throw new Error('aang start left no daemon state')
+        throw new Error('catacomb start left no daemon state')
       }
       await chmod(sandbox.spool, 0o500)
       try {
@@ -235,30 +235,30 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
 
       await expect(fetch(`http://127.0.0.1:${String(state.api.port)}/api/x`)).rejects.toThrow()
       expect(await sandbox.daemonState()).toBeNull()
-      expect(await readFile(join(sandbox.aangHome, 'daemon.log'), 'utf8')).toContain('EACCES')
-      const restarted = await sandbox.aang('start')
+      expect(await readFile(join(sandbox.catacombHome, 'daemon.log'), 'utf8')).toContain('EACCES')
+      const restarted = await sandbox.catacomb('start')
       expect(restarted.code).toBe(0)
-      expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
+      expect(await sandbox.catacomb('stop')).toMatchObject({ code: 0 })
     },
   )
 
   test('a broken config fails start, while status and stop still work', async ({ expect, onTestFinished }) => {
     const sandbox = await createSandbox(onTestFinished)
-    await writeFile(join(sandbox.aangHome, 'config.json'), '{"spool": {"thresholdBytes": "big"}}')
+    await writeFile(join(sandbox.catacombHome, 'config.json'), '{"spool": {"thresholdBytes": "big"}}')
 
-    const started = await sandbox.aang('start')
+    const started = await sandbox.catacomb('start')
 
     expect(started.code).toBe(1)
     expect(started.stderr).toContain('config.json')
     expect(await sandbox.daemonState()).toBeNull()
-    const status = await sandbox.aang('status')
+    const status = await sandbox.catacomb('status')
     expect(status.code).toBe(0)
     expect(status.stdout).toContain('threshold: unknown, the config is invalid\n')
-    await writeFile(join(sandbox.aangHome, 'daemon.json'), 'not json')
-    const stopped = await sandbox.aang('stop')
+    await writeFile(join(sandbox.catacombHome, 'daemon.json'), 'not json')
+    const stopped = await sandbox.catacomb('stop')
     expect(stopped.code).toBe(0)
     expect(stopped.stderr).toContain('ignoring unreadable')
-    expect(stopped.stdout).toContain('aang is not running')
+    expect(stopped.stdout).toContain('catacomb is not running')
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
   })
 
@@ -267,16 +267,16 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished, { spool: { checkIntervalMs: 1_000 } })
-    const pid = startedPid(await sandbox.aang('start'))
-    await unlink(join(sandbox.aangHome, 'token'))
+    const pid = startedPid(await sandbox.catacomb('start'))
+    await unlink(join(sandbox.catacombHome, 'token'))
 
-    const stopped = await sandbox.aang('stop')
+    const stopped = await sandbox.catacomb('stop')
 
     expect(stopped.code).toBe(0)
     expect(stopped.stderr).toContain('no UI token')
     expect([
-      `aang stopped: pid ${String(pid)} exited after the stop marker\n`,
-      'aang is not running; the spool lease is removed and the stop marker is set\n',
+      `catacomb stopped: pid ${String(pid)} exited after the stop marker\n`,
+      'catacomb is not running; the spool lease is removed and the stop marker is set\n',
     ]).toContain(stopped.stdout)
     expect(isAlive(pid)).toBe(false)
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
@@ -287,7 +287,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     'Ctrl+C stops a foreground daemon and removes its lease',
     async ({ expect, onTestFinished }) => {
       const sandbox = await createSandbox(onTestFinished)
-      const foreground = sandbox.spawnAang('start', '--foreground')
+      const foreground = sandbox.spawnCatacomb('start', '--foreground')
       let stdout = ''
       foreground.stdout.setEncoding('utf8').on('data', (chunk: string) => {
         stdout += chunk
@@ -295,24 +295,24 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
       const exited = new Promise<number | null>((resolve) => {
         foreground.on('close', resolve)
       })
-      await waitUntil(() => stdout.includes('aang running in the foreground'))
+      await waitUntil(() => stdout.includes('catacomb running in the foreground'))
 
       foreground.kill('SIGINT')
 
       expect(await exited).toBe(0)
-      expect(stdout).toContain('aang stopped: signal\n')
+      expect(stdout).toContain('catacomb stopped: signal\n')
       expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: false })
       expect(await sandbox.hookWrites()).toBe(false)
       expect(await sandbox.daemonState()).toBeNull()
     },
   )
 
-  test('start --foreground runs the daemon in the CLI process until aang stop', async ({
+  test('start --foreground runs the daemon in the CLI process until catacomb stop', async ({
     expect,
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished)
-    const foreground = sandbox.spawnAang('start', '--foreground')
+    const foreground = sandbox.spawnCatacomb('start', '--foreground')
     let stdout = ''
     foreground.stdout.setEncoding('utf8').on('data', (chunk: string) => {
       stdout += chunk
@@ -320,15 +320,15 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     const exited = new Promise<number | null>((resolve) => {
       foreground.on('close', resolve)
     })
-    await waitUntil(() => stdout.includes('aang running in the foreground: pid '))
+    await waitUntil(() => stdout.includes('catacomb running in the foreground: pid '))
     expect(stdout).toContain(`pid ${String(foreground.pid)}, http://127.0.0.1:`)
     expect(await sandbox.hookWrites()).toBe(true)
 
-    const stopped = await sandbox.aang('stop')
+    const stopped = await sandbox.catacomb('stop')
 
     expect(stopped.code).toBe(0)
     expect(await exited).toBe(0)
-    expect(stdout).toContain('aang stopped: shutdown\n')
+    expect(stdout).toContain('catacomb stopped: shutdown\n')
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
     expect(await sandbox.hookWrites()).toBe(false)
   })

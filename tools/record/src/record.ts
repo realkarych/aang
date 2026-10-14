@@ -2,10 +2,10 @@ import { constants } from 'node:fs'
 import { access, mkdir, mkdtemp, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { type OperatingSystem, type Runtime, spoolFormat, type Surface } from '@aang/contract'
-import { claudePluginName, writeClaudePlugin } from '@aang/hook'
-import { createProcessRunner } from '@aang/observer'
-import { leaseSpool, type Target } from '@aang/testkit'
+import { type OperatingSystem, type Runtime, spoolFormat, type Surface } from '@catacomb/contract'
+import { claudePluginName, writeClaudePlugin } from '@catacomb/hook'
+import { createProcessRunner } from '@catacomb/observer'
+import { leaseSpool, type Target } from '@catacomb/testkit'
 import { createAnonymizer } from './anonymize.js'
 import { type Capture, claudeProjectName, createCapture, type ControlTarget, type CreatedEntries } from './capture.js'
 import { isMissing } from './files.js'
@@ -92,7 +92,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
   if (regularClaude && (metadata.runtime !== 'claude' || metadata.model !== 'live')) throw new Error('The regular Claude home is only for live Claude recordings')
   const hookBinary = resolve(options.hookBinary)
   if (!await isExecutable(hookBinary)) throw new Error('Hook binary must be an existing executable file')
-  const temporary = await mkdtemp(join(tmpdir(), 'aang-record-'))
+  const temporary = await mkdtemp(join(tmpdir(), 'catacomb-record-'))
   let staging: string | undefined
   const controller = new AbortController()
   const pending = new Set<Promise<unknown>>()
@@ -124,12 +124,12 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
       capture.otlp(body, receivedAt)
     })
     const runner = createProcessRunner({ windowsLauncher: hookBinary, temporaryDirectory: root })
-    const excluded = new Set(['AANG_OBSERVER', 'CLAUDE_AGENT_SDK_VERSION', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_HOST_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE'])
+    const excluded = new Set(['CATACOMB_OBSERVER', 'CLAUDE_AGENT_SDK_VERSION', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_HOST_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE'])
     const env: Record<string, string> = {
       ...Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined && !excluded.has(entry[0]))),
       ...regularCodex || regularClaude ? { HOME: userHome, USERPROFILE: userHome } : { HOME: home, USERPROFILE: home }, CODEX_HOME: codex,
       ...regularClaude ? {} : { CLAUDE_CONFIG_DIR: claude },
-      AANG_RECORD_SPOOL: spool, AANG_RECORD_HOOK: hookBinary,
+      CATACOMB_RECORD_SPOOL: spool, CATACOMB_RECORD_HOOK: hookBinary,
     }
     const execution: { running: boolean; failure?: Error } = { running: false }
     await scenario({
@@ -195,7 +195,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
     await capture.scan(true)
     if (capture.steps.length === 0) throw new Error('Recording has no captured events')
     const manifest = RecordingManifest.parse({
-      format: 'aang-recording/1', runtime: metadata.runtime, engine_version: metadata.engineVersion,
+      format: 'catacomb-recording/1', runtime: metadata.runtime, engine_version: metadata.engineVersion,
       app_version: metadata.appVersion ?? null, surface: metadata.surface, os, scenario: metadata.scenario,
       model: metadata.model ?? null, recorded_at: new Date(started).toISOString(), expected_facts: metadata.expectedFacts,
       control_events: capture.controlEvents,
@@ -209,7 +209,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
       [claudeProjectName(project), '-fixture-project'],
       [home, canonicalHome],
       [root, os === 'windows' ? 'C:\\fixture\\recording' : '/fixture/recording'],
-      [hookBinary, os === 'windows' ? 'C:\\fixture\\aang-hook.exe' : '/fixture/aang-hook'],
+      [hookBinary, os === 'windows' ? 'C:\\fixture\\catacomb-hook.exe' : '/fixture/catacomb-hook'],
       ...regularCodex ? [[codex, os === 'windows' ? 'C:\\Users\\USER\\.codex' : `${canonicalHome}/.codex`] as const] : [],
       ...regularClaude ? [[claude, os === 'windows' ? 'C:\\Users\\USER\\.claude' : `${canonicalHome}/.claude`] as const] : [],
       ...regularCodex || regularClaude ? [[userHome, canonicalHome] as const] : [],

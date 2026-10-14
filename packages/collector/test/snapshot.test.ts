@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { CollectedRecord, type CollectedPosition } from '@aang/contract'
+import { CollectedRecord, type CollectedPosition } from '@catacomb/contract'
 import { expect, test, vi } from 'vitest'
 import { createSandbox, holdExclusively, runCollector, type Running, type Sandbox, sleep } from './sandbox.js'
 

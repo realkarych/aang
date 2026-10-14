@@ -1,4 +1,4 @@
-import type { FactDraft } from '@aang/contract'
+import type { FactDraft } from '@catacomb/contract'
 import { callFact, type ToolCall } from './facts.js'
 import { actionKey } from './keys.js'
 import { planUpdates } from './plan.js'

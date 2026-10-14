@@ -1,6 +1,6 @@
-import { ChangeSeq, type CollectedGap, EpochNs, ModelVersion } from '@aang/contract'
-import { contentHash, runId } from '@aang/contract/ids'
-import { createEngine } from '@aang/engine'
+import { ChangeSeq, type CollectedGap, EpochNs, ModelVersion } from '@catacomb/contract'
+import { contentHash, runId } from '@catacomb/contract/ids'
+import { createEngine } from '@catacomb/engine'
 import { describe, expect, test } from 'vitest'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
 import {
@@ -394,7 +394,7 @@ describe('a hook event that the adapter does not turn into facts', () => {
     { name: 'outside the watched roots', env: {}, cwd: 'outside', scope: 'external' },
     {
       name: 'of the observer',
-      env: { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' },
+      env: { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'catacomb_observer' },
       cwd: 'repository',
       scope: 'observer',
     },

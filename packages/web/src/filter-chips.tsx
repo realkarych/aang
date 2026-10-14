@@ -1,4 +1,4 @@
-import type { RunSnapshot, ViewRuleId } from '@aang/contract'
+import type { RunSnapshot, ViewRuleId } from '@catacomb/contract'
 import { type ReactElement, useState } from 'react'
 import { failureText, revokeViewRule, SignedOut } from './api.js'
 import { fullHint, shortIds, useKnownAgents } from './short-ids.js'

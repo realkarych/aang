@@ -1,6 +1,6 @@
-import type { EpochNs, FactId, ObserverCallId, RunId } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
-import type { GapDraft, PendingFact, Transaction } from '@aang/store'
+import type { EpochNs, FactId, ObserverCallId, RunId } from '@catacomb/contract'
+import { objectId } from '@catacomb/contract/ids'
+import type { GapDraft, PendingFact, Transaction } from '@catacomb/store'
 
 export interface QueueBounds {
   readonly facts: number

@@ -7,8 +7,8 @@ import { basename, join, resolve } from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { expect, test, type TestContext } from 'vitest'
-import { createClaudeLauncher as createClaudeBackend, createCodexLauncher as createCodexBackend, type LaunchStatus } from '@aang/observer'
-import { installFakeClaude, installFakeCodex } from '@aang/testkit'
+import { createClaudeLauncher as createClaudeBackend, createCodexLauncher as createCodexBackend, type LaunchStatus } from '@catacomb/observer'
+import { installFakeClaude, installFakeCodex } from '@catacomb/testkit'
 
 const output = { base_version: 0, ops: [], needs: [] }
 const builtins = { mcpServers: [], skills: [], plugins: ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring'] }
@@ -31,7 +31,7 @@ const recorded = (path: string): number | undefined => {
 }
 
 const sandbox = async ({ onTestFinished }: TestContext) => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-observer-tree-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-observer-tree-')))
   const pids: number[] = []
   onTestFinished(async () => {
     for (const pid of pids) if (alive(pid)) process.kill(pid, 'SIGKILL')
@@ -39,7 +39,7 @@ const sandbox = async ({ onTestFinished }: TestContext) => {
   })
   return {
     root,
-    options: { temporaryDirectory: root, windowsLauncher: resolve('packages/hook/bin/aang-hook.exe'), environment: { ...process.env, HOME: root, USERPROFILE: root } },
+    options: { temporaryDirectory: root, windowsLauncher: resolve('packages/hook/bin/catacomb-hook.exe'), environment: { ...process.env, HOME: root, USERPROFILE: root } },
     pid: async (path: string, call: Promise<unknown>): Promise<number> => {
       let ended: { readonly outcome: unknown } | undefined
       void call.then((outcome) => { ended = { outcome } }, (outcome: unknown) => { ended = { outcome } })

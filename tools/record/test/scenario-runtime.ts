@@ -24,7 +24,7 @@ const rollout = (cwd: string, id: string): string => `${JSON.stringify({ timesta
 switch (mode) {
   case 'otlp':
     await post('application/json', JSON.stringify(logs))
-    process.stdout.write(`posted ${String(process.env['AANG_SCENARIO_MARK'])} ${process.env['CLAUDE_AGENT_SDK_VERSION'] ?? 'without the Agent SDK version'}`)
+    process.stdout.write(`posted ${String(process.env['CATACOMB_SCENARIO_MARK'])} ${process.env['CLAUDE_AGENT_SDK_VERSION'] ?? 'without the Agent SDK version'}`)
     break
   case 'protobuf':
     await post('application/x-protobuf', 'binary')
@@ -81,7 +81,7 @@ switch (mode) {
     await write(join(project, target, 'subagents', 'agent-a1.jsonl'), line({ type: 'user', sessionId: target, agentId: 'a1', isSidechain: true }))
     await write(join(claude, 'tasks', target, '1.json'), JSON.stringify({ id: '1', subject: 'Own task', status: 'pending' }))
     await mkdir(join(claude, 'session-env', target), { recursive: true })
-    await mkdir(join(claude, 'plugins', 'data', 'aang-inline'), { recursive: true })
+    await mkdir(join(claude, 'plugins', 'data', 'catacomb-inline'), { recursive: true })
     await mkdir(join(claude, 'plugins', 'data', 'other-inline'), { recursive: true })
     await write(join(claude, 'projects', '-Users-someone-else-elsewhere', `${foreign}.jsonl`), line({ type: 'user', sessionId: foreign, cwd: '/Users/someone-else/elsewhere' }))
     await write(join(claude, 'sessions', '2.json'), JSON.stringify({ pid: 2, sessionId: foreign, cwd: '/Users/someone-else/elsewhere' }))

@@ -3,7 +3,7 @@ import {
   observerOperations,
   observerOutputJsonSchema,
   type LlmJsonSchema,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { describe, test } from 'vitest'
 
 type Schema = LlmJsonSchema

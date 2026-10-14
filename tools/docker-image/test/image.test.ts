@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { endpoints } from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+import { endpoints } from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
 import { afterAll, beforeAll, describe, test } from 'vitest'
 import { docker, dockerOk } from './docker.js'
-import { aangHome, aangPaths, type Solver, startSolver } from './solver.js'
+import { catacombHome, catacombPaths, type Solver, startSolver } from './solver.js'
 
 const repository = fileURLToPath(new URL('../../../', import.meta.url))
 const claudeHookSamples = new URL('../../../docs/research/samples/claude-code-hooks/', import.meta.url)
@@ -18,15 +18,15 @@ const ingestTimeoutMs = 30_000
 
 const tag = randomUUID()
 const images = {
-  aang: `aang-smoke:${tag}`,
-  build: `aang-smoke-build:${tag}`,
-  solver: `aang-smoke-solver:${tag}`,
+  catacomb: `catacomb-smoke:${tag}`,
+  build: `catacomb-smoke-build:${tag}`,
+  solver: `catacomb-smoke-solver:${tag}`,
 }
 
 const work = { repository: '/home/node/work/repository', linked: '/home/node/work/linked', elsewhere: '/home/node/elsewhere' }
 const createRepository = [
   'git init --quiet "$1"',
-  'git -C "$1" -c user.name=aang -c user.email=aang@localhost commit --quiet --allow-empty --message init',
+  'git -C "$1" -c user.name=catacomb -c user.email=catacomb@localhost commit --quiet --allow-empty --message init',
   'git -C "$1" worktree add --quiet "$2"',
   'mkdir "$3"',
 ].join('\n')
@@ -41,17 +41,17 @@ const claudeHook = async (sample: string, session: string, cwd: string): Promise
 
 const claudeSession = () => ({ kind: 'session', runtime: 'claude', session: randomUUID() }) as const
 
-const deliver = (solver: Solver, payload: string) => solver.exec(['aang-hook', 'claude', 'plugin', aangPaths.spool], { input: payload })
+const deliver = (solver: Solver, payload: string) => solver.exec(['catacomb-hook', 'claude', 'plugin', catacombPaths.spool], { input: payload })
 
-describe('the aang Docker image as the base of a solver image', { tags: ['docker'] }, () => {
+describe('the catacomb Docker image as the base of a solver image', { tags: ['docker'] }, () => {
   beforeAll(async () => {
-    await build(images.aang, [])
+    await build(images.catacomb, [])
     await build(images.build, ['--target', 'build'])
     await build(images.solver, [
       '--file',
       fileURLToPath(new URL('../solver.Dockerfile', import.meta.url)),
       '--build-arg',
-      `AANG_IMAGE=${images.aang}`,
+      `CATACOMB_IMAGE=${images.catacomb}`,
       '--build-arg',
       `BUILD_IMAGE=${images.build}`,
     ])
@@ -61,16 +61,16 @@ describe('the aang Docker image as the base of a solver image', { tags: ['docker
     await docker(['image', 'rm', '--force', ...Object.values(images)])
   })
 
-  test('the image runs aang and aang-hook on Node 26 as the user node', { timeout: testTimeoutMs }, async ({ expect }) => {
-    const run = (args: readonly string[]) => docker(['run', '--rm', images.aang, ...args])
+  test('the image runs catacomb and catacomb-hook on Node 26 as the user node', { timeout: testTimeoutMs }, async ({ expect }) => {
+    const run = (args: readonly string[]) => docker(['run', '--rm', images.catacomb, ...args])
 
     expect(await run(['whoami'])).toEqual({ code: 0, stdout: 'node\n', stderr: '' })
-    expect(await docker(['run', '--rm', '--init', images.aang, 'whoami'])).toEqual({ code: 0, stdout: 'node\n', stderr: '' })
+    expect(await docker(['run', '--rm', '--init', images.catacomb, 'whoami'])).toEqual({ code: 0, stdout: 'node\n', stderr: '' })
     expect((await run(['node', '--version'])).stdout).toMatch(/^v26\./)
-    const status = await run(['aang', 'status'])
+    const status = await run(['catacomb', 'status'])
     expect(status).toMatchObject({ code: 0, stderr: '' })
-    expect(status.stdout).toContain(`aang home: ${aangHome}\ndaemon: not running\nspool: 0 files`)
-    const hook = await run(['aang-hook', 'claude', 'plugin', aangPaths.spool])
+    expect(status.stdout).toContain(`catacomb home: ${catacombHome}\ndaemon: not running\nspool: 0 files`)
+    const hook = await run(['catacomb-hook', 'claude', 'plugin', catacombPaths.spool])
     expect(hook).toEqual({ code: 0, stdout: '', stderr: '' })
   })
 
@@ -94,29 +94,29 @@ describe('the aang Docker image as the base of a solver image', { tags: ['docker
     expect(await user.runs()).toMatchObject([
       { runtime: 'claude', root_session: objectId(subagentSession), sessions: 1, support_modes: ['files_only'] },
     ])
-    expect(await solver.exec(['aang', 'stop'])).toEqual({
+    expect(await solver.exec(['catacomb', 'stop'])).toEqual({
       code: 0,
-      stdout: `aang stopped: pid ${String(solver.pid)}\n`,
+      stdout: `catacomb stopped: pid ${String(solver.pid)}\n`,
       stderr: '',
     })
   })
 
-  test('aang install in a derived image connects the Claude plugin and the Codex hooks with the aang-hook of the image', { timeout: testTimeoutMs }, async ({
+  test('catacomb install in a derived image connects the Claude plugin and the Codex hooks with the catacomb-hook of the image', { timeout: testTimeoutMs }, async ({
     expect,
     onTestFinished,
   }) => {
     const solver = await startSolver(images.solver, onTestFinished)
 
-    const installed = await solver.exec(['aang', 'install'])
+    const installed = await solver.exec(['catacomb', 'install'])
 
     expect(installed).toMatchObject({ code: 0, stderr: '' })
-    expect(installed.stdout).toContain(`claude: plugin aang@aang installed from ${aangHome}/claude-plugin`)
-    expect(installed.stdout).toContain('codex: aang hooks registered in /home/node/.codex/hooks.json')
-    expect(await solver.exec(['cmp', '/usr/local/bin/aang-hook', `${aangHome}/bin/aang-hook`])).toEqual({ code: 0, stdout: '', stderr: '' })
-    const command = `'${aangHome}/bin/aang-hook' codex user '${aangPaths.spool}'`
+    expect(installed.stdout).toContain(`claude: plugin catacomb@catacomb installed from ${catacombHome}/claude-plugin`)
+    expect(installed.stdout).toContain('codex: catacomb hooks registered in /home/node/.codex/hooks.json')
+    expect(await solver.exec(['cmp', '/usr/local/bin/catacomb-hook', `${catacombHome}/bin/catacomb-hook`])).toEqual({ code: 0, stdout: '', stderr: '' })
+    const command = `'${catacombHome}/bin/catacomb-hook' codex user '${catacombPaths.spool}'`
     expect((await solver.exec(['cat', '/home/node/.codex/hooks.json'])).stdout).toContain(JSON.stringify(command).slice(1, -1))
     const session = claudeSession()
-    const hooked = await solver.exec(['sh', '-c', 'exec "$1/bin/aang-hook" claude plugin "$2"', 'sh', aangHome, aangPaths.spool], {
+    const hooked = await solver.exec(['sh', '-c', 'exec "$1/bin/catacomb-hook" claude plugin "$2"', 'sh', catacombHome, catacombPaths.spool], {
       input: await claudeHook('SessionStart.startup.json', session.session, '/home/node/work'),
     })
     expect(hooked).toEqual({ code: 0, stdout: '', stderr: '' })
@@ -126,7 +126,7 @@ describe('the aang Docker image as the base of a solver image', { tags: ['docker
       .toEqual([runId(session)])
   })
 
-  test('aang-hook of the image hands a session start to the daemon, which lists a hooks-only run', { timeout: testTimeoutMs }, async ({
+  test('catacomb-hook of the image hands a session start to the daemon, which lists a hooks-only run', { timeout: testTimeoutMs }, async ({
     expect,
     onTestFinished,
   }) => {

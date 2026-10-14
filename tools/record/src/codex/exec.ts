@@ -19,7 +19,7 @@ const tools = stubScenario({
   ],
   script: { tools: toolSteps },
   run: async ({ session, stub }) => {
-    const { stdout } = await codexExec(session, ['[aang:tools] Run `echo hi`, add result.json with a patch, run `echo code` from a code cell, then reply done.'])
+    const { stdout } = await codexExec(session, ['[catacomb:tools] Run `echo hi`, add result.json with a patch, run `echo code` from a code cell, then reply done.'])
     const rollout = await rolloutOf(session.codex, threadOf(stdout))
     check(commandOutputs(stdout).includes('hi') && commandOutputs(stdout).includes('code'), 'both shell commands completed')
     check(items(stdout, 'file_change').length === 1, 'the patch completed as a file change')
@@ -41,7 +41,7 @@ const subagent = stubScenario({
   expectedFacts: subagentFacts,
   script: (session) => subagentScript(session, 'subagent'),
   run: async ({ session, stub }) => {
-    const root = threadOf((await codexExec(session, ['[aang:subagent] Spawn subagents scout and builder, wait for them, then reply done.'])).stdout)
+    const root = threadOf((await codexExec(session, ['[catacomb:subagent] Spawn subagents scout and builder, wait for them, then reply done.'])).stdout)
     const [first] = await checkSubagents(session, stub.replies, root)
     if (first !== undefined) await session.checkpoint('child-finished', finished(first), 'A subagent stage finishes under the root session and its result returns to the parent')
     await session.checkpoint('root-finished', finished(await rolloutOf(session.codex, root)), 'The root turn completes after waiting for both subagents')
@@ -58,9 +58,9 @@ const fork = stubScenario({
   ],
   script: { 'fork-source': [[shell('echo source')]], fork: [[shell('echo fork')]] },
   run: async ({ session }) => {
-    const source = threadOf((await codexExec(session, ['[aang:fork-source] Run `echo source`, then reply done.'])).stdout)
+    const source = threadOf((await codexExec(session, ['[catacomb:fork-source] Run `echo source`, then reply done.'])).stdout)
     await session.checkpoint('source-complete', finished(await rolloutOf(session.codex, source)), 'The source session completes its first turn')
-    const forked = threadOf((await codexExec(session, ['fork', source, '[aang:fork] Run `echo fork` in the fork, then reply done.'])).stdout)
+    const forked = threadOf((await codexExec(session, ['fork', source, '[catacomb:fork] Run `echo fork` in the fork, then reply done.'])).stdout)
     check(forked !== source, 'the fork has its own thread id')
     const rollout = await rolloutOf(session.codex, forked)
     const meta = sessionMeta(rollout)
@@ -81,7 +81,7 @@ const questionScenario = stubScenario({
   ],
   script: { question: [[question]] },
   run: async ({ session }) => {
-    const thread = threadOf((await codexExec(session, ['[aang:question] Ask me which greeting notes.txt should use, then stop.'])).stdout)
+    const thread = threadOf((await codexExec(session, ['[catacomb:question] Ask me which greeting notes.txt should use, then stop.'])).stdout)
     const asked = await rolloutOf(session.codex, thread)
     const questions = completedItems(asked, 'AgentMessage').filter((item) => item['delivery'] === 'async' && Array.isArray(item['questions']))
     check(questions.length === 1, 'an async question was recorded')
@@ -109,7 +109,7 @@ const planScenario = stubScenario({
     ],
   },
   run: async ({ session }) => {
-    const { stdout } = await codexExec(session, ['-c', 'tools.update_plan.enabled=true', '[aang:plan] Make a two-step plan, inspect the project with `echo inspect`, complete the plan, then reply done.'])
+    const { stdout } = await codexExec(session, ['-c', 'tools.update_plan.enabled=true', '[catacomb:plan] Make a two-step plan, inspect the project with `echo inspect`, complete the plan, then reply done.'])
     const rollout = await rolloutOf(session.codex, threadOf(stdout))
     check(items(stdout, 'todo_list').length > 0, 'the plan is visible as a todo_list item')
     const [published, completed] = responseItems(rollout, 'function_call').filter((item) => item['name'] === 'update_plan').map((item) => String(item['call_id']))
@@ -128,12 +128,12 @@ const sourceLoss = stubScenario({
   ],
   script: { archive: [[shell('echo archive')]], delete: [[shell('echo delete')]] },
   run: async ({ session }) => {
-    const archived = threadOf((await codexExec(session, ['[aang:archive] Run `echo archive`, then reply done.'])).stdout)
+    const archived = threadOf((await codexExec(session, ['[catacomb:archive] Run `echo archive`, then reply done.'])).stdout)
     await codexCommand(session, ['archive', archived])
     const moved = await rolloutOf(session.codex, archived)
     check(moved.target.path.startsWith('archived_sessions/'), 'the archived rollout moved into archived_sessions')
     await session.checkpoint('archived', moved.target, 'The session source moves to archived_sessions; the session stays visible as archived')
-    const deleted = threadOf((await codexExec(session, ['[aang:delete] Run `echo delete`, then reply done.'])).stdout)
+    const deleted = threadOf((await codexExec(session, ['[catacomb:delete] Run `echo delete`, then reply done.'])).stdout)
     const original = await rolloutOf(session.codex, deleted)
     await codexCommand(session, ['delete', '--force', deleted])
     check(!await exists(original.path), 'the deleted rollout is gone')
@@ -150,10 +150,10 @@ const reconnect = stubScenario({
   ],
   script: { 'reconnect-first': [[shell('echo first')]], 'reconnect-second': [[shell('sleep 3')]] },
   run: async ({ session }) => {
-    const thread = threadOf((await codexExec(session, ['[aang:reconnect-first] Run `echo first`, then reply done.'])).stdout)
+    const thread = threadOf((await codexExec(session, ['[catacomb:reconnect-first] Run `echo first`, then reply done.'])).stdout)
     const first = await rolloutOf(session.codex, thread)
-    await session.checkpoint('daemon-restart', finished(first), 'The aang daemon restarts here; after the restart it continues reading this rollout from its saved cursor')
-    await codexExec(session, ['resume', thread, '[aang:reconnect-second] Run `sleep 3`, then reply done.'])
+    await session.checkpoint('daemon-restart', finished(first), 'The catacomb daemon restarts here; after the restart it continues reading this rollout from its saved cursor')
+    await codexExec(session, ['resume', thread, '[catacomb:reconnect-second] Run `sleep 3`, then reply done.'])
     const second = await rolloutOf(session.codex, thread)
     check(second.path === first.path && events(second, 'task_started').length === 2, 'the resumed turn appended to the same rollout')
     await session.checkpoint('second-turn', finished(second), 'The second turn appended after the restart appears once, without duplicated facts')
@@ -172,9 +172,9 @@ const compaction = stubScenario({
   ],
   script: { 'compaction-first': [[shell('echo before')]] },
   run: async ({ session }) => {
-    const thread = threadOf((await codexExec(session, ['[aang:compaction-first] Run `echo before`, then reply done.'])).stdout)
+    const thread = threadOf((await codexExec(session, ['[catacomb:compaction-first] Run `echo before`, then reply done.'])).stdout)
     await session.checkpoint('before-compaction', finished(await rolloutOf(session.codex, thread)), 'The first turn completes with its full history')
-    await codexExec(session, [...compactAt(100), 'resume', thread, '[aang:compaction-second] Reply with just: OK2'])
+    await codexExec(session, [...compactAt(100), 'resume', thread, '[catacomb:compaction-second] Reply with just: OK2'])
     const rollout = await rolloutOf(session.codex, thread)
     check(records(rollout, 'compacted').length === 1 && completedItems(rollout, 'ContextCompaction').length === 1, 'the thread was compacted once')
     const hooks = await hookRecords(session.spool)
@@ -198,7 +198,7 @@ const resumeCompaction: Scenario = {
     'token_usage_record and thread_token_usage include the compaction call; turn.completed usage and token_count totals do not',
   ],
   run: async (session: ScenarioSession) => {
-    const first = await session.run(session.engine.executable, ['exec', ...liveFlags, '[aang:live] Run the shell command `echo hi` exactly once, then reply with just: OK'])
+    const first = await session.run(session.engine.executable, ['exec', ...liveFlags, '[catacomb:live] Run the shell command `echo hi` exactly once, then reply with just: OK'])
     const thread = threadOf(first.stdout)
     const started = await rolloutOf(session.codex, thread)
     check(sessionMeta(started)['cwd'] === session.project, `the rollout of ${thread} belongs to the temporary project`)

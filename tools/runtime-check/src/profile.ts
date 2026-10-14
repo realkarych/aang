@@ -1,14 +1,14 @@
 import { chmod, copyFile, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { spoolLayout } from '@aang/contract'
-import { aangHomePaths, leaseFileName } from '@aang/contract/home'
+import { spoolLayout } from '@catacomb/contract'
+import { catacombHomePaths, leaseFileName } from '@catacomb/contract/home'
 import { isWindows } from './process.js'
 
 export interface Profile {
   readonly home: string
   readonly claudeConfigDir: string
   readonly codexHome: string
-  readonly aangHome: string
+  readonly catacombHome: string
   readonly hook: string
   readonly spool: string
   readonly project: string
@@ -18,16 +18,16 @@ const profileDirectoryName = 'Όνομα Επώνυμο'
 
 const projectDirectoryName = 'έργο με κενά'
 
-export const stubApiKey = 'sk-ant-api03-aang-runtime-check-stub'
+export const stubApiKey = 'sk-ant-api03-catacomb-runtime-check-stub'
 
-const hookExecutable = isWindows ? 'aang-hook.exe' : 'aang-hook'
+const hookExecutable = isWindows ? 'catacomb-hook.exe' : 'catacomb-hook'
 
 const strippedPrefixes: readonly string[] = [
   'ANTHROPIC_',
   'CLAUDE',
   'CODEX_',
   'OPENAI_',
-  'AANG_',
+  'CATACOMB_',
   'AI_AGENT',
   'HERDR',
   'GITHUB_TOKEN',
@@ -53,23 +53,23 @@ export const createSpool = async (spool: string): Promise<void> => {
 
 export const createProfile = async (base: string, hookBinary: string): Promise<Profile> => {
   const home = join(base, 'Users', profileDirectoryName)
-  const aangHome = join(home, '.aang')
+  const catacombHome = join(home, '.catacomb')
   const profile: Profile = {
     home,
     claudeConfigDir: join(home, '.claude'),
     codexHome: join(home, '.codex'),
-    aangHome,
-    hook: join(aangHome, 'bin', hookExecutable),
-    spool: aangHomePaths(aangHome).spool,
+    catacombHome,
+    hook: join(catacombHome, 'bin', hookExecutable),
+    spool: catacombHomePaths(catacombHome).spool,
     project: join(home, projectDirectoryName),
   }
-  for (const directory of [profile.claudeConfigDir, profile.codexHome, join(aangHome, 'bin'), profile.project]) {
+  for (const directory of [profile.claudeConfigDir, profile.codexHome, join(catacombHome, 'bin'), profile.project]) {
     await mkdir(directory, { recursive: true })
   }
   await copyFile(hookBinary, profile.hook)
   await chmod(profile.hook, 0o755)
   await createSpool(profile.spool)
-  await writeFile(join(profile.project, 'note.txt'), 'aang runtime check\n')
+  await writeFile(join(profile.project, 'note.txt'), 'catacomb runtime check\n')
   return profile
 }
 

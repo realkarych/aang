@@ -1,4 +1,4 @@
-import type { OperatingSystem, Runtime, Surface } from '@aang/contract'
+import type { OperatingSystem, Runtime, Surface } from '@catacomb/contract'
 import { runnerOs } from './recordings.js'
 
 export interface SurfaceVariant {

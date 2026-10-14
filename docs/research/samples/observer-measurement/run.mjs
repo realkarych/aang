@@ -145,7 +145,7 @@ const summarise = (calls, names) => Object.fromEntries(names.map((name) => {
       callsWithSurvivors: own.filter((call) => (call.tree?.survivors ?? 0) > 0).length,
       groupAtRootExit: own.reduce((sum, call) => sum + (call.tree?.groupAtRootExit.length ?? 0), 0),
       stopUnconfirmed: own.filter((call) => !call.stopConfirmed).length,
-      descendants: [...new Set(own.flatMap((call) => processes(call).filter((entry) => entry.parent !== 'aang').map((entry) => `${entry.parent ?? '?'}>${entry.name}`)))].sort(),
+      descendants: [...new Set(own.flatMap((call) => processes(call).filter((entry) => entry.parent !== 'catacomb').map((entry) => `${entry.parent ?? '?'}>${entry.name}`)))].sort(),
       groupCalls: own.flatMap((call) => call.strace?.groupCalls ?? []).length,
       execs: [...new Set(own.flatMap((call) => call.strace?.execs ?? []))].sort(),
     },
@@ -179,7 +179,7 @@ const stubAnswer = {
 }
 
 const home = homedir()
-const work = await realpath(await mkdtemp(join(tmpdir(), 'aang-f3-')))
+const work = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-f3-')))
 const cwd = prepareWorkspace(work)
 const temporaryRoots = [...new Set([work, await realpath(tmpdir()), tmpdir()])]
 const redact = (text) => [
@@ -242,7 +242,7 @@ const trackTree = (rootPid, rootName, started, readTable) => {
         pid,
         start: entry.start,
         name: pid === rootPid ? rootName : basename(entry.comm),
-        parent: pid === rootPid ? 'aang' : parent === undefined ? null : parent.pid === rootPid ? rootName : basename(parent.comm),
+        parent: pid === rootPid ? 'catacomb' : parent === undefined ? null : parent.pid === rootPid ? rootName : basename(parent.comm),
         firstAt: at,
         pgids: new Set(),
         sids: new Set(),
@@ -540,7 +540,7 @@ const claudeCall = async (variant, cli, env, sessions) => {
   args[schemaAt + 1] = JSON.stringify(schema)
   args[promptAt + 1] = prompt.system_prompt_override
   if (stub) anthropic.use({ steps: [{ name: 'StructuredOutput', input: stubAnswer }], text: 'done' })
-  const stdin = `${prompt.instructions}Run marker: aang-observer-run ${randomUUID()}\n\n${inputText}`
+  const stdin = `${prompt.instructions}Run marker: catacomb-observer-run ${randomUUID()}\n\n${inputText}`
   const launched = await launch({ command: cli.command, args: [...(cli.args ?? []), ...args], env, stdin, timeoutMs: timeoutOverride ?? variant.timeoutMs, traceName: 'claude' })
   const events = parseJsonLines(launched.lines)
   const init = events.find(({ value }) => value.type === 'system' && value.subtype === 'init')?.value
@@ -607,7 +607,7 @@ const codexSetup = async (cli, env) => {
 }
 
 const codexCall = async (variant, cli, env, catalog, threads) => {
-  const directory = await mkdtemp(join(work, 'aang-observer', 'call-'))
+  const directory = await mkdtemp(join(work, 'catacomb-observer', 'call-'))
   const args = await codexArguments(directory, catalog, { model: variant.model, effort: variant.effort })
   await writeFile(join(directory, 'instructions.txt'), prompt.system_prompt_override, { mode: 0o600 })
   await writeFile(join(directory, 'schema.json'), JSON.stringify(schema), { mode: 0o600 })
@@ -615,10 +615,10 @@ const codexCall = async (variant, cli, env, catalog, threads) => {
   if (tail !== '-') throw new Error('codexArguments no longer ends with stdin')
   if (stub) {
     responses.use({ steps: [], text: JSON.stringify(stubAnswer) })
-    args.push('-c', 'model_provider="aang_stub"', '-c', `model_providers.aang_stub={name="aang stub",base_url="${responses.url}",wire_api="responses",requires_openai_auth=false}`)
+    args.push('-c', 'model_provider="catacomb_stub"', '-c', `model_providers.catacomb_stub={name="catacomb stub",base_url="${responses.url}",wire_api="responses",requires_openai_auth=false}`)
   }
   args.push(...(variant.extraArgs ?? []), '-')
-  const stdin = `${prompt.instructions}Run marker: aang-observer-run ${randomUUID()}\n\n${inputText}`
+  const stdin = `${prompt.instructions}Run marker: catacomb-observer-run ${randomUUID()}\n\n${inputText}`
   const launched = await launch({ command: cli.command, args: [...(cli.args ?? []), ...args], env, stdin, timeoutMs: timeoutOverride ?? variant.timeoutMs, traceName: 'codex' })
   const events = parseJsonLines(launched.lines)
   for (const { value } of events) if (value.type === 'thread.started' && typeof value.thread_id === 'string') threads.push(value.thread_id)
@@ -741,7 +741,7 @@ const profileComparison = (before, startedAt, sessions, threads) => {
   const projects = join(claudeRoot, 'projects')
   const projectDirectories = listDirectory(projects)
   const transcripts = projectDirectories.flatMap((directory) => sessions.filter((id) => existsSync(join(projects, directory, `${id}.jsonl`))))
-  const observerProjects = projectDirectories.filter((directory) => directory.includes('aang-observer-empty') && statSync(join(projects, directory)).mtimeMs >= startedAt)
+  const observerProjects = projectDirectories.filter((directory) => directory.includes('catacomb-observer-empty') && statSync(join(projects, directory)).mtimeMs >= startedAt)
   const today = new Date()
   const days = [today, new Date(today.getTime() - 86_400_000)].map((day) => join(codexRoot, 'sessions', String(day.getFullYear()), String(day.getMonth() + 1).padStart(2, '0'), String(day.getDate()).padStart(2, '0')))
   const rollouts = days.flatMap((directory) => listDirectory(directory).filter((file) => threads.some((id) => file.includes(id))))
@@ -772,7 +772,7 @@ const report = {
   startedAt: new Date().toISOString(),
   runsPerVariant: runs,
   variants: Object.fromEntries(variantNames.map((name) => [name, { ...catalogue[name], effort: catalogue[name].effort ?? 'CLI default', timeoutMs: timeoutOverride ?? catalogue[name].timeoutMs }])),
-  profile: 'argv from claudeArguments/codexArguments (@aang/observer F.2/F.5) with the spike schema and system prompt; environment from cleanEnvironment; cwd from prepareWorkspace',
+  profile: 'argv from claudeArguments/codexArguments (@catacomb/observer F.2/F.5) with the spike schema and system prompt; environment from cleanEnvironment; cwd from prepareWorkspace',
   sampleMs,
   strace: values.strace !== undefined,
 }
@@ -796,7 +796,7 @@ try {
     clis[runtime] = resolveCli(runtime, values[runtime], process.env)
     envs[runtime] = {
       ...cleanEnvironment(runtime, process.env),
-      ...(stub && runtime === 'claude' ? { ANTHROPIC_BASE_URL: anthropic.url, ANTHROPIC_API_KEY: 'aang-f3-stub-key', CLAUDE_CONFIG_DIR: join(work, 'claude-config') } : {}),
+      ...(stub && runtime === 'claude' ? { ANTHROPIC_BASE_URL: anthropic.url, ANTHROPIC_API_KEY: 'catacomb-f3-stub-key', CLAUDE_CONFIG_DIR: join(work, 'claude-config') } : {}),
       ...(stub && runtime === 'codex' ? { CODEX_HOME: join(work, 'codex-home') } : {}),
     }
     if (stub) await mkdir(envs[runtime].CLAUDE_CONFIG_DIR ?? envs[runtime].CODEX_HOME, { recursive: true })

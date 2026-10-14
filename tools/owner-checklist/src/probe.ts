@@ -42,7 +42,7 @@ const input = await text(process.stdin).catch(() => '')
 if (mode === 'env') {
   await recordEnvironment(input, argument).catch(() => undefined)
 } else if (mode === 'fail') {
-  process.stderr.write('aang D.7: deliberate hook failure, exit code 1\n')
+  process.stderr.write('catacomb D.7: deliberate hook failure, exit code 1\n')
   process.exitCode = 1
 } else if (mode === 'hang') {
   await delay(Number(argument) * 1000)

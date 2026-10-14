@@ -1,4 +1,4 @@
-import type { ChangeAuthor } from '@aang/contract'
+import type { ChangeAuthor } from '@catacomb/contract'
 import type { BackendReport, BackendSpending, EventStatus, Percentile, Rate, Report, ReportedEvent, Spending } from './report.js'
 
 const statusText: Readonly<Record<EventStatus, string>> = {

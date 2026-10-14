@@ -10,9 +10,9 @@ import type {
   ModelVersion,
   StageId,
   StageMaterial,
-} from '@aang/contract'
-import { ModelVersion as Version } from '@aang/contract'
-import { canonicalJson } from '@aang/contract/ids'
+} from '@catacomb/contract'
+import { ModelVersion as Version } from '@catacomb/contract'
+import { canonicalJson } from '@catacomb/contract/ids'
 import { factInput, snapshotStage } from '../input/batch.js'
 import { clipNote, clipOptional } from '../input/fit.js'
 import {

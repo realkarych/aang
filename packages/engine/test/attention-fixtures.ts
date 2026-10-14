@@ -9,10 +9,10 @@ import {
   type Question,
   type Runtime,
   type SessionKey,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import { applyChangeSet, type Engine } from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import { applyChangeSet, type Engine } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import type { TestContext } from 'vitest'
 import { batchOf, type HookDelivery, jsonlFile } from './batches.js'
 import { factsOf, recordsOf, sessionKey, startEngine } from './harness.js'
@@ -147,7 +147,7 @@ export const claudeHooks = (session: string) => {
     denied: (file: string, call: string, arrival: number) =>
       hook(file, arrival, 'PostToolBatch.denied-by-human.json', {
         tool_calls: [
-          { tool_name: 'Bash', tool_input: command, tool_use_id: call, tool_response: 'Denied by the human (aang probe).' },
+          { tool_name: 'Bash', tool_input: command, tool_use_id: call, tool_response: 'Denied by the human (catacomb probe).' },
         ],
       }),
     stop: (file: string, arrival: number) => hook(file, arrival, 'Stop.json'),
@@ -169,7 +169,7 @@ export const claudeHooks = (session: string) => {
         mcp_server_name: 'tracker',
         elicitation_id: elicitation,
         action,
-        content: action === 'accept' ? { ticket: 'AANG-6' } : null,
+        content: action === 'accept' ? { ticket: 'CATACOMB-6' } : null,
       }),
   }
 }

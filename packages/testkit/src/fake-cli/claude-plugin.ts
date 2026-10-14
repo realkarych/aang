@@ -1,6 +1,6 @@
 import { statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import type { JsonValue } from '@aang/contract'
+import type { JsonValue } from '@catacomb/contract'
 import { z } from 'zod'
 import { emit, finish, parseJson, readText, say } from './io.js'
 import { flag, parseOptions, valued } from './options.js'

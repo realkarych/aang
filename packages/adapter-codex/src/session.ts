@@ -1,4 +1,4 @@
-import type { AgentStartPayload, RuntimeEnv, SessionStartPayload } from '@aang/contract'
+import type { AgentStartPayload, RuntimeEnv, SessionStartPayload } from '@catacomb/contract'
 import { z } from 'zod'
 import {
   agentEntity,
@@ -16,8 +16,8 @@ import { instantFromIso } from './line.js'
 import { isRoot, type ThreadStream } from './stream.js'
 import { surfaceOf } from './surface.js'
 
-export const observerThreadSource = 'aang-observer'
-export const observerOriginator = 'aang_observer'
+export const observerThreadSource = 'catacomb-observer'
+export const observerOriginator = 'catacomb_observer'
 const guardianThreadSource = 'guardian_review'
 const interruptedReason = 'interrupted'
 

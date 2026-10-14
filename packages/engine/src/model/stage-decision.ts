@@ -11,8 +11,8 @@ import {
   type RunId,
   type Stage,
   type StageId,
-} from '@aang/contract'
-import type { Transaction } from '@aang/store'
+} from '@catacomb/contract'
+import type { Transaction } from '@catacomb/store'
 import { applyChangeSet, type AppliedChangeSet, type ModelChangeDraft } from './journal.js'
 
 const basis: Basis = { kind: 'interpreted', interpreter: { kind: 'rule', rule: 'stage-decision' } }

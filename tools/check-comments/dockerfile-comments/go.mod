@@ -1,4 +1,4 @@
-module github.com/realkarych/aang/tools/check-comments/dockerfile-comments
+module github.com/realkarych/catacomb/tools/check-comments/dockerfile-comments
 
 go 1.27
 

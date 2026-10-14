@@ -10,7 +10,7 @@ import {
   type ViewRuleId,
   type ViewRuleSource,
   type ViewRuleSpec,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { decodeJson, encodeJson } from './codec.js'
 import { prepareStatement, upsertInto, type WriteContext } from './context.js'
 

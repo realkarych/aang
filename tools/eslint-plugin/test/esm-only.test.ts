@@ -8,7 +8,7 @@ interface EsmCase {
   readonly errors: readonly (readonly [line: number, message: string])[]
 }
 
-const ruleId = 'aang/esm-only'
+const ruleId = 'catacomb/esm-only'
 const remedy = 'the project is ESM-only, load modules with import and import()'
 const moduleImport = (source: string): string => `package code may not import '${source}'; ${remedy}`
 const commonJsGlobal = (name: string): string => `package code may not use the CommonJS global ${name}; ${remedy}`
@@ -44,10 +44,10 @@ const violations: readonly EsmCase[] = [
     name: 'the CommonJS globals require and module may not be used, aliased or not',
     path: 'packages/store/src/legacy.ts',
     code: [
-      "require('@aang/contract')",
+      "require('@catacomb/contract')",
       'const load = require',
       "load.resolve('./index.js')",
-      "module.require('@aang/contract')",
+      "module.require('@catacomb/contract')",
     ],
     errors: [
       [1, commonJsGlobal('require')],
@@ -58,7 +58,7 @@ const violations: readonly EsmCase[] = [
   {
     name: 'import = require() may not be used',
     path: 'packages/hook/src/legacy.ts',
-    code: ["import contract = require('@aang/contract')", '', 'export { contract }'],
+    code: ["import contract = require('@catacomb/contract')", '', 'export { contract }'],
     errors: [[1, `package code may not use import = require(); ${remedy}`]],
   },
   {
@@ -84,7 +84,7 @@ const violations: readonly EsmCase[] = [
   {
     name: 'CommonJS .cjs files may not be package code',
     path: 'packages/cli/src/legacy.cjs',
-    code: ["const contract = require('@aang/contract')", '', 'module.exports = contract'],
+    code: ["const contract = require('@catacomb/contract')", '', 'module.exports = contract'],
     errors: [
       [1, 'package code may not be a CommonJS .cjs file; the project is ESM-only'],
       [1, commonJsGlobal('require')],
@@ -111,7 +111,7 @@ const allowed: readonly EsmCase[] = [
     path: 'packages/engine/src/plain.ts',
     code: [
       "import { join } from 'node:path'",
-      "import '@aang/contract'",
+      "import '@catacomb/contract'",
       "export * from './index.js'",
       "export const lazy = (): Promise<unknown> => import('node:fs')",
       'export const computed = (specifier: string): Promise<unknown> => import(specifier)',

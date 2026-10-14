@@ -52,7 +52,7 @@ const repositoryLayout = (
     ...Object.fromEntries(
       [...packageDirectories].map((directory) => [
         `packages/${directory}/package.json`,
-        JSON.stringify({ name: `@aang/${directory}`, private: true, type: 'module' }),
+        JSON.stringify({ name: `@catacomb/${directory}`, private: true, type: 'module' }),
       ]),
     ),
     ...sources,

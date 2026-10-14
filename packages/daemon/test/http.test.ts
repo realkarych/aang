@@ -2,8 +2,8 @@ import { request } from 'node:http'
 import { mkdir, readdir, rm, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomBytes } from 'node:crypto'
-import { readSpoolState } from '@aang/contract/home'
-import { BindAddressError, DaemonAlreadyRunningError, runDaemon } from '@aang/daemon'
+import { readSpoolState } from '@catacomb/contract/home'
+import { BindAddressError, DaemonAlreadyRunningError, runDaemon } from '@catacomb/daemon'
 import { describe, test } from 'vitest'
 import { bearer, createHome, type Home, repositoryMatrix, startDaemon, testVersion } from './daemon.js'
 
@@ -21,7 +21,7 @@ const rawGet = (base: string, path: string, headers: Record<string, string>): Pr
 const createWebDirectory = async (home: Home): Promise<string> => {
   const web = join(home.root, 'web')
   await mkdir(join(web, 'assets'), { recursive: true })
-  await writeFile(join(web, 'index.html'), '<!doctype html><title>aang</title>')
+  await writeFile(join(web, 'index.html'), '<!doctype html><title>catacomb</title>')
   await writeFile(join(web, 'assets', 'app.js'), 'export const app = 1\n')
   await writeFile(join(home.root, 'secret.txt'), 'outside the web directory')
   return web
@@ -50,13 +50,13 @@ describe.concurrent('the daemon serves the UI and the API only to holders of the
 
     const anonymous = await fetch(`${base}/`)
     expect(anonymous.status).toBe(401)
-    expect(await anonymous.text()).toContain('aang open')
+    expect(await anonymous.text()).toContain('catacomb open')
 
     const index = await fetch(`${base}/`, { headers: auth })
     expect(index.status).toBe(200)
     expect(index.headers.get('content-type')).toBe('text/html; charset=utf-8')
     expect(index.headers.get('x-content-type-options')).toBe('nosniff')
-    expect(await index.text()).toBe('<!doctype html><title>aang</title>')
+    expect(await index.text()).toBe('<!doctype html><title>catacomb</title>')
 
     const script = await fetch(`${base}/assets/app.js`, { headers: auth })
     expect(script.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
@@ -95,7 +95,7 @@ describe.concurrent('the daemon serves the UI and the API only to holders of the
     const signIn = await fetch(`${base}/auth/${code}`, { redirect: 'manual' })
     expect(signIn.status).toBe(200)
     expect(signIn.headers.get('set-cookie')).toBe(
-      `aang_token=${home.token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=34560000`,
+      `catacomb_token=${home.token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=34560000`,
     )
     expect(signIn.headers.get('referrer-policy')).toBe('no-referrer')
     expect(await readdir(home.paths.authCodes)).toEqual([])
@@ -104,9 +104,9 @@ describe.concurrent('the daemon serves the UI and the API only to holders of the
     expect((await fetch(`${base}/auth/${stale}`)).status).toBe(401)
     expect((await fetch(`${base}/auth/not-a-code`)).status).toBe(401)
 
-    const cookie = `aang_token=${home.token}`
+    const cookie = `catacomb_token=${home.token}`
     expect((await fetch(`${base}/api/x`, { headers: { cookie: `theme=dark; ${cookie}` } })).status).toBe(404)
-    expect((await fetch(`${base}/api/x`, { headers: { cookie: 'aang_token=forged' } })).status).toBe(401)
+    expect((await fetch(`${base}/api/x`, { headers: { cookie: 'catacomb_token=forged' } })).status).toBe(401)
   })
 
   test('without a UI token file nothing is authorized and no cookie is issued', async ({ expect, onTestFinished }) => {
@@ -183,7 +183,7 @@ describe.concurrent('the daemon serves the UI and the API only to holders of the
       await expect(
         runDaemon({
           version: testVersion,
-          environment: { env: { AANG_HOME: home.paths.home }, homedir: home.root },
+          environment: { env: { CATACOMB_HOME: home.paths.home }, homedir: home.root },
           bind,
           staticRoot: null,
           supportMatrix: repositoryMatrix,
@@ -192,7 +192,7 @@ describe.concurrent('the daemon serves the UI and the API only to holders of the
           onReady: () => undefined,
         }),
       ).rejects.toThrow(BindAddressError)
-      expect(await readdir(home.paths.home)).not.toContain('aang.lock')
+      expect(await readdir(home.paths.home)).not.toContain('catacomb.lock')
     },
   )
 })

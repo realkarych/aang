@@ -13,11 +13,11 @@ import {
   spoolFormat,
   type StreamKey,
   spoolLayout,
-} from '@aang/contract'
-import { claudeAdapter } from '@aang/adapter-claude'
-import { runId } from '@aang/contract/ids'
-import { openStore, type Store } from '@aang/store'
-import { invokeHook } from '@aang/testkit'
+} from '@catacomb/contract'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { runId } from '@catacomb/contract/ids'
+import { openStore, type Store } from '@catacomb/store'
+import { invokeHook } from '@catacomb/testkit'
 import type { TestContext } from 'vitest'
 import { bearer, createHome, type Home, missingCli, spawnDaemon } from './daemon.js'
 
@@ -31,7 +31,7 @@ export const permissionsRestrict = process.platform !== 'win32' && process.getui
 export const samples = new URL('../../../docs/research/samples/', import.meta.url)
 
 export const hookBinary = fileURLToPath(
-  new URL(`../../hook/bin/aang-hook${process.platform === 'win32' ? '.exe' : ''}`, import.meta.url),
+  new URL(`../../hook/bin/catacomb-hook${process.platform === 'win32' ? '.exe' : ''}`, import.meta.url),
 )
 
 export const sample = (path: string): string => readFileSync(new URL(path, samples), 'utf8')
@@ -202,7 +202,7 @@ export const daysAgo = (days: number): Date => new Date(Date.now() - days * 86_4
 
 export const stored = <T>(home: Home, read: (database: DatabaseSync) => T, fallback: T): T => {
   try {
-    const database = new DatabaseSync(join(home.paths.home, 'aang.db'), { readOnly: true })
+    const database = new DatabaseSync(join(home.paths.home, 'catacomb.db'), { readOnly: true })
     try {
       return read(database)
     } finally {

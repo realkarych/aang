@@ -12,7 +12,7 @@ if (home === undefined || project === undefined || session === undefined || comm
 }
 
 const storedRecords = (): number => {
-  const database = new DatabaseSync(join(home, 'aang.db'), { readOnly: true })
+  const database = new DatabaseSync(join(home, 'catacomb.db'), { readOnly: true })
   try {
     return (database.prepare('SELECT count(*) AS records FROM raw_records').get() as { records: number }).records
   } finally {
@@ -33,8 +33,8 @@ Object.defineProperty(childProcess, 'execFile', {
 })
 syncBuiltinESMExports()
 
-const { createEngine } = await import('@aang/engine')
-const { openStore } = await import('@aang/store')
+const { createEngine } = await import('@catacomb/engine')
+const { openStore } = await import('@catacomb/store')
 const { hookBatch } = await import('./batches.ts')
 const { testContract, verifiedCheck } = await import('./check-hooks.ts')
 const { adapters } = await import('./harness.ts')

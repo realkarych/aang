@@ -1,4 +1,4 @@
-import type { FactDraft, JsonValue, PlanItemStatus } from '@aang/contract'
+import type { FactDraft, JsonValue, PlanItemStatus } from '@catacomb/contract'
 import { z } from 'zod'
 import { actionEntity, type CallTiming, fact, type LineContext, type LineFacts, runtimeIds, threadEntity } from './facts.js'
 

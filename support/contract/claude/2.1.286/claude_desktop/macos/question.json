@@ -227,7 +227,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "3b52a7199856bfcb091215c51bbb363ee60df6f4c7f6be24062af8455df0d360",
+      "redelivery_key": "def41625554258882843d0ab9407711db60fca62b0da10ed2c5729ab96e5d237",
       "payload": {}
     },
     {
@@ -264,7 +264,7 @@
       "redelivery_key": null,
       "payload": {
         "operation": "enqueue",
-        "content": "[aang:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool."
+        "content": "[catacomb:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool."
       }
     },
     {
@@ -338,7 +338,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.",
+        "text": "[catacomb:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.",
         "origin": "human",
         "origin_raw": "sdk"
       }
@@ -551,7 +551,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "call": "toolu_aang_question_0_0"
+        "call": "toolu_catacomb_question_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -565,7 +565,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_question_0_0",
+        "call_id": "toolu_catacomb_question_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -576,7 +576,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "c06076ea17b6886bb2ad2a801c9230e0a20bea461d18b6871b3b761e0181ca51",
+      "redelivery_key": "96bb0a04db22d8d6b4a7829848aec684b0216bf26efecfefe365017e17da30d7",
       "payload": {
         "tool": "AskUserQuestion",
         "action_kind": "question",
@@ -610,7 +610,7 @@
         "kind": "question",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "question": "toolu_aang_question_0_0"
+        "question": "toolu_catacomb_question_0_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -624,7 +624,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_question_0_0",
+        "call_id": "toolu_catacomb_question_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -635,7 +635,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "c06076ea17b6886bb2ad2a801c9230e0a20bea461d18b6871b3b761e0181ca51",
+      "redelivery_key": "96bb0a04db22d8d6b4a7829848aec684b0216bf26efecfefe365017e17da30d7",
       "payload": {
         "source": "ask_user_question",
         "blocking": true,
@@ -762,7 +762,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "call": "toolu_aang_question_0_0"
+        "call": "toolu_catacomb_question_0_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -775,8 +775,8 @@
         "prompt_id": null,
         "record_uuid": "2f143108-70da-4b36-951d-b5891040c3bf",
         "parent_uuid": "726a5b9f-fb77-408f-b56e-dac3c79edb3e",
-        "message_id": "msg_aang_1",
-        "call_id": "toolu_aang_question_0_0",
+        "message_id": "msg_catacomb_1",
+        "call_id": "toolu_catacomb_question_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -821,7 +821,7 @@
         "kind": "question",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "question": "toolu_aang_question_0_0"
+        "question": "toolu_catacomb_question_0_0"
       },
       "speaker": "solver",
       "urgent": true,
@@ -834,8 +834,8 @@
         "prompt_id": null,
         "record_uuid": "2f143108-70da-4b36-951d-b5891040c3bf",
         "parent_uuid": "726a5b9f-fb77-408f-b56e-dac3c79edb3e",
-        "message_id": "msg_aang_1",
-        "call_id": "toolu_aang_question_0_0",
+        "message_id": "msg_catacomb_1",
+        "call_id": "toolu_catacomb_question_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -869,7 +869,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -882,7 +882,7 @@
         "prompt_id": null,
         "record_uuid": "2f143108-70da-4b36-951d-b5891040c3bf",
         "parent_uuid": "726a5b9f-fb77-408f-b56e-dac3c79edb3e",
-        "message_id": "msg_aang_1",
+        "message_id": "msg_catacomb_1",
         "call_id": null,
         "ordinal": null
       },
@@ -915,7 +915,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "call": "toolu_aang_question_0_0"
+        "call": "toolu_catacomb_question_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -929,7 +929,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_question_0_0",
+        "call_id": "toolu_catacomb_question_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -940,7 +940,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "861986d3836cd8102beefceafba6e22a9d74ecd90de72c62a252082854a3d2ee",
+      "redelivery_key": "c410f9b185ed0821221f8ce5717313220d4e2adaddb2dc23df68b281b8ca4455",
       "payload": {
         "outcome": "ok",
         "output": null,
@@ -978,7 +978,7 @@
         "kind": "question",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "question": "toolu_aang_question_0_0"
+        "question": "toolu_catacomb_question_0_0"
       },
       "speaker": "human",
       "urgent": false,
@@ -992,7 +992,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_question_0_0",
+        "call_id": "toolu_catacomb_question_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1003,7 +1003,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "861986d3836cd8102beefceafba6e22a9d74ecd90de72c62a252082854a3d2ee",
+      "redelivery_key": "c410f9b185ed0821221f8ce5717313220d4e2adaddb2dc23df68b281b8ca4455",
       "payload": {
         "outcome": "answered",
         "answers": [
@@ -1045,11 +1045,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "9688fe126145f912ed5a5232ba50bbe6e81b702f4629ead96c0f5e810dd03fb6",
+      "redelivery_key": "5b6edce3311fb36529bc234fabf0d57509603287726a1125dbd27dfabdb1c2a5",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_question_0_0",
+            "call_id": "toolu_catacomb_question_0_0",
             "tool": "AskUserQuestion",
             "response": "Your questions have been answered: \"Which greeting should I use?\"=\"Hello\". You can now continue with these answers in mind."
           }
@@ -1112,7 +1112,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "call": "toolu_aang_question_1_0"
+        "call": "toolu_catacomb_question_1_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1126,7 +1126,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_question_1_0",
+        "call_id": "toolu_catacomb_question_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1137,7 +1137,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "60c276af0e94dedec03fdabe6b9144b155b091a902188c54d5c9d9b2f7f9df12",
+      "redelivery_key": "3573ce16fe5c9b23d7b45da61f468f5a0cfbea5a145e9fe590dde86e0d7e254f",
       "payload": {
         "tool": "Write",
         "action_kind": "file_write",
@@ -1246,7 +1246,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "call": "toolu_aang_question_0_0"
+        "call": "toolu_catacomb_question_0_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1260,7 +1260,7 @@
         "record_uuid": "0265863f-662c-41bf-ad92-70edf4965756",
         "parent_uuid": "2f143108-70da-4b36-951d-b5891040c3bf",
         "message_id": null,
-        "call_id": "toolu_aang_question_0_0",
+        "call_id": "toolu_catacomb_question_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1309,7 +1309,7 @@
         "kind": "question",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "question": "toolu_aang_question_0_0"
+        "question": "toolu_catacomb_question_0_0"
       },
       "speaker": "human",
       "urgent": false,
@@ -1323,7 +1323,7 @@
         "record_uuid": "0265863f-662c-41bf-ad92-70edf4965756",
         "parent_uuid": "2f143108-70da-4b36-951d-b5891040c3bf",
         "message_id": null,
-        "call_id": "toolu_aang_question_0_0",
+        "call_id": "toolu_catacomb_question_0_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1352,7 +1352,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "call": "toolu_aang_question_1_0"
+        "call": "toolu_catacomb_question_1_0"
       },
       "speaker": "solver",
       "urgent": false,
@@ -1365,8 +1365,8 @@
         "prompt_id": null,
         "record_uuid": "9ae8dd2d-d215-4eac-ae9e-eb57f886b93d",
         "parent_uuid": "35acf8a8-4180-42db-bfce-065fc05140c6",
-        "message_id": "msg_aang_2",
-        "call_id": "toolu_aang_question_1_0",
+        "message_id": "msg_catacomb_2",
+        "call_id": "toolu_catacomb_question_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1396,7 +1396,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1409,7 +1409,7 @@
         "prompt_id": null,
         "record_uuid": "9ae8dd2d-d215-4eac-ae9e-eb57f886b93d",
         "parent_uuid": "35acf8a8-4180-42db-bfce-065fc05140c6",
-        "message_id": "msg_aang_2",
+        "message_id": "msg_catacomb_2",
         "call_id": null,
         "ordinal": null
       },
@@ -1442,7 +1442,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "call": "toolu_aang_question_1_0"
+        "call": "toolu_catacomb_question_1_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1456,7 +1456,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "toolu_aang_question_1_0",
+        "call_id": "toolu_catacomb_question_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1467,7 +1467,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "4c0047735ffc1f568a75cc14d36622ea0e0e427c3838ba8469770a4f647a0760",
+      "redelivery_key": "94001107e0ca4178073ece4732dbd8ee13817952825ad8e3834d2a0dbd444fb5",
       "payload": {
         "outcome": "ok",
         "output": "Hello\n",
@@ -1515,11 +1515,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "e9c3195d42a07b92b50a4a28b793c1f65627ceec240200edf1778b91557a36ec",
+      "redelivery_key": "4f22d444c1e1742f06e5db9d60a026097b85b56e3ca4879f78916cd50ec64d12",
       "payload": {
         "calls": [
           {
-            "call_id": "toolu_aang_question_1_0",
+            "call_id": "toolu_catacomb_question_1_0",
             "tool": "Write",
             "response": "File created successfully at: /fixture/project/greeting.txt (file state is current in your context — no need to Read it back)"
           }
@@ -1657,7 +1657,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "call": "toolu_aang_question_1_0"
+        "call": "toolu_catacomb_question_1_0"
       },
       "speaker": "tool",
       "urgent": false,
@@ -1671,7 +1671,7 @@
         "record_uuid": "993a4600-2810-4b14-a771-57936753c034",
         "parent_uuid": "9ae8dd2d-d215-4eac-ae9e-eb57f886b93d",
         "message_id": null,
-        "call_id": "toolu_aang_question_1_0",
+        "call_id": "toolu_catacomb_question_1_0",
         "ordinal": null
       },
       "runtime_env": {
@@ -1719,7 +1719,7 @@
         "prompt_id": null,
         "record_uuid": "d1039471-b409-4bd0-9557-ab711f94e52e",
         "parent_uuid": "79c57b84-33d1-4d3d-963d-eab7ffa8fce6",
-        "message_id": "msg_aang_3",
+        "message_id": "msg_catacomb_3",
         "call_id": null,
         "ordinal": null
       },
@@ -1746,7 +1746,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "usage": "msg_aang_3"
+        "usage": "msg_catacomb_3"
       },
       "speaker": "runtime",
       "urgent": false,
@@ -1759,7 +1759,7 @@
         "prompt_id": null,
         "record_uuid": "d1039471-b409-4bd0-9557-ab711f94e52e",
         "parent_uuid": "79c57b84-33d1-4d3d-963d-eab7ffa8fce6",
-        "message_id": "msg_aang_3",
+        "message_id": "msg_catacomb_3",
         "call_id": null,
         "ordinal": null
       },
@@ -1925,7 +1925,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "call": "toolu_aang_question_0_0"
+        "call": "toolu_catacomb_question_0_0"
       },
       "session": "#37",
       "agent": "#39",
@@ -1958,7 +1958,7 @@
         "kind": "action",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "call": "toolu_aang_question_1_0"
+        "call": "toolu_catacomb_question_1_0"
       },
       "session": "#37",
       "agent": "#39",
@@ -2036,7 +2036,7 @@
         "kind": "question",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "question": "toolu_aang_question_0_0"
+        "question": "toolu_catacomb_question_0_0"
       },
       "session": "#37",
       "agent": "#39",
@@ -2072,7 +2072,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "usage": "msg_aang_1"
+        "usage": "msg_catacomb_1"
       },
       "session": "#37",
       "agent": "#39",
@@ -2096,7 +2096,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "usage": "msg_aang_2"
+        "usage": "msg_catacomb_2"
       },
       "session": "#37",
       "agent": "#39",
@@ -2120,7 +2120,7 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "5e6ca3b5-32c9-4aa1-8373-ee59c77347d0",
-        "usage": "msg_aang_3"
+        "usage": "msg_catacomb_3"
       },
       "session": "#37",
       "agent": "#39",
@@ -2176,7 +2176,7 @@
         "runtime": "claude",
         "root_session": "#37",
         "goal": {
-          "text": "[aang:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.",
+          "text": "[catacomb:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.",
           "fact": "#6"
         },
         "brief": null,
@@ -2242,7 +2242,7 @@
             "runtime": "claude",
             "root_session": "#37",
             "goal": {
-              "text": "[aang:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.",
+              "text": "[catacomb:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.",
               "fact": "#6"
             },
             "brief": null,

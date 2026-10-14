@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { Worker } from 'node:worker_threads'
-import { ObserverOutput } from '@aang/contract'
+import { ObserverOutput } from '@catacomb/contract'
 import { events, json, LaunchError, observerProtocol, requireSuccess, type BackendOptions } from './backend.js'
 import { claudeArguments, initPlugins, parseClaudeResult, type ClaudeBackendOptions } from './claude.js'
 import { codexArguments, codexCatalog } from './codex.js'
@@ -80,7 +80,7 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
       const registryMarkers = await registry.take()
       parseClaudeResult(result, options, observerProtocol, { anyBuiltinPlugin: true, hooks: positive })
       plugins = initPlugins(result.stdout)
-      reject(registryMarkers.size !== 1 || !registryMarkers.has('aang-observer'), 'Claude registry marker was not observed or was incorrect')
+      reject(registryMarkers.size !== 1 || !registryMarkers.has('catacomb-observer'), 'Claude registry marker was not observed or was incorrect')
       reject(existsSync(marker) !== positive, positive ? 'Claude control hook did not execute' : 'Claude hooks executed with settings disabled')
       reject(existsSync(toolMarker), 'Claude executed the synthetic tool instruction')
       reject(globSync(`**/${sessionId}.jsonl`, { cwd: join(root, 'projects') }).length > 0, 'Claude wrote a transcript')
@@ -114,12 +114,12 @@ export const admitCodex = async (context: ProbeContext, options: BackendOptions)
   const server = await startResponsesProbe()
   args.splice(args.length - 1, 0,
     '--dangerously-bypass-hook-trust',
-    '-c', 'model_provider="aang_admission"',
-    '-c', 'model_providers.aang_admission.name="Admission"',
-    '-c', `model_providers.aang_admission.base_url=${JSON.stringify(server.baseUrl)}`,
-    '-c', 'model_providers.aang_admission.wire_api="responses"',
-    '-c', 'model_providers.aang_admission.requires_openai_auth=false',
-    '-c', 'model_providers.aang_admission.supports_websockets=false',
+    '-c', 'model_provider="catacomb_admission"',
+    '-c', 'model_providers.catacomb_admission.name="Admission"',
+    '-c', `model_providers.catacomb_admission.base_url=${JSON.stringify(server.baseUrl)}`,
+    '-c', 'model_providers.catacomb_admission.wire_api="responses"',
+    '-c', 'model_providers.catacomb_admission.requires_openai_auth=false',
+    '-c', 'model_providers.catacomb_admission.supports_websockets=false',
   )
   try {
     for (const [index, positive] of [true, false].entries()) {

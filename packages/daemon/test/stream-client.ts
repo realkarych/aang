@@ -1,5 +1,5 @@
-import { SseEvent, streamPath } from '@aang/contract'
-import type { FeedEvent, FeedSegment } from '@aang/testkit'
+import { SseEvent, streamPath } from '@catacomb/contract'
+import type { FeedEvent, FeedSegment } from '@catacomb/testkit'
 import { bearer } from './daemon.js'
 
 export interface StreamRequest {

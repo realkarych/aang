@@ -7,23 +7,23 @@ Date: 2026-10-02. Branch: `feat/d8-windows-ci-check`.
 
 The verification runs in GitHub Actions per the owner's decision of 2026-10-02 (ADR-0013, decisions 3–5): real `claude` and `codex` are installed on a `windows-latest` runner and pointed at local fake model endpoints. There are no secrets, real authorization is not used.
 
-**Versions and environment** (runs of the `Runtime check` workflow on the branch: [1](https://github.com/realkarych/aang/actions/runs/37005795334), [2](https://github.com/realkarych/aang/actions/runs/37006364193), [3](https://github.com/realkarych/aang/actions/runs/37008157609), [4](https://github.com/realkarych/aang/actions/runs/37009527541) and PR run [5](https://github.com/realkarych/aang/actions/runs/37012137462) after rebasing onto `master` with the B.2 and C.4 adapters; the tables below are from runs 2–5, run 1 produced only the D.1 benchmark):
+**Versions and environment** (runs of the `Runtime check` workflow on the branch: [1](https://github.com/realkarych/catacomb/actions/runs/37005795334), [2](https://github.com/realkarych/catacomb/actions/runs/37006364193), [3](https://github.com/realkarych/catacomb/actions/runs/37008157609), [4](https://github.com/realkarych/catacomb/actions/runs/37009527541) and PR run [5](https://github.com/realkarych/catacomb/actions/runs/37012137462) after rebasing onto `master` with the B.2 and C.4 adapters; the tables below are from runs 2–5, run 1 produced only the D.1 benchmark):
 
 - Windows 10.0.26100 x64 (`windows-latest` runner), AMD EPYC 7763 or 9V74, Defender real-time protection disabled (`RealTimeProtectionEnabled: False`);
 - Claude Code 2.1.286: the native installer (`install.ps1 2.1.286`) and npm `@anthropic-ai/claude-code@2.1.286`;
 - Codex CLI 0.159.3: npm `@openai/codex@0.159.3` — the `bin/codex.js` wrapper and the native `codex.exe` from `@openai/codex-win32-x64`;
-- Node 26.10.0, `aang-hook.exe` from this branch, Git for Windows 2.55, PowerShell 7 (`pwsh`) and Windows PowerShell 5.1;
+- Node 26.10.0, `catacomb-hook.exe` from this branch, Git for Windows 2.55, PowerShell 7 (`pwsh`) and Windows PowerShell 5.1;
 - control — the same run on `ubuntu-latest`. This is not D.5: D.5 checks macOS and Linux locally.
 
 **Method.** The `tools/runtime-check` tool (`node tools/runtime-check/dist/main.js --out <dir>`), the `.github/workflows/runtime-check.yml` workflow. The tool's report is `report.json` in the run artifact.
 
-- The model is stubs inside the tool process: the Messages API for Claude (`ANTHROPIC_BASE_URL`, a stub key in `ANTHROPIC_API_KEY`) and the Responses API for Codex (provider `aang_stub` without authorization, as in the spike). The stubs respond by script: N tool calls, then text. Claude calls `Read`, Codex calls `apply_patch`, so that the tool itself spawns no processes.
-- The profile is a directory `…\Users\Όνομα Επώνυμο` with a space and Greek letters. Inside are `.claude`, `.codex`, `.aang` (a copy of `aang-hook.exe` and a spool with a lease) and the project `έργο με κενά`. `HOME` and `USERPROFILE` point to this directory, `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are set explicitly. No Windows user account with this name was created. These runs used a Cyrillic profile name; the tools now use the Greek name shown here, which keeps the path non-ASCII and outside Latin-1.
-- Claude hooks — the aang plugin in exec form on all events except `Worktree*`, `MessageDisplay` and `PreModelSwitch`, `timeout: 2`. The plugin is installed via a local marketplace (`claude plugin marketplace add`, `claude plugin install`), as D.2 will do. The probes are attached as a separate plugin via `--plugin-dir`.
+- The model is stubs inside the tool process: the Messages API for Claude (`ANTHROPIC_BASE_URL`, a stub key in `ANTHROPIC_API_KEY`) and the Responses API for Codex (provider `catacomb_stub` without authorization, as in the spike). The stubs respond by script: N tool calls, then text. Claude calls `Read`, Codex calls `apply_patch`, so that the tool itself spawns no processes.
+- The profile is a directory `…\Users\Όνομα Επώνυμο` with a space and Greek letters. Inside are `.claude`, `.codex`, `.catacomb` (a copy of `catacomb-hook.exe` and a spool with a lease) and the project `έργο με κενά`. `HOME` and `USERPROFILE` point to this directory, `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are set explicitly. No Windows user account with this name was created. These runs used a Cyrillic profile name; the tools now use the Greek name shown here, which keeps the path non-ASCII and outside Latin-1.
+- Claude hooks — the catacomb plugin in exec form on all events except `Worktree*`, `MessageDisplay` and `PreModelSwitch`, `timeout: 2`. The plugin is installed via a local marketplace (`claude plugin marketplace add`, `claude plugin install`), as D.2 will do. The probes are attached as a separate plugin via `--plugin-dir`.
 - Codex hooks — `hooks.json` in a temporary `CODEX_HOME`; trust — via the test-only `--dangerously-bypass-hook-trust`.
 - The probe is a Node script instead of the handler. It records argv, stdin size and the chain of parent processes: name and command line from `Win32_Process`.
-- Latency is measured in two ways. The first is a series of `aang-hook` launches through the same launcher the runtime uses: the probe parent's command line is reproduced with the probe command replaced by the aang command. The second is series of real CLI sessions with and without aang hooks.
-- The aang collector and adapters (`@aang/collector`, `@aang/adapter-claude`, `@aang/adapter-codex`) are run over the files written by the real CLIs.
+- Latency is measured in two ways. The first is a series of `catacomb-hook` launches through the same launcher the runtime uses: the probe parent's command line is reproduced with the probe command replaced by the catacomb command. The second is series of real CLI sessions with and without catacomb hooks.
+- The catacomb collector and adapters (`@catacomb/collector`, `@catacomb/adapter-claude`, `@catacomb/adapter-codex`) are run over the files written by the real CLIs.
 - The process tree is checked by the harness `tools/runtime-check/assets/job-run.ps1` following the D.9 launcher scheme: a Job Object with `KILL_ON_JOB_CLOSE` without the right to break away from the job, starting the CLI suspended, assigning it to the job, resuming. Process starts across the system during the same time are recorded by `Win32_ProcessStartTrace`.
 
 **Notation:** **Obs(CI)** — observed in a CI run; **Doc** — from binary strings or documentation.
@@ -38,12 +38,12 @@ The verification runs in GitHub Actions per the owner's decision of 2026-10-02 (
 
 ## 1. Key findings
 
-1. **Claude: exec form works.** `claude.exe` launches `aang-hook.exe` directly; a path with a space and Greek letters and the arguments arrive undistorted. The plugin is installed via a local marketplace and enabled.
-2. **Codex executes the hook command only via PowerShell** (`pwsh.exe -NoProfile -Command`). The working string is `& '<path>\aang-hook.exe' 'codex' 'user' '<spool>'`; plain quoted strings do not launch. Codex hooks have no shell-less form.
+1. **Claude: exec form works.** `claude.exe` launches `catacomb-hook.exe` directly; a path with a space and Greek letters and the arguments arrive undistorted. The plugin is installed via a local marketplace and enabled.
+2. **Codex executes the hook command only via PowerShell** (`pwsh.exe -NoProfile -Command`). The working string is `& '<path>\catacomb-hook.exe' 'codex' 'user' '<spool>'`; plain quoted strings do not launch. Codex hooks have no shell-less form.
 3. **Latency above the 10 ms budget on Windows** (escalated to the owner; decisions of 2026-10-06 are in section 2):
-   - direct launch of `aang-hook.exe` — p95 18–24 ms, almost all of it process creation;
+   - direct launch of `catacomb-hook.exe` — p95 18–24 ms, almost all of it process creation;
    - Claude series overhead — 23–29 ms per event;
-   - Codex hook — 0.25–0.4 s per event, a Codex session with aang hooks is 7–19 times longer.
+   - Codex hook — 0.25–0.4 s per event, a Codex session with catacomb hooks is 7–19 times longer.
 
    On Linux everything is within budget.
 4. **A hook failure does not block the runtime.** A Codex timeout terminates the hook process with its descendants. `exit 2` through `pwsh` turns into 1 and does not block Codex.
@@ -53,7 +53,7 @@ The verification runs in GitHub Actions per the owner's decision of 2026-10-02 (
    - JSONL is written with `\n`;
    - Claude takes its root from `USERPROFILE`, Codex from the OS account profile;
    - fs watch works, there are no exclusive locks;
-   - the aang collector and adapters parse Windows files without `invalid`.
+   - the catacomb collector and adapters parse Windows files without `invalid`.
 6. **Executables.** The npm shims `claude.cmd` and `codex.cmd` do not launch without a shell (`EINVAL`). The real files and the Codex wrapper have been found (section 8).
 7. **Observer admission on Windows passes** with the ADR-0013 environment extended with `PATHEXT`: without it Codex does not run hooks, and the positive branch of admission fails.
 8. **A Job Object following the D.9 scheme works with both CLIs.** All descendants stay in the job, stopping is confirmed. Codex leaves live `git` processes after it exits.
@@ -62,21 +62,21 @@ The verification runs in GitHub Actions per the owner's decision of 2026-10-02 (
 
 Per ADR-0013, exceeding the hook budget is escalated to the owner. D.8 found no blocking runtime behavior and no CLI processes outside the job.
 
-1. **Codex hooks on Windows — 0.25–0.4 s per event.** Codex starts PowerShell for every event, and this cannot be worked around by configuration: Codex 0.159 hooks have no shell-less form. A session with 20 tool calls with aang hooks takes 12–14 s instead of 0.8–1.7 s.
+1. **Codex hooks on Windows — 0.25–0.4 s per event.** Codex starts PowerShell for every event, and this cannot be worked around by configuration: Codex 0.159 hooks have no shell-less form. A session with 20 tool calls with catacomb hooks takes 12–14 s instead of 0.8–1.7 s.
 
    Options:
-   - a) install Codex hooks on Windows as on other OSes and show the cost in `aang install` and `status`;
+   - a) install Codex hooks on Windows as on other OSes and show the cost in `catacomb install` and `status`;
    - b) do not install Codex hooks on Windows by default. Codex sessions then run in "files only" mode ("approval waits are not visible", ADR-0004), and hooks are enabled explicitly;
    - c) wait for a shell-less launch form from OpenAI. Until then Codex on Windows works per option a or b.
 
    Without a decision, D.3 is not enabled on Windows.
-2. **Direct launch of `aang-hook.exe` on Windows — p95 18–24 ms** (D.1 benchmark — 40–100 ms), Claude series overhead — 23–29 ms per event. Almost all the time is Windows process creation; without writing to the spool p95 is only 1–3 ms lower, so speeding up the binary itself will not change the value. A budget decision for Windows is needed (decision on PR #11): accept the measured value as the Windows budget or look for another hook transport.
+2. **Direct launch of `catacomb-hook.exe` on Windows — p95 18–24 ms** (D.1 benchmark — 40–100 ms), Claude series overhead — 23–29 ms per event. Almost all the time is Windows process creation; without writing to the spool p95 is only 1–3 ms lower, so speeding up the binary itself will not change the value. A budget decision for Windows is needed (decision on PR #11): accept the measured value as the Windows budget or look for another hook transport.
 3. **The observer environment list on Windows** is extended with `PATHEXT`, otherwise the positive branch of Codex admission fails. This is a refinement of ADR-0013 following D.8; it does not affect the working profile: hooks are disabled there.
 
 **Owner decisions 2026-10-06** (ADR-0013, decisions 6 and 7):
 
-- on item 2 — the `aang-hook.exe` budget for Claude on Windows is p95 up to 25 ms per event. On macOS and Linux the budget is still 10 ms;
-- on item 1 — option "b": `aang install` on Windows does not install Codex hooks by default, and Codex sessions run in "files only" mode (ADR-0004), approval waits are not visible. The explicit flag `aang install --codex` installs the hooks, and `aang install` and `aang status` warn about a 0.25–0.4 s per-event slowdown.
+- on item 2 — the `catacomb-hook.exe` budget for Claude on Windows is p95 up to 25 ms per event. On macOS and Linux the budget is still 10 ms;
+- on item 1 — option "b": `catacomb install` on Windows does not install Codex hooks by default, and Codex sessions run in "files only" mode (ADR-0004), approval waits are not visible. The explicit flag `catacomb install --codex` installs the hooks, and `catacomb install` and `catacomb status` warn about a 0.25–0.4 s per-event slowdown.
 
 Per these decisions, hook installation on Windows is enabled (D.3, section 14).
 
@@ -84,9 +84,9 @@ Per these decisions, hook installation on Windows is enabled (D.3, section 14).
 
 ### Claude
 
-- **Exec form works** (Obs(CI)). The aang plugin with `command` — the absolute path of `aang-hook.exe` — and `args` `["claude", "plugin", "<spool>"]` is installed via a local marketplace and enabled (`claude plugin list`: `enabled`). `claude.exe` launches `aang-hook.exe` directly, without a shell. The binary path and the spool path with a space and Greek letters arrive undistorted: files appear in `spool\new` with the correct header.
+- **Exec form works** (Obs(CI)). The catacomb plugin with `command` — the absolute path of `catacomb-hook.exe` — and `args` `["claude", "plugin", "<spool>"]` is installed via a local marketplace and enabled (`claude plugin list`: `enabled`). `claude.exe` launches `catacomb-hook.exe` directly, without a shell. The binary path and the spool path with a space and Greek letters arrive undistorted: files appear in `spool\new` with the correct header.
 - In a session with two `Read` calls, 10 events were delivered: `SessionStart`, `UserPromptSubmit`, two each of `PreToolUse`, `PostToolUse`, `PostToolBatch`, then `Stop`, `SessionEnd` — as on macOS and Linux.
-- `CLAUDE_PLUGIN_ROOT` points to the plugin directory in the local marketplace (`<AANG_HOME>\claude-plugin\aang`); there is no copy in the plugin cache.
+- `CLAUDE_PLUGIN_ROOT` points to the plugin directory in the local marketplace (`<CATACOMB_HOME>\claude-plugin\catacomb`); there is no copy in the plugin cache.
 - **Without exec form** (`command` as a string without `args`) Claude runs the command via Git Bash: `claude.exe` → `C:\Program Files\Git\bin\bash.exe -c "<command>"` → `Git\usr\bin\bash.exe -c "<command>"` → the command process. A string with Windows paths in double quotes works in this case. The cost is two extra processes per event (section 4).
 
 ### Codex
@@ -96,12 +96,12 @@ Per these decisions, hook installation on Windows is enabled (D.3, section 14).
 
   | Form | Example | Windows | Linux |
   | --- | --- | --- | --- |
-  | double quotes | `"C:\…\aang-hook.exe" "codex" "user" "C:\…\spool"` | does not launch: PowerShell sees a string expression | works |
-  | double quotes, forward slashes | `"C:/…/aang-hook.exe" …` | does not launch | works |
-  | `&` operator, single quotes | `& 'C:\…\aang-hook.exe' 'codex' 'user' 'C:\…\spool'` | **works** | does not launch |
-  | `&` operator, double quotes | `& "C:\…\aang-hook.exe" "codex" "user" "C:\…\spool"` | **works** | does not launch |
-  | single quotes | `'C:\…\aang-hook.exe' 'codex' …` | does not launch | works |
-  | no quotes | `C:\…\aang-hook.exe codex user C:\…\spool` | does not launch: the path with a space splits apart | does not launch |
+  | double quotes | `"C:\…\catacomb-hook.exe" "codex" "user" "C:\…\spool"` | does not launch: PowerShell sees a string expression | works |
+  | double quotes, forward slashes | `"C:/…/catacomb-hook.exe" …` | does not launch | works |
+  | `&` operator, single quotes | `& 'C:\…\catacomb-hook.exe' 'codex' 'user' 'C:\…\spool'` | **works** | does not launch |
+  | `&` operator, double quotes | `& "C:\…\catacomb-hook.exe" "codex" "user" "C:\…\spool"` | **works** | does not launch |
+  | single quotes | `'C:\…\catacomb-hook.exe' 'codex' …` | does not launch | works |
+  | no quotes | `C:\…\catacomb-hook.exe codex user C:\…\spool` | does not launch: the path with a space splits apart | does not launch |
 
   For installation, `& '<path>' 'codex' 'user' '<spool>'` should be used: inside single quotes PowerShell does not expand `$` or the backtick; only the single quote itself needs escaping (by doubling).
 - **Codex hooks have no shell-less form** (Doc, binary strings of 0.160.0): `HookHandlerConfig::Command` has the fields `command`, `commandWindows`, `timeout`, `async`, `statusMessage`; there is no arguments field. `commandWindows` is a separate string for Windows; it also goes through PowerShell.
@@ -115,7 +115,7 @@ Claude without exec form goes through `sh -c`. For Codex the probe's parent is `
 
 The ADR-0013 budget is p95 ≤ 10 ms per event on the runtime side. Launch series — 500 after 20 warm-up runs, stdin — `PreToolUse.Bash.json`, environment — from the spike plugin envelope, as in the D.1 benchmark. Defender on the runner is disabled (`RealTimeProtectionEnabled: False`), so on a user's machine with protection enabled the values are probably higher.
 
-**`aang-hook` launch latency** (ms, p50 / p95 / max). The launcher is reproduced from the probe parents' commands, except Codex on Linux: there only the binary with Codex arguments was measured, without the cost of the shell.
+**`catacomb-hook` launch latency** (ms, p50 / p95 / max). The launcher is reproduced from the probe parents' commands, except Codex on Linux: there only the binary with Codex arguments was measured, without the cost of the shell.
 
 | Launch method | Windows, run 2 | Windows, run 3 | Windows, run 4 | Windows, run 5 | Linux, run 4 |
 | --- | --- | --- | --- | --- | --- |
@@ -136,7 +136,7 @@ All 500 launches in each series exited with `exit 0` without output. With a vali
 | `ubuntu-latest`, run 1 | 4.13 | 6.65 | 13.12 |
 | `ubuntu-latest`, run 2 | 4.29 | 6.93 | 11.59 |
 
-**Series overhead in the real CLI.** A session with 20 tool calls; five pairs of runs with and without aang hooks, medians (ms):
+**Series overhead in the real CLI.** A session with 20 tool calls; five pairs of runs with and without catacomb hooks, medians (ms):
 
 | CLI | OS, run | with hooks | without hooks | events per session | overhead per event |
 | --- | --- | --- | --- | --- | --- |
@@ -154,8 +154,8 @@ All 500 launches in each series exited with `exit 0` without output. With a vali
 Conclusions:
 
 - On Linux all methods fit the budget: p95 of direct launch 2.4–3.3 ms, D.1 benchmark — 6.7–6.9 ms, series overhead — 3–7 ms per event.
-- On Windows a direct launch of `aang-hook.exe` takes 14–24 ms (p95 18–24 ms), and almost all of it is process creation: without writing to the spool p95 is only 1–3 ms lower. The D.1 benchmark gives p95 from 40 to 100 ms due to a long tail. This is above the 10 ms budget.
-- A Codex hook on Windows costs 0.25–0.4 s per event due to starting PowerShell, with rare outliers up to seconds. Launching via Git Bash also gives a long tail (p95 up to 0.5 s in run 5), so exec form is mandatory for Claude. A Codex session with 20 `apply_patch` calls with aang hooks runs 7–19 times longer.
+- On Windows a direct launch of `catacomb-hook.exe` takes 14–24 ms (p95 18–24 ms), and almost all of it is process creation: without writing to the spool p95 is only 1–3 ms lower. The D.1 benchmark gives p95 from 40 to 100 ms due to a long tail. This is above the 10 ms budget.
+- A Codex hook on Windows costs 0.25–0.4 s per event due to starting PowerShell, with rare outliers up to seconds. Launching via Git Bash also gives a long tail (p95 up to 0.5 s in run 5), so exec form is mandatory for Claude. A Codex session with 20 `apply_patch` calls with catacomb hooks runs 7–19 times longer.
 - Hooks do not block the runtime: not a single timeout and not a single error in the series.
 
 ## 5. Codex: hook timeout and non-zero exit code
@@ -173,27 +173,27 @@ The hook is a probe that exits with a given code or sleeps 20 s with `timeout: 2
 Conclusions:
 
 - A hook failure or hang does not block Codex: on timeout it terminates the hook process together with its descendant and keeps working.
-- For aang, which always exits with code 0, the difference in handling `exit 2` on Windows does not matter.
+- For catacomb, which always exits with code 0, the difference in handling `exit 2` on Windows does not matter.
 
 ## 6. File paths and formats
 
 - **Paths in hook payloads** (Obs(CI)) are native Windows paths with `\` and Greek letters, undistorted: `cwd` — `D:\…\Users\Όνομα Επώνυμο\έργο με κενά`, `transcript_path` — an existing file.
   - Claude: `<CLAUDE_CONFIG_DIR>\projects\<project dir>\<sessionId>.jsonl`.
   - Codex: `<CODEX_HOME>\sessions\YYYY\MM\DD\rollout-<time>-<thread_id>.jsonl`.
-- **Claude project directory.** Every character of `cwd` other than Latin letters and digits is replaced with `-`: the drive colon, `\`, `_`, space and Greek letters. Example: `D:\a\_temp\aang check 1790943995155\Users\Όνομα Επώνυμο\έργο με κενά` → `D--a--temp-aang-check-1790943995155-Users---------------------------`. The rule is the same as on macOS. `cwd` cannot be recovered from the name; the adapter does not do that anyway (ADR-0013).
+- **Claude project directory.** Every character of `cwd` other than Latin letters and digits is replaced with `-`: the drive colon, `\`, `_`, space and Greek letters. Example: `D:\a\_temp\catacomb check 1790943995155\Users\Όνομα Επώνυμο\έργο με κενά` → `D--a--temp-catacomb-check-1790943995155-Users---------------------------`. The rule is the same as on macOS. `cwd` cannot be recovered from the name; the adapter does not do that anyway (ADR-0013).
 - **Line endings.** Both Claude transcripts and Codex rollouts on Windows are written with `\n`, without `\r\n` (0 of 80 and 0 of 25 lines). Parsing of `\r\n` in the collector remains in case files are edited by other means.
 - **Default roots** (without `CLAUDE_CONFIG_DIR` and `CODEX_HOME`; `HOME` and `USERPROFILE` point to different temporary directories):
   - Claude writes the transcript and `.claude.json` to `%USERPROFILE%\.claude`, ignoring `HOME`;
   - Codex ignores both `HOME` and `USERPROFILE` and writes the rollout to the OS account profile (`C:\Users\runneradmin\.codex`).
 
   For a user both coincide with `%USERPROFILE%`, as in ADR-0013. Tests and tools that substitute the profile must set `CODEX_HOME` explicitly; the temporary HOME from T.1 does exactly that.
-- The registry `<CLAUDE_CONFIG_DIR>\sessions\<pid>.json` exists during a session: an entry with `entrypoint: aang-observer` is visible for the observer. After the process exits, the entry is deleted.
+- The registry `<CLAUDE_CONFIG_DIR>\sessions\<pid>.json` exists during a session: an entry with `entrypoint: catacomb-observer` is visible for the observer. After the process exits, the entry is deleted.
 
 ## 7. File watching, locks, collector and adapters
 
-During Claude and Codex sessions with aang hooks, the following ran concurrently (Obs(CI)):
+During Claude and Codex sessions with catacomb hooks, the following ran concurrently (Obs(CI)):
 
-- the aang collector (`createCollector`, `fsWatch: true`) on `<CLAUDE_CONFIG_DIR>`, `<CODEX_HOME>` and the spool;
+- the catacomb collector (`createCollector`, `fsWatch: true`) on `<CLAUDE_CONFIG_DIR>`, `<CODEX_HOME>` and the spool;
 - separate `fs.watch` with `recursive: true` on `projects`, `sessions` and `spool\new`;
 - reading all `*.jsonl` every 50 ms.
 
@@ -233,20 +233,20 @@ Run 4: native installer and npm installation of Claude, npm installation of Code
 
 ## 9. Observer admission
 
-The observer profiles from the spike (section 12) and ADR-0007 were launched from Node without a shell, with the real executable and the cleaned ADR-0013 environment: `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `APPDATA`, `LOCALAPPDATA`, `SystemRoot`, `TEMP`, `TMP`, `USERNAME`, the system `PATH` from the registry, and markers. For the stubs, `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` and `CLAUDE_CONFIG_DIR` were added for Claude, and `CODEX_HOME` with the `aang_stub` provider in `-c` for Codex. The working directory is `os.tmpdir()\aang-observer\empty`; on the runner this is `C:\Users\RUNNER~1\AppData\Local\Temp\…`, with no `CLAUDE.md` or `AGENTS.md` in its ancestors. Results are the same in runs 2–5 (Obs(CI)).
+The observer profiles from the spike (section 12) and ADR-0007 were launched from Node without a shell, with the real executable and the cleaned ADR-0013 environment: `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `APPDATA`, `LOCALAPPDATA`, `SystemRoot`, `TEMP`, `TMP`, `USERNAME`, the system `PATH` from the registry, and markers. For the stubs, `ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY` and `CLAUDE_CONFIG_DIR` were added for Claude, and `CODEX_HOME` with the `catacomb_stub` provider in `-c` for Codex. The working directory is `os.tmpdir()\catacomb-observer\empty`; on the runner this is `C:\Users\RUNNER~1\AppData\Local\Temp\…`, with no `CLAUDE.md` or `AGENTS.md` in its ancestors. Results are the same in runs 2–5 (Obs(CI)).
 
-**Claude** — the ADR-0007 automatic admission conditions were checked, including a rerun after review [6](https://github.com/realkarych/aang/actions/runs/37020675641) on commit `ac668df`:
+**Claude** — the ADR-0007 automatic admission conditions were checked, including a rerun after review [6](https://github.com/realkarych/catacomb/actions/runs/37020675641) on commit `ac668df`:
 
 - exit 0, `is_error: false`, `structured_output: {"ok": true}`;
 - in `init` — `tools: ["StructuredOutput"]`, no MCP servers, only built-in plugins (`cc-plugin-agents-md`, `cc-plugin-plugin-authoring`), no skills; the model was given a single tool, `StructuredOutput`;
-- the transcript was not written; the registry entry carries `entrypoint: aang-observer`;
+- the transcript was not written; the registry entry carries `entrypoint: catacomb-observer`;
 - a control hook in the project `.claude/settings.json`: with `--setting-sources project` the marker appears, with `--setting-sources ""` it does not;
 - in run 6 the Messages API first sends a `Write` call in a temporary directory, then `StructuredOutput`. With `Write` allowed, the marker appears; in the observer profile the CLI returns `No such tool available: Write` with `is_error: true`, no marker. Both sessions end with exit 0. This is confirmed on both Windows and Linux; the check is not limited to the tool list in `init`.
 
 **Codex** — isolation is achieved, admission requires `PATHEXT`:
 
 - the model catalog from `codex debug models --bundled`: 11 models, `gpt-6.1-sol` selected;
-- exit 0, `turn.completed`, `last.json` — `{"ok":true}`; `originator: aang_observer`;
+- exit 0, `turn.completed`, `last.json` — `{"ok":true}`; `originator: catacomb_observer`;
 - no `body.tools`, `input[additional_tools].tools` is empty; trial calls to `exec`, `spawn_agent` and `request_user_input` got `unsupported`, stderr has `codex_core::tools::router: error=unsupported`;
 - after `--ephemeral` there is no rollout; in run 6, before cleaning `CODEX_HOME`, the SQLite databases were also checked: `state_5.sqlite.threads` has 0 rows, `thread_history_1.sqlite` is absent. The result is the same on Windows and Linux and saved in `cleanEnv.sqlite`. If the history database exists, the harness checks all its data tables; the service table `_sqlx_migrations` is excluded. A read error or any session row fails admission;
 - a control hook in `hooks.json` of the temporary `CODEX_HOME` with the test-only `--dangerously-bypass-hook-trust`:
@@ -283,9 +283,9 @@ The job's process count (`TotalProcesses`) is matched against the tree reconstru
 
 ### 10.1. Investigation of the counter mismatch in PR #26
 
-After rebasing, [run 37032768918](https://github.com/realkarych/aang/actions/runs/37032768918) failed the reconciliation twice. In the second attempt `codex.exe` gave 49 processes in the job and 48 in the trace tree: among the descendants there were seven `aang-hook.exe` instead of eight. In the first attempt the Codex wrapper had the same shortfall, 47/46. The old report saved only name histograms, so the PIDs of the missing processes cannot be recovered. For the Claude observer profile in the first attempt the Job contained 23 distinct PIDs and the trace 22 processes; the only histogram difference was a process with the unknown name `?`, which the harness managed to see in the job. This is evidence of an incomplete trace, not of a CLI process outside the job.
+After rebasing, [run 37032768918](https://github.com/realkarych/catacomb/actions/runs/37032768918) failed the reconciliation twice. In the second attempt `codex.exe` gave 49 processes in the job and 48 in the trace tree: among the descendants there were seven `catacomb-hook.exe` instead of eight. In the first attempt the Codex wrapper had the same shortfall, 47/46. The old report saved only name histograms, so the PIDs of the missing processes cannot be recovered. For the Claude observer profile in the first attempt the Job contained 23 distinct PIDs and the trace 22 processes; the only histogram difference was a process with the unknown name `?`, which the harness managed to see in the job. This is evidence of an incomplete trace, not of a CLI process outside the job.
 
-For the investigation, the report was extended with the raw events with PID, PPID, name, `TIME_CREATED` and receive time, as well as the list of PIDs observed in the Job. [Two full diagnostic runs](https://github.com/realkarych/aang/actions/runs/37036482283) and [a series of 12 repetitions](https://github.com/realkarych/aang/actions/runs/37039785212) passed. In [the next series](https://github.com/realkarych/aang/actions/runs/37041962910), repetition 12, `codex npm wrapper session`, it was possible to save the same tree right after the job was stopped, after the original 1.5 s and after 10 s:
+For the investigation, the report was extended with the raw events with PID, PPID, name, `TIME_CREATED` and receive time, as well as the list of PIDs observed in the Job. [Two full diagnostic runs](https://github.com/realkarych/catacomb/actions/runs/37036482283) and [a series of 12 repetitions](https://github.com/realkarych/catacomb/actions/runs/37039785212) passed. In [the next series](https://github.com/realkarych/catacomb/actions/runs/37041962910), repetition 12, `codex npm wrapper session`, it was possible to save the same tree right after the job was stopped, after the original 1.5 s and after 10 s:
 
 | Snapshot after job stop | Total WMI events | CLI processes in trace | `TotalProcesses` | Active after `TerminateJobObject` |
 | --- | --- | --- | --- | --- |
@@ -293,7 +293,7 @@ For the investigation, the report was extended with the raw events with PID, PPI
 | 1,569 ms | 48 | 46 | 47 | 0 |
 | 10,010 ms | 51 | 47 | 47 | 0 |
 
-**The event not yet delivered at reconciliation time is `aang-hook.exe`, PID 6116.** Its parent chain: `node.exe` 9856 → `codex.exe` 2276 → `pwsh.exe` 2548 → `aang-hook.exe` 6116. `TIME_CREATED` and the event receive time matched: `134354372149021854`. In the late snapshot there were eight hooks, and the tree matched the Job. The two other late events are the unrelated `wsl.exe` 7288 and 8236 from the runner service `provjobd`; they are not part of the CLI tree. There is no PID reuse in this trace. The short-lived hook did not make it into the periodically sampled `Seen` list, but was counted in `TotalProcesses`.
+**The event not yet delivered at reconciliation time is `catacomb-hook.exe`, PID 6116.** Its parent chain: `node.exe` 9856 → `codex.exe` 2276 → `pwsh.exe` 2548 → `catacomb-hook.exe` 6116. `TIME_CREATED` and the event receive time matched: `134354372149021854`. In the late snapshot there were eight hooks, and the tree matched the Job. The two other late events are the unrelated `wsl.exe` 7288 and 8236 from the runner service `provjobd`; they are not part of the CLI tree. There is no PID reuse in this trace. The short-lived hook did not make it into the periodically sampled `Seen` list, but was counted in `TotalProcesses`.
 
 Thus the proven cause of the reproduced failure is reading the asynchronous WMI trace prematurely after a fixed 1.5 s wait. The Job scheme terminated all processes, while the start event of one of them had not yet been delivered to the observer. This result explains the 47/46 mismatch; for the earlier attempts the exact PID and the distinction between a delayed and a lost event cannot be established from the saved histograms.
 
@@ -317,7 +317,7 @@ The regression test uses [the raw events of repetition 12](../../tools/runtime-c
 
 ## 13. Verification after the review of PR #26
 
-[Run 6](https://github.com/realkarych/aang/actions/runs/37020675641), commit `ac668df`: both OSes passed the new explicit success conditions. A `checks` object with the statuses `passed`, `failed`, `skipped` and reasons was added to `report.json`; a mandatory check that did not pass yields a final exit 1. Skipping the Codex working form does not count as success. Negative probes of command syntax and hook codes are counted separately: on Linux a wrong form may block the test patch with code 2, even though the session and delivery via the working form succeed.
+[Run 6](https://github.com/realkarych/catacomb/actions/runs/37020675641), commit `ac668df`: both OSes passed the new explicit success conditions. A `checks` object with the statuses `passed`, `failed`, `skipped` and reasons was added to `report.json`; a mandatory check that did not pass yields a final exit 1. Skipping the Codex working form does not count as success. Negative probes of command syntax and hook codes are counted separately: on Linux a wrong form may block the test patch with code 2, even though the session and delivery via the working form succeed.
 
 Checked are event delivery and session success, completeness of file reading by the collector, hook facts, both branches of the control markers, the attempt of the forbidden `Write`, the Codex SQLite and the confirmed Job Object stop. In run 6 all five Job Object roots exited with code 0, there are no active processes after the jobs were terminated; the number of processes in the job matched the trace: 90, 49, 47, 23 and 1. Exceeding the latency budget remains a finding for the owner from section 2.
 
@@ -327,15 +327,15 @@ The false-success regression is checked by a separate integration test: external
 
 The ban on installation on Windows was lifted in D.3 per the owner's decisions of 2026-10-06 (section 2).
 
-- **Claude.** `aang install` installs the plugin in exec form, as on macOS and Linux.
+- **Claude.** `catacomb install` installs the plugin in exec form, as on macOS and Linux.
 - **Codex.**
-  - Without flags, `aang install` on Windows does not install Codex hooks and prints that Codex sessions are visible only through files. `aang install --codex` writes the command `& '<path>\aang-hook.exe' 'codex' 'user' '<spool>'` (section 3).
+  - Without flags, `catacomb install` on Windows does not install Codex hooks and prints that Codex sessions are visible only through files. `catacomb install --codex` writes the command `& '<path>\catacomb-hook.exe' 'codex' 'user' '<spool>'` (section 3).
   - Neutralized entries get the command `exit 0`: `true` is not a command in PowerShell.
-- **`codex app-server` via the launcher.** Trust and hook state are checked by aang's own `codex app-server`, and on Windows any CLI is launched via the launcher `aang-hook launch` with a Job Object (ADR-0013, D.9). The launcher mode with input from the first n bytes does not suit the app-server.
+- **`codex app-server` via the launcher.** Trust and hook state are checked by catacomb's own `codex app-server`, and on Windows any CLI is launched via the launcher `catacomb-hook launch` with a Job Object (ADR-0013, D.9). The launcher mode with input from the first n bytes does not suit the app-server.
   - Codex 0.160.0 (Obs, macOS), given the same three messages (`initialize`, `initialized`, `hooks/list`) in one batch, answers `hooks/list` only while the input is open. If the input is closed right after the batch, the app-server answers `initialize` and exits without answering `hooks/list`, with code 0.
   - Therefore the launcher got a `stream` mode: the launcher's stdin is passed to the CLI input as it arrives, and closing the launcher's stdin remains the stop command. The mode is not part of the 2026-10-06 decisions; it was accepted by the owner on 2026-10-07 (ADR-0013, technical decision 4).
   - A hung or lost launcher does not hold up the check: the deadline for stop confirmation is 10 s from the stop command, after which the check fails, and the next check of the same profile does not launch the CLI until confirmation (ADR-0013).
-  - Integration tests check the mode on Windows. The daemon contract test checks installation and hook state with the real `codex` from CI (`AANG_ISOLATION_CODEX`) on three OSes.
+  - Integration tests check the mode on Windows. The daemon contract test checks installation and hook state with the real `codex` from CI (`CATACOMB_ISOLATION_CODEX`) on three OSes.
 - **CLI on Windows.**
   - The daemon finds the real Codex executable for the state check the same way as for Claude: `codex.exe` or `node` with the npm package script (ADR-0013).
-  - `aang install --codex` runs `cli.codex` from the config or `codex` as is, while the launcher needs an absolute path to the executable. For an npm installation of Codex on Windows, `cli.codex` must point to the real `codex.exe` (section 8).
+  - `catacomb install --codex` runs `cli.codex` from the config or `codex` as is, while the launcher needs an absolute path to the executable. For an npm installation of Codex on Windows, `cli.codex` must point to the real `codex.exe` (section 8).

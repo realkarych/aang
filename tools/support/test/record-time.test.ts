@@ -1,5 +1,5 @@
 import { join, resolve } from 'node:path'
-import { type LoadedManifest, loadManifest, playbackShift, shifted } from '@aang/testkit'
+import { type LoadedManifest, loadManifest, playbackShift, shifted } from '@catacomb/testkit'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { type Played, playRecording, type RecordedTimes, readRecordingManifest, recordedTimes, removeRoots, takeSnapshot } from '../dist/index.js'
 import { hookBinary } from './fixtures.js'

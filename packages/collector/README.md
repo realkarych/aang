@@ -24,7 +24,7 @@ The processes of Claude registry files (`<claude>/sessions/<pid>.json`, ADR-0004
 
 ## Rereading and prune boundaries
 
-`rescan(streams, lookbackDays)` rereads the files of the listed streams from the beginning. With a lookback only files changed within it are reread: this is how `aang watch` rereads previously dropped streams (ADR-0004). Without a lookback all files of the streams are reread, as when a lagging file is reread on request from `engine`. Repeated requests for the same stream before processing are merged: a request without a lookback takes precedence, otherwise the larger lookback is used.
+`rescan(streams, lookbackDays)` rereads the files of the listed streams from the beginning. With a lookback only files changed within it are reread: this is how `catacomb watch` rereads previously dropped streams (ADR-0004). Without a lookback all files of the streams are reread, as when a lagging file is reread on request from `engine`. Repeated requests for the same stream before processing are merged: a request without a lookback takes precedence, otherwise the larger lookback is used.
 
 `CollectorService.backfill(lookbackDays)` on the next scan of the roots reads from the beginning files without a cursor that were changed within the given lookback. These are the files the general `lookback` missed. The general lookback itself does not change: old files that appeared later are not read.
 

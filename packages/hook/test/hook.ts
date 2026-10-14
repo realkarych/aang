@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { promisify } from 'node:util'
-import { type RegistrationTag, type Runtime, SpoolHeader, spoolEnvKeys, spoolFormat, spoolLayout } from '@aang/contract'
+import { type RegistrationTag, type Runtime, SpoolHeader, spoolEnvKeys, spoolFormat, spoolLayout } from '@catacomb/contract'
 import { inject, type TestContext } from 'vitest'
 
 export type HookBinary = 'plain' | 'covered'
@@ -70,7 +70,7 @@ export const typicalEnv: Readonly<Record<string, string>> = Object.fromEntries(
   Object.entries(pluginEnvelope.env).filter(([name]) => (spoolEnvKeys as readonly string[]).includes(name)),
 )
 
-const controlledEnvNames: readonly string[] = [...spoolEnvKeys, 'AANG_OBSERVER', 'GOCOVERDIR']
+const controlledEnvNames: readonly string[] = [...spoolEnvKeys, 'CATACOMB_OBSERVER', 'GOCOVERDIR']
 
 const workerCoverageDirectory = join(inject('hookBinaries').coverageDirectory, process.env.VITEST_POOL_ID ?? 'main')
 
@@ -197,7 +197,7 @@ export const createSpool = async (
   onTestFinished: TestContext['onTestFinished'],
   { location = 'spool', leases = [nowSeconds() + 3600] }: SpoolOptions = {},
 ): Promise<Spool> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-hook-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-hook-')))
   const cleanups: Cleanup[] = []
   onTestFinished(async () => {
     for (const cleanup of cleanups.reverse()) {

@@ -1,6 +1,6 @@
-import { claudeAdapter } from '@aang/adapter-claude'
-import { codexAdapter } from '@aang/adapter-codex'
-import { createCollector, prefixHash } from '@aang/collector'
+import { claudeAdapter } from '@catacomb/adapter-claude'
+import { codexAdapter } from '@catacomb/adapter-codex'
+import { createCollector, prefixHash } from '@catacomb/collector'
 import type {
   Adapter,
   AdapterRegistry,
@@ -21,9 +21,9 @@ import type {
   WatchRequest,
   WatchResponse,
   WatchState,
-} from '@aang/contract'
-import { createEngine } from '@aang/engine'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import { createEngine } from '@catacomb/engine'
+import type { Store } from '@catacomb/store'
 import { AdminError } from './admin-error.js'
 import { loadWatch, rootOf, saveWatch, watchedDirectory, watchedRoots } from './watch.js'
 

@@ -8,9 +8,9 @@ import {
   supportMatrixFormat,
   type SupportRow,
   supportRowOf,
-} from '@aang/contract'
-import { readSupportMatrix } from '@aang/contract/support-file'
-import { type CodexScenario, installFakeCodex } from '@aang/testkit'
+} from '@catacomb/contract'
+import { readSupportMatrix } from '@catacomb/contract/support-file'
+import { type CodexScenario, installFakeCodex } from '@catacomb/testkit'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { matrixOf, matrixPath, readMatrix, readVerification, serializeMatrix, supportGaps } from '../dist/index.js'
 import { hookBinary, hostOs, otherOs, supportCli, temporaryDirectory, thirdOs } from './fixtures.js'
@@ -65,13 +65,13 @@ const directory = (prefix: string): Promise<string> =>
   }, prefix)
 
 const supportWith = async (rows: readonly SupportRow[]): Promise<string> => {
-  const support = await directory('aang-isolation-support-')
+  const support = await directory('catacomb-isolation-support-')
   await writeFile(matrixPath(support), serializeMatrix(matrixOfRows(rows)))
   return support
 }
 
 const fakeCodex = async (scenario: CodexScenario) => {
-  const root = await directory('aang-isolation-codex-')
+  const root = await directory('catacomb-isolation-codex-')
   const fake = installFakeCodex(root, scenario)
   if (process.platform !== 'win32') {
     return { fake, cli: fake.command }
@@ -140,7 +140,7 @@ describe('observer isolation of the installed Codex CLI in the support matrix', 
 
   test('results written on other runners are imported into the rows of their OS', async () => {
     const support = await supportWith([claudeRow, rowWithoutRecordings(codexKey(hostOs), admission('passed'))])
-    const runners = await directory('aang-isolation-runners-')
+    const runners = await directory('catacomb-isolation-runners-')
     const other = join(runners, otherOs, 'matrix.json')
     const third = join(runners, thirdOs, 'matrix.json')
     await mkdir(join(runners, otherOs))
@@ -168,12 +168,12 @@ describe('observer isolation of the installed Codex CLI in the support matrix', 
   })
 })
 
-const installedCodex = process.env['AANG_ISOLATION_CODEX']
+const installedCodex = process.env['CATACOMB_ISOLATION_CODEX']
 
 test.skipIf(installedCodex === undefined)(
   'the installed Codex CLI keeps the observer profile isolated, and support/matrix.json records the result of this OS',
   async () => {
-    const support = await directory('aang-isolation-contract-')
+    const support = await directory('catacomb-isolation-contract-')
     const result = await isolation(support, installedCodex ?? 'codex')
 
     expect(result.code, result.stdout + result.stderr).toBe(0)

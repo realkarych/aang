@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import type { OperatingSystem, Placement, Runtime, Surface } from '@aang/contract'
+import type { OperatingSystem, Placement, Runtime, Surface } from '@catacomb/contract'
 import {
   drivers,
   type Engine,
@@ -10,14 +10,14 @@ import {
   scenarios,
   type SurfaceDriver,
   supportsOs,
-} from '@aang/record'
+} from '@catacomb/record'
 import { accessFailed, type AccessReport, accessNotRun, checkAccess } from './access.js'
-import { type AangCommand, settled, signInLink } from './aang.js'
+import { type CatacombCommand, settled, signInLink } from './catacomb.js'
 import { type LiveRun, startLive } from './live.js'
 import { compare, compareRecords, type DaemonView, type Observation, observeDaemon, readReference, type Reference, referencePath, versionKeyText } from './observe.js'
 import { daemonRecords } from './records.js'
 
-export const surfaceCheckFormat = 'aang-surface-check/1'
+export const surfaceCheckFormat = 'catacomb-surface-check/1'
 
 export type Outcome = 'passed' | 'failed'
 
@@ -54,7 +54,7 @@ export interface SurfaceReport {
 }
 
 export interface KeptDaemon {
-  readonly aang_home: string
+  readonly catacomb_home: string
   readonly home: string
 }
 
@@ -81,7 +81,7 @@ export interface CheckOptions {
   readonly scenarioNames: readonly string[] | 'all'
   readonly emulateDesktop: boolean
   readonly selection: EngineSelection
-  readonly aang: AangCommand
+  readonly catacomb: CatacombCommand
   readonly hookBinary: string
   readonly support: string
   readonly bind: string | null
@@ -181,7 +181,7 @@ const finishScenario = async (live: LiveRun, observed: Observed): Promise<Observ
     return observed
   }
   try {
-    const comparison = compareRecords(daemonRecords(live.profile.aangHome, live.profile.root), observed.reference.records)
+    const comparison = compareRecords(daemonRecords(live.profile.catacombHome, live.profile.root), observed.reference.records)
     return {
       ...observed,
       failures: [...observed.failures, ...prefixed(comparison.failures)],
@@ -210,7 +210,7 @@ const lastAccess = async (live: LiveRun, keep: boolean): Promise<AccessReport> =
   }
   try {
     await live.start()
-    const link = signInLink(await live.aang.ok(['open']))
+    const link = signInLink(await live.catacomb.ok(['open']))
     return await checkAccess(link, link.origin)
   } catch (error) {
     return accessFailed(describe(error))
@@ -281,7 +281,7 @@ export const runCheck = async (options: CheckOptions): Promise<CheckRun> => {
         runtime: key.runtime,
         os: options.os,
         placement: options.placement,
-        aang: options.aang,
+        catacomb: options.catacomb,
         hookBinary: options.hookBinary,
         cli,
         bind: options.bind,
@@ -291,7 +291,7 @@ export const runCheck = async (options: CheckOptions): Promise<CheckRun> => {
       const observed = await finishScenario(live, await observeScenario(options, scenario, engine, live))
       if (last) {
         access = await lastAccess(live, options.keepDaemon)
-        kept = options.keepDaemon ? { aang_home: live.profile.aangHome, home: live.profile.home } : null
+        kept = options.keepDaemon ? { catacomb_home: live.profile.catacombHome, home: live.profile.home } : null
       }
       if (!(last && options.keepDaemon)) {
         await live.remove()

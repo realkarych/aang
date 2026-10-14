@@ -276,7 +276,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "0940915651c59854538c453bb69f89d4c1a8bdfe013a235d64baaad622068805",
+      "redelivery_key": "9d56353afebfea8faf25c37994b76d2331c69a334fef1d3f502edbeb5c574c45",
       "payload": {}
     },
     {
@@ -313,7 +313,7 @@
       "redelivery_key": null,
       "payload": {
         "operation": "enqueue",
-        "content": "[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence."
+        "content": "[catacomb:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence."
       }
     },
     {
@@ -387,7 +387,7 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
+        "text": "[catacomb:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
         "origin": "human",
         "origin_raw": "sdk"
       }
@@ -619,7 +619,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "a5f5ec79753b196e46eacdaab32c6c9af3c8713fb293398fb6b6c07dcd4f487b",
+      "redelivery_key": "e84e46370a3821baeafbfd79b6689b28a0bbddf51f42d667b09b62918e216a39",
       "payload": {
         "outcome": "ok",
         "output": null,
@@ -630,7 +630,7 @@
           "type": "text",
           "file": {
             "filePath": "/fixture/project/notes.txt",
-            "content": "Reference notes for the aang recording.\n",
+            "content": "Reference notes for the catacomb recording.\n",
             "numLines": 2,
             "startLine": 1,
             "totalLines": 2
@@ -988,7 +988,7 @@
       "redelivery_key": null,
       "payload": {
         "outcome": "ok",
-        "output": "1\tReference notes for the aang recording.\n2\t",
+        "output": "1\tReference notes for the catacomb recording.\n2\t",
         "persisted_output_path": null,
         "exit_code": null,
         "duration_ms": null,
@@ -996,7 +996,7 @@
           "type": "text",
           "file": {
             "filePath": "/fixture/project/notes.txt",
-            "content": "Reference notes for the aang recording.\n",
+            "content": "Reference notes for the catacomb recording.\n",
             "numLines": 2,
             "startLine": 1,
             "totalLines": 2
@@ -1361,13 +1361,13 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "0bddc9f56020b2a04756b1c7647e4ddc5fbead68ce647b48fdca3f87236d147e",
+      "redelivery_key": "7dc3dd9cdd54f40daa88de7ba6f4d2e782ddcf68b345d33eb84c7f908088fbbd",
       "payload": {
         "calls": [
           {
             "call_id": "toolu_01AWr6wChPafV2DHjxzhm8NJ",
             "tool": "Read",
-            "response": "1\tReference notes for the aang recording.\n2\t"
+            "response": "1\tReference notes for the catacomb recording.\n2\t"
           },
           {
             "call_id": "toolu_01DDxqnU5Uo1KtuH99bnQZy3",
@@ -2531,7 +2531,7 @@
         "runtime": "claude",
         "root_session": "#43",
         "goal": {
-          "text": "[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
+          "text": "[catacomb:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
           "fact": "#7"
         },
         "brief": null,
@@ -2597,7 +2597,7 @@
             "runtime": "claude",
             "root_session": "#43",
             "goal": {
-              "text": "[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
+              "text": "[catacomb:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
               "fact": "#7"
             },
             "brief": null,

@@ -6,8 +6,8 @@ import type {
   ArtifactVersionResponse,
   EpochNs,
   VersionRetention,
-} from '@aang/contract'
-import type { Store } from '@aang/store'
+} from '@catacomb/contract'
+import type { Store } from '@catacomb/store'
 import { utf8Text } from '../artifacts/text.js'
 import { readGitBytes } from '../ingest/git.js'
 import { contains } from '../ingest/scope.js'

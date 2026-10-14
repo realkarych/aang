@@ -13,7 +13,7 @@ import {
   type SnapshotStage,
   type StageRef,
   TempId,
-} from '@aang/contract'
+} from '@catacomb/contract'
 import { z } from 'zod'
 import { ScenarioError } from '../fake-cli/scenario-error.js'
 

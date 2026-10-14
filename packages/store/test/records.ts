@@ -13,9 +13,9 @@ import {
   type RuntimeIds,
   SessionKey,
   StreamKey,
-} from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import type { GapDraft } from '@aang/store'
+} from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import type { GapDraft } from '@catacomb/store'
 
 export const mainStream = StreamKey.parse('claude:s1:main')
 export const subagentStream = StreamKey.parse('claude:s1:a7')
@@ -53,7 +53,7 @@ export const hookRecord = (file: string): RawRecordDraft =>
     position: { kind: 'spool', file },
     hook: {
       registration: 'plugin',
-      env: { CLAUDE_CODE_SESSION_ID: 's1', CLAUDE_PLUGIN_ROOT: '/home/u/.aang/claude-plugin' },
+      env: { CLAUDE_CODE_SESSION_ID: 's1', CLAUDE_PLUGIN_ROOT: '/home/u/.catacomb/claude-plugin' },
     },
     observed_at: startedAt + 500n,
     source_ts: null,

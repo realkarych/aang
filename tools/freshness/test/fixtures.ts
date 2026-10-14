@@ -4,7 +4,7 @@ import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/p
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { type ClaudeScenario, type CodexScenario, type FakeCli, installFakeClaude, installFakeCodex } from '@aang/testkit'
+import { type ClaudeScenario, type CodexScenario, type FakeCli, installFakeClaude, installFakeCodex } from '@catacomb/testkit'
 
 export interface Outcome {
   readonly code: number | null
@@ -78,7 +78,7 @@ export interface Workspace {
 }
 
 export const createWorkspace = async (): Promise<Workspace> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-freshness-')))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'catacomb-freshness-')))
   const home = join(root, 'user')
   await mkdir(home)
   const fixtures = join(root, 'fixtures')

@@ -4,7 +4,7 @@ import { syncBuiltinESMExports } from 'node:module'
 import { dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { promisify } from 'node:util'
-import { deployHookBinary, hookBinaryName, writeClaudePlugin } from '@aang/hook'
+import { deployHookBinary, hookBinaryName, writeClaudePlugin } from '@catacomb/hook'
 import { inject, test, vi } from 'vitest'
 import { cleanExit, type HookResult, readSpoolEvents, runProcess, typicalEnv } from './hook.js'
 import { createInstallHome, absentProcessId, readJson } from './install.js'
@@ -34,23 +34,23 @@ const execFileAsync = promisify(execFile)
 const hookModule = new URL('../dist/index.js', import.meta.url).href
 
 const deployLoops = `
-const [hookModule, aangHome, rounds, ...sources] = process.argv.slice(1)
+const [hookModule, catacombHome, rounds, ...sources] = process.argv.slice(1)
 const { deployHookBinary } = await import(hookModule)
 const deploy = async (offset) => {
   for (let round = 0; round < Number(rounds); round += 1) {
-    await deployHookBinary({ aangHome, hookBinarySource: sources[(round + offset) % sources.length] })
+    await deployHookBinary({ catacombHome, hookBinarySource: sources[(round + offset) % sources.length] })
   }
 }
 await Promise.all([deploy(0), deploy(1)])
 `
 
-const runDeployer = async (aangHome: string, sources: readonly string[]): Promise<void> => {
+const runDeployer = async (catacombHome: string, sources: readonly string[]): Promise<void> => {
   await execFileAsync(process.execPath, [
     '--input-type=module',
     '-e',
     deployLoops,
     hookModule,
-    aangHome,
+    catacombHome,
     String(deploysPerLoop),
     ...sources,
   ])
@@ -64,7 +64,7 @@ test('updating the binary during continuous hook calls keeps the plugin command 
 }) => {
   const home = await createInstallHome(onTestFinished)
   const prepare = async (source: string): Promise<void> => {
-    const hookBinary = await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: source })
+    const hookBinary = await deployHookBinary({ catacombHome: home.catacombHome, hookBinarySource: source })
     await writeClaudePlugin({ directory: home.paths.claudePlugin, hookBinary, spool: home.paths.spool })
   }
   await prepare(binaries.plain)
@@ -112,12 +112,12 @@ test('updating the binary during continuous hook calls keeps the plugin command 
   expect(launches.filter((launch) => launch.afterUpdate && launch.launched).length).toBeGreaterThan(0)
   expect(await readSpoolEvents(home.paths.spool)).toHaveLength(results.length)
 
-  await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.stripped })
+  await deployHookBinary({ catacombHome: home.catacombHome, hookBinarySource: binaries.stripped })
 
   expect(await readdir(dirname(home.paths.binary))).toEqual([hookBinaryName])
 }, 120_000)
 
-test('concurrent deploys from several processes into one AANG_HOME all succeed and leave only the binary', async ({
+test('concurrent deploys from several processes into one CATACOMB_HOME all succeed and leave only the binary', async ({
   expect,
   onTestFinished,
 }) => {
@@ -126,7 +126,7 @@ test('concurrent deploys from several processes into one AANG_HOME all succeed a
 
   await Promise.all(
     Array.from({ length: deployers }, (_, index) =>
-      runDeployer(home.aangHome, index % 2 === 0 ? sources : sources.toReversed()),
+      runDeployer(home.catacombHome, index % 2 === 0 ? sources : sources.toReversed()),
     ),
   )
 
@@ -150,7 +150,7 @@ test('the next deploy removes copies and the lock left by an interrupted update'
   await writeFile(join(directory, `.${hookBinaryName}.lock`), String(absentProcessId()))
   await writeFile(join(directory, 'notes.txt'), 'kept')
 
-  await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })
+  await deployHookBinary({ catacombHome: home.catacombHome, hookBinarySource: binaries.plain })
 
   expect((await readdir(directory)).sort()).toEqual([hookBinaryName, 'notes.txt'].sort())
   expect((await readFile(home.paths.binary)).equals(await readFile(binaries.plain))).toBe(true)
@@ -185,7 +185,7 @@ test.for(['EPERM', 'EBUSY'])(
     })
     syncBuiltinESMExports()
     try {
-      await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })
+      await deployHookBinary({ catacombHome: home.catacombHome, hookBinarySource: binaries.plain })
     } finally {
       reading.mockRestore()
       syncBuiltinESMExports()
@@ -221,7 +221,7 @@ test('a deploy preserves an unreadable lock and reports its error when the lock 
   })
   syncBuiltinESMExports()
   try {
-    await expect(deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })).rejects.toBe(refusal)
+    await expect(deployHookBinary({ catacombHome: home.catacombHome, hookBinarySource: binaries.plain })).rejects.toBe(refusal)
   } finally {
     reading.mockRestore()
     clock.mockRestore()
@@ -244,7 +244,7 @@ test('concurrent deploys from several processes after an interrupted update take
 
   await Promise.all(
     Array.from({ length: deployers }, (_, index) =>
-      runDeployer(home.aangHome, index % 2 === 0 ? sources : sources.toReversed()),
+      runDeployer(home.catacombHome, index % 2 === 0 ? sources : sources.toReversed()),
     ),
   )
 
@@ -263,7 +263,7 @@ test('a lock takeover interrupted by a crash stops the next deploy and leaves bo
   await writeFile(lock, crashed)
   await writeFile(`${lock}.recovery`, crashed)
 
-  await expect(deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })).rejects.toMatchObject({
+  await expect(deployHookBinary({ catacombHome: home.catacombHome, hookBinarySource: binaries.plain })).rejects.toMatchObject({
     reason: 'install_locked',
     message: expect.stringContaining(`${lock}.recovery`) as unknown,
   })

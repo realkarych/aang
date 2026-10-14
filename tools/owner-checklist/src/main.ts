@@ -2,7 +2,7 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
-import { hookBinaryName } from '@aang/hook'
+import { hookBinaryName } from '@catacomb/hook'
 import { cleanup } from './cleanup.js'
 import { collect } from './collect.js'
 import type { RootOverrides } from './files.js'
@@ -12,12 +12,12 @@ import { ClaudeRegistration } from './state.js'
 
 const usage = [
   'usage: node tools/owner-checklist/dist/main.js <prepare|collect|cleanup> [options]',
-  '  common:  --dir <path>                 checklist directory (default: <os tmpdir>/aang-d7)',
-  '  prepare: --hook <path>                aang-hook to copy (default: packages/hook/bin/aang-hook)',
+  '  common:  --dir <path>                 checklist directory (default: <os tmpdir>/catacomb-d7)',
+  '  prepare: --hook <path>                catacomb-hook to copy (default: packages/hook/bin/catacomb-hook)',
   '           --hours <n>                  spool lease length in hours (default: 24)',
   '           --claude <marketplace|plugin-dir>  (default: marketplace on macOS and Linux, plugin-dir on Windows)',
   '           --claude-command <path>      claude executable for marketplace mode (default: claude)',
-  '           --codex-hooks                append aang entries to $CODEX_HOME/hooks.json (Codex Desktop on macOS)',
+  '           --codex-hooks                append catacomb entries to $CODEX_HOME/hooks.json (Codex Desktop on macOS)',
   '           --codex-home <path>          Codex home (default: $CODEX_HOME or ~/.codex)',
   '  collect: --claude-config-dir <path>   Claude root (default: $CLAUDE_CONFIG_DIR or ~/.claude)',
   '           --codex-home <path>          Codex root (default: $CODEX_HOME or ~/.codex)',

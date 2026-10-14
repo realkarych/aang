@@ -8,12 +8,12 @@ import type {
   Runtime,
   StatusResponse,
   SupportMatrix,
-} from '@aang/contract'
-import { type ConfigEnvironment, loadConfig } from '@aang/contract/config-file'
-import { type AangHomePaths, aangHomePaths, writeDaemonState } from '@aang/contract/home'
-import { readSupportMatrix } from '@aang/contract/support-file'
-import { createReadQueries } from '@aang/engine'
-import { openStore, type Store, StoreLockedError } from '@aang/store'
+} from '@catacomb/contract'
+import { type ConfigEnvironment, loadConfig } from '@catacomb/contract/config-file'
+import { type CatacombHomePaths, catacombHomePaths, writeDaemonState } from '@catacomb/contract/home'
+import { readSupportMatrix } from '@catacomb/contract/support-file'
+import { createReadQueries } from '@catacomb/engine'
+import { openStore, type Store, StoreLockedError } from '@catacomb/store'
 import { createAuthenticator } from './auth.js'
 import { chatRoutes } from './chat.js'
 import { type HookChecks, startHookChecks } from './hooks.js'
@@ -51,7 +51,7 @@ export class DaemonAlreadyRunningError extends Error {
   override readonly name = 'DaemonAlreadyRunningError'
 
   constructor(readonly home: string) {
-    super(`an aang daemon is already running for ${home}`)
+    super(`an catacomb daemon is already running for ${home}`)
   }
 }
 
@@ -78,7 +78,7 @@ const notifying = (store: Store, listeners: ReadonlySet<() => void>): Store => (
 })
 
 const report = (error: unknown): void => {
-  process.stderr.write(`aang daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
+  process.stderr.write(`catacomb daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
 }
 
 const runAll = async (steps: readonly (() => Promise<void>)[]): Promise<void> => {
@@ -126,7 +126,7 @@ interface Session {
   readonly options: DaemonOptions
   readonly config: Config
   readonly runtimeRoots: Readonly<Record<Runtime, string>>
-  readonly paths: AangHomePaths
+  readonly paths: CatacombHomePaths
   readonly listener: Listener
   readonly store: Store
   readonly matrix: SupportMatrix
@@ -162,7 +162,7 @@ const serve = async ({
   const observer = startObserver({
     store,
     config,
-    aangHome: paths.home,
+    catacombHome: paths.home,
     claudeConfigDir: runtimeRoots.claude,
     codexHome: runtimeRoots.codex,
     environment: options.environment.env,
@@ -212,7 +212,7 @@ const serve = async ({
   const startedAt = epochNow()
   const host: SupportHost = { os: hostOs(), placement: config.placement ?? options.placement }
   try {
-    const hooks = startHookChecks({ aangHome: paths.home, config, runtimeRoots })
+    const hooks = startHookChecks({ catacombHome: paths.home, config, runtimeRoots })
     running.hooks = hooks
     const server = await startServer({
       listener,
@@ -322,11 +322,11 @@ const serve = async ({
 }
 
 export const runDaemon = async (options: DaemonOptions): Promise<DaemonStopReason> => {
-  const { aangHome, config, runtimeRoots } = await loadConfig(options.environment)
-  const paths = aangHomePaths(aangHome)
+  const { catacombHome, config, runtimeRoots } = await loadConfig(options.environment)
+  const paths = catacombHomePaths(catacombHome)
   const listener = resolveListener(config.api, options.bind)
   const matrix = await readSupportMatrix(options.supportMatrix)
-  const store = openExclusive(aangHome)
+  const store = openExclusive(catacombHome)
   try {
     return await serve({ options, config, runtimeRoots, paths, listener, store, matrix })
   } finally {

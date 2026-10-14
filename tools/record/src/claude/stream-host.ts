@@ -40,7 +40,7 @@ const pending = new Map<string, { resolve: () => void; reject: (error: Error) =>
 let requests = 0
 const control = (request: Readonly<Record<string, unknown>>): Promise<void> => {
   requests += 1
-  const id = `aang-${String(requests)}`
+  const id = `catacomb-${String(requests)}`
   const answered = new Promise<void>((resolve, reject) => {
     pending.set(id, { resolve, reject })
   })

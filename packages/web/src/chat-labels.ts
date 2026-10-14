@@ -1,4 +1,4 @@
-import type { ArtifactContent, ChatCitation, Fact, FactKind, Speaker, VersionRetention } from '@aang/contract'
+import type { ArtifactContent, ChatCitation, Fact, FactKind, Speaker, VersionRetention } from '@catacomb/contract'
 import { detailOf } from './action-input.js'
 
 export const citationKindLabel: Readonly<Record<ChatCitation['kind'], string>> = {
@@ -70,10 +70,10 @@ export const contentSourceLabel: Readonly<Record<Extract<ArtifactContent, { kind
 
 export const contentMissingLabel: Readonly<Record<Extract<ArtifactContent, { kind: 'unavailable' }>['reason'], string>> =
   {
-    reference_only: 'only the reference is known; aang did not save the content',
+    reference_only: 'only the reference is known; catacomb did not save the content',
     hash_only: 'only the content hash is saved',
     commit_missing: 'this version’s commit is no longer in the repository',
-    blob_missing: 'the content is missing from aang storage',
+    blob_missing: 'the content is missing from catacomb storage',
   }
 
 const joined = (parts: readonly (string | null)[]): string | null => {

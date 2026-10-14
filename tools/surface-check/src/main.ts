@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
-import { type OperatingSystem, Placement, Surface } from '@aang/contract'
+import { type OperatingSystem, Placement, Surface } from '@catacomb/contract'
 import { checkAccess } from './access.js'
-import { aangCommand } from './aang.js'
+import { catacombCommand } from './catacomb.js'
 import { anonymized, type Anonymizer, anonymizer, identity, leaks } from './anonymous.js'
 import { type CheckReport, coreScenarios, dockerDetected, type KeptDaemon, runCheck } from './check.js'
 import { summary } from './summary.js'
@@ -15,7 +15,7 @@ const usage = [
   'Usage:',
   '  node tools/surface-check/dist/main.js run [--placement local|docker|vm|desktop_ssh] [--surfaces <surface,...>] [--require <surface,...>]',
   '    [--scenarios core|all|<name,...>] [--emulate-desktop] [--out <directory>] [--work <directory>] [--support <directory>]',
-  '    [--aang <main.js|command>] [--hook <aang-hook>] [--bind <address>] [--port <port>] [--keep-daemon <file>]',
+  '    [--catacomb <main.js|command>] [--hook <catacomb-hook>] [--bind <address>] [--port <port>] [--keep-daemon <file>]',
   '    [--claude <executable>] [--codex <executable>] [--claude-sdk <package>] [--codex-sdk <package>]',
   '  node tools/surface-check/dist/main.js access --link <sign-in link> [--origin <origin>] [--expect-write <status>] [--out <file>] [--into <report.json>]',
   '  node tools/surface-check/dist/main.js anonymous <directory>...',
@@ -67,7 +67,7 @@ const run = async (args: readonly string[]): Promise<number> => {
       out: { type: 'string', default: 'surface-check-report' },
       work: { type: 'string' },
       support: { type: 'string' },
-      aang: { type: 'string' },
+      catacomb: { type: 'string' },
       hook: { type: 'string' },
       bind: { type: 'string' },
       port: { type: 'string' },
@@ -83,7 +83,7 @@ const run = async (args: readonly string[]): Promise<number> => {
     throw new Error('--placement docker runs inside a container, but /.dockerenv is missing')
   }
   const names = values.scenarios === 'all' ? 'all' : values.scenarios === 'core' ? coreScenarios : list(values.scenarios)
-  const work = resolve(values.work ?? join(tmpdir(), 'aang-surface-check'))
+  const work = resolve(values.work ?? join(tmpdir(), 'catacomb-surface-check'))
   const keptFile = values['keep-daemon'] === undefined ? null : resolve(values['keep-daemon'])
   const { report, kept } = await runCheck({
     os: hostOs(),
@@ -93,13 +93,13 @@ const run = async (args: readonly string[]): Promise<number> => {
     scenarioNames: names,
     emulateDesktop: values['emulate-desktop'],
     selection: {
-      claude: values.claude ?? process.env['AANG_RECORD_CLAUDE'],
-      codex: values.codex ?? process.env['AANG_RECORD_CODEX'],
-      claudeSdk: values['claude-sdk'] ?? process.env['AANG_RECORD_CLAUDE_SDK'],
-      codexSdk: values['codex-sdk'] ?? process.env['AANG_RECORD_CODEX_SDK'],
+      claude: values.claude ?? process.env['CATACOMB_RECORD_CLAUDE'],
+      codex: values.codex ?? process.env['CATACOMB_RECORD_CODEX'],
+      claudeSdk: values['claude-sdk'] ?? process.env['CATACOMB_RECORD_CLAUDE_SDK'],
+      codexSdk: values['codex-sdk'] ?? process.env['CATACOMB_RECORD_CODEX_SDK'],
     },
-    aang: aangCommand(values.aang ?? join(repository, 'packages', 'aang', 'dist', 'main.js')),
-    hookBinary: resolve(values.hook ?? join(repository, 'packages', 'hook', 'bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')),
+    catacomb: catacombCommand(values.catacomb ?? join(repository, 'packages', 'catacomb', 'dist', 'main.js')),
+    hookBinary: resolve(values.hook ?? join(repository, 'packages', 'hook', 'bin', process.platform === 'win32' ? 'catacomb-hook.exe' : 'catacomb-hook')),
     support: resolve(values.support ?? join(repository, 'support')),
     bind: values.bind ?? null,
     port: values.port === undefined ? null : Number(values.port),

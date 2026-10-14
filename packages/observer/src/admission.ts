@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import type { Runtime } from '@aang/contract'
+import type { Runtime } from '@catacomb/contract'
 import { admitClaude, admitCodex, type ProbeContext } from './admission-probes.js'
 import { authenticate, chatProtocol, LaunchError, observerProtocol, requireSuccess, stoppedAll, type AuthResult, type BackendOptions, type CallOutcome, type CallProtocol, type CallResult, type ChatResult, type LaunchErrorClass, type LaunchFailure, type ObserverRequest, type ObserverResult } from './backend.js'
 import { createClaudeLauncher, type ClaudeBackendOptions, type ClaudeBuiltins } from './claude.js'
@@ -66,7 +66,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
   }
   const profile = createHash('sha256').update(JSON.stringify({ revision: 2, runtime, cli: options.cli, model: options.model, effort: options.effort, builtins: options.builtins })).digest('hex')
   const verified = [...(source.verifiedClaudeVersions ?? [])]
-  const statusPath = source.admissionStatusPath ?? join(options.environment.HOME ?? options.environment.USERPROFILE ?? homedir(), '.aang', 'support', `${runtime}-observer.json`)
+  const statusPath = source.admissionStatusPath ?? join(options.environment.HOME ?? options.environment.USERPROFILE ?? homedir(), '.catacomb', 'support', `${runtime}-observer.json`)
   const runner = createProcessRunner(options)
   const makeLauncher = (version?: string, plugins: readonly string[] = []) => runtime === 'claude' ? createClaudeLauncher({ ...options, builtins: admittedBuiltins(options.builtins, plugins) }, version) : createCodexLauncher(options, version)
   let launcher = makeLauncher()

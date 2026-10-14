@@ -6,7 +6,7 @@ Status: accepted by the owner 2026-10-01; the `stat` check of active files (deci
 
 ## Context
 
-RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfaces, showing an explicit input request without an LLM, not blocking the solver when aang fails, bounding queues and recovering without duplicates. The spike (`docs/research/integrations.md`, sections 1–3, 5.1, 5.3) showed:
+RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfaces, showing an explicit input request without an LLM, not blocking the solver when catacomb fails, bounding queues and recovering without duplicates. The spike (`docs/research/integrations.md`, sections 1–3, 5.1, 5.3) showed:
 
 - live events and approval waits come only from hooks; explicit questions are also visible in files;
 - content, links, usage and recovery come from Claude transcripts and Codex rollouts;
@@ -26,10 +26,10 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
 | OTLP/HTTP JSON, `/v1/logs` only | Codex | `codex.tool_decision`, at the user's option |
 | `<claude>/sessions/<pid>.json` | Claude | hint: `status`, `waitingFor`, process liveness (decisions 3 and 13) |
 
-- `<claude>` is `$CLAUDE_CONFIG_DIR` or `~/.claude`, `<codex>` is `$CODEX_HOME` or `~/.codex`; on Windows `~` is `%USERPROFILE%` (ADR-0013). The list of roots is set in the aang config.
+- `<claude>` is `$CLAUDE_CONFIG_DIR` or `~/.claude`, `<codex>` is `$CODEX_HOME` or `~/.codex`; on Windows `~` is `%USERPROFILE%` (ADR-0013). The list of roots is set in the catacomb config.
 - Hook and file records about the same object are merged by object keys (ADR-0006). On disagreement, content comes from files, time is the earliest observed, and human waits come from hooks and the registry.
-- The Codex app-server is not used for sessions not launched by aang:
-  - aang does not connect to the user's shared daemon;
+- The Codex app-server is not used for sessions not launched by catacomb:
+  - catacomb does not connect to the user's shared daemon;
   - does not call `thread/resume` on other threads;
   - does not answer server requests;
   - does not use the app-server as a rollout parser.
@@ -38,14 +38,14 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
   - `initialize` and `hooks/list` create no threads, change no configs or trust, start no MCP and do not touch the user's daemon;
   - at startup, even before `initialize`, the process itself contacts OpenAI services on the user's behalf: remote control, model list, plugin catalog and sync. It writes logs and caches to `CODEX_HOME`, and without remote plugins it leaves `.tmp/git-*` after each short run.
 
-  Therefore the process exits right after the `hooks/list` response, and the check runs only on an event: install and uninstall, `aang status`, `doctor`, daemon start, a change to `hooks.json` or `config.toml`. The daemon keeps the last state and does not start the app-server on every state request or on a timer.
+  Therefore the process exits right after the `hooks/list` response, and the check runs only on an event: install and uninstall, `catacomb status`, `doctor`, daemon start, a change to `hooks.json` or `config.toml`. The daemon keeps the last state and does not start the app-server on every state request or on a timer.
 
   The addendum after the Q.1 finding (PR #160, "Needs attention", item 4: on Windows the daemon's and the installer's app-servers interfered with each other) was approved by the owner 2026-10-08 and refines the rules above:
-  - without the command line of the current aang installation in `hooks.json`, the app-server is not started on any event, and the state is "not installed". This is the default for Codex on Windows (ADR-0013, decision 7);
-  - the daemon's check and the installer hold the same `.aang-lock` lock next to `hooks.json` and do not run concurrently;
+  - without the command line of the current catacomb installation in `hooks.json`, the app-server is not started on any event, and the state is "not installed". This is the default for Codex on Windows (ADR-0013, decision 7);
+  - the daemon's check and the installer hold the same `.catacomb-lock` lock next to `hooks.json` and do not run concurrently;
   - the daemon checks file changes after 2 s without new changes, but no later than 10 s after the first one, and one check covers them all;
-  - the installer writes the result of its control `hooks/list` reconciliation, with a fingerprint of `hooks.json` and `config.toml`, to `<AANG_HOME>/codex-hooks.json`. On a file change the daemon takes the state from there or from its own previous check if the fingerprint matches, and does not start the app-server. Daemon start and `aang status` check afresh;
-  - after a failed check the daemon takes the state neither from its memory nor from the installer's record until a check via `hooks/list` passes again. "Not installed" due to the absence of aang entries in `hooks.json` does not replace it: when the entries come back, even with the same bytes, the check is full again. Every event leads to a full check, and while the stop of the previous app-server's tree is not confirmed, the check fails without starting the CLI, and the state stays `unknown` (ADR-0013).
+  - the installer writes the result of its control `hooks/list` reconciliation, with a fingerprint of `hooks.json` and `config.toml`, to `<CATACOMB_HOME>/codex-hooks.json`. On a file change the daemon takes the state from there or from its own previous check if the fingerprint matches, and does not start the app-server. Daemon start and `catacomb status` check afresh;
+  - after a failed check the daemon takes the state neither from its memory nor from the installer's record until a check via `hooks/list` passes again. "Not installed" due to the absence of catacomb entries in `hooks.json` does not replace it: when the entries come back, even with the same bytes, the check is full again. Every event leads to a full check, and while the stop of the previous app-server's tree is not confirmed, the check fails without starting the CLI, and the state stays `unknown` (ADR-0013).
 - Not used in the MVP:
   - Codex internal sqlite (`state_5`, `thread_history_1`) and `thread-writer-locks`;
   - `claude agents --json` — the wait status would require starting a CLI process on every poll (decision 3);
@@ -56,9 +56,9 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
 
 ### Hook handler contract
 
-- **Handler:** a single one, the native executable `aang-hook <runtime> <registration tag> <spool>` in Go for macOS, Linux and Windows (ADR-0013). The tag distinguishes registration places: `plugin` for the Claude plugin, `user` for the Codex `hooks.json`.
-  - `aang install` copies it unchanged to `<AANG_HOME>/bin/` and passes the absolute spool path as a command argument: the solver's environment does not contain `AANG_HOME`.
-  - Hook configs call the binary by absolute path; Claude in exec form, without a shell (ADR-0013). The command does not change between aang versions, the binary is updated in place; this way Codex's trust in the hook is preserved.
+- **Handler:** a single one, the native executable `catacomb-hook <runtime> <registration tag> <spool>` in Go for macOS, Linux and Windows (ADR-0013). The tag distinguishes registration places: `plugin` for the Claude plugin, `user` for the Codex `hooks.json`.
+  - `catacomb install` copies it unchanged to `<CATACOMB_HOME>/bin/` and passes the absolute spool path as a command argument: the solver's environment does not contain `CATACOMB_HOME`.
+  - Hook configs call the binary by absolute path; Claude in exec form, without a shell (ADR-0013). The command does not change between catacomb versions, the binary is updated in place; this way Codex's trust in the hook is preserved.
 - **Mode:** synchronous hook, `timeout: 2` s, no `async`, no network and no waiting for the daemon.
 - **Write:** one event — one file. The handler creates a temporary file in `spool/tmp/` and renames it into `spool/new/`.
   - The file name is the deduplication key of the raw record: receiving the same file again adds nothing.
@@ -66,10 +66,10 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
     - Events with an occurrence identifier (`tool_use_id`) are merged by it and the event name.
     - Events without such an identifier (`PermissionRequest`, `Notification`, `Stop` and others) are never merged: each file is a separate episode, and its identifier is the file name.
     - Identical events from different registrations (the tag and `CLAUDE_PLUGIN_ROOT` from the header) no more than 2 s apart are linked as a "possible redelivery". The UI shows them as a group with a counter and an ambiguity mark; none is hidden.
-    - If events from two registrations are seen in a session, `aang status` and `doctor` report the double registration as a configuration problem: the cause has to be removed, not the copies guessed.
+    - If events from two registrations are seen in a session, `catacomb status` and `doctor` report the double registration as a configuration problem: the cause has to be removed, not the copies guessed.
   - The receive time is the file `mtime` with nanoseconds.
 - **File format** — the boundary between `hook` and `collector`:
-  - the first line is `aang-spool/1 <runtime> <registration tag>`;
+  - the first line is `catacomb-spool/1 <runtime> <registration tag>`;
   - then `KEY=value` records, each terminated by a NUL byte; values are passed as is in UTF-8;
   - an empty record (an extra NUL) terminates the header;
   - then stdin follows unchanged.
@@ -78,12 +78,12 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
 - **Exit:** the handler always exits with `exit 0`, never produces `exit 2` or a `decision` JSON, and writes nothing to stdout or stderr: both runtimes add the stdout of some events to the context.
   - How this is ensured in Go (argument errors, panic, memory) and what the binary cannot guarantee (external termination, a fatal environment error) is described in ADR-0013.
 - **Exit without writing:**
-  - with `AANG_OBSERVER=1` or `CLAUDE_CODE_ENTRYPOINT=aang-observer`;
+  - with `CATACOMB_OBSERVER=1` or `CLAUDE_CODE_ENTRYPOINT=catacomb-observer`;
   - with the intentional stop marker `spool/stopped` — even with a valid lease;
   - if there is no valid spool lease. The lease is the file `spool/lease-<expiry in Unix seconds>`.
-    - `aang start` removes the marker and creates a 24-hour lease; the running daemon renews it every hour. `aang stop` writes the marker and deletes the lease — including when the daemon has crashed or hung. While the marker exists, the daemon neither creates nor renews the lease (ADR-0013).
+    - `catacomb start` removes the marker and creates a 24-hour lease; the running daemon renews it every hour. `catacomb stop` writes the marker and deletes the lease — including when the daemon has crashed or hung. While the marker exists, the daemon neither creates nor renews the lease (ADR-0013).
     - The handler finds the marker and the lease file with a single listing of the spool directory and compares the expiry with the system time.
-    - On an intentional aang stop the spool stops growing immediately. After a daemon crash, events are still kept for 24 hours for recovery, after which writing stops.
+    - On an intentional catacomb stop the spool stops growing immediately. After a daemon crash, events are still kept for 24 hours for recovery, after which writing stops.
 
   Stdin is still read to the end in this case, so that the solver does not get a pipe write error.
 - **Unavailable spool:** the event is lost, the handler still exits with `exit 0`. Content is then recovered from files, and the lost wait is marked as a gap.
@@ -92,12 +92,12 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
   - the file stays in the spool and is visible in its statistics;
   - it is discarded together with the other files by the `spool.maxAgeDays` age.
 - **Budget:** p95 per event on the runtime side — including the launcher and stdin transfer (ADR-0013): on macOS and Linux ≤ 10 ms, for Claude on Windows ≤ 25 ms (ADR-0013, decision 6). There is no budget for Codex hooks on Windows: PowerShell costs 0.25–0.4 s per event, so they are installed only explicitly (ADR-0013, decision 7). The binary benchmark runs locally on each OS, the integration test in CI holds thresholds with a per-OS margin; the final value comes from measurements of the installed configuration on the real CLIs.
-- **Directory:** the spool lives in `AANG_HOME`: permissions 0700 on macOS and Linux, the user profile ACL on Windows (ADR-0013). A file is deleted after commit to the store (ADR-0005).
+- **Directory:** the spool lives in `CATACOMB_HOME`: permissions 0700 on macOS and Linux, the user profile ACL on Windows (ADR-0013). A file is deleted after commit to the store (ADR-0005).
 - **Queue bounding:**
   - with a dead daemon the lease bounds writing to one day of solver activity without scanning the directory in the hook;
   - at startup the daemon discards spool files older than 7 days (configurable), recording a gap, and removes leftovers in `spool/tmp` from processes killed by timeout;
   - the running daemon checks the spool size once a minute. If it exceeds the threshold (1 GB by default), the daemon immediately deletes the lease, writes a gap and restores the lease after the queue is drained. This is a reaction threshold, not a hard limit: during the minute between checks and during unfinished writes the queue can grow beyond the threshold;
-  - `aang status` shows the number and size of spool files, the lease expiry and the stop marker.
+  - `catacomb status` shows the number and size of spool files, the lease expiry and the stop marker.
 - **Registered events:**
   - Claude — all except `WorktreeCreate`/`WorktreeRemove` (the hook replaces worktree creation), `MessageDisplay` (frequent deltas; the content is in the transcript and `Stop`) and `PreModelSwitch` (a hook cancelled by timeout blocks the model switch; the switch is shown by `PostModelSwitch` and the transcript);
   - Codex — all 12.
@@ -108,35 +108,35 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
 
 ### Installation
 
-- **Claude — via the aang plugin (approved by the owner).**
-- **Codex — `aang install` writes `~/.codex/hooks.json`, the user confirms trust via `/hooks` (approved by the owner).** Write method:
-  - aang entries are only appended to the end of arrays, because the trust key is positional (`hooks.state."<path>:<event>:i:j"`);
-  - stale aang entries (for example, `aang hook` from earlier installations) are not removed but neutralized in place: a modified entry loses trust and is silently skipped, and the positions of other entries do not shift;
+- **Claude — via the catacomb plugin (approved by the owner).**
+- **Codex — `catacomb install` writes `~/.codex/hooks.json`, the user confirms trust via `/hooks` (approved by the owner).** Write method:
+  - catacomb entries are only appended to the end of arrays, because the trust key is positional (`hooks.state."<path>:<event>:i:j"`);
+  - stale catacomb entries (for example, `catacomb hook` from earlier installations) are not removed but neutralized in place: a modified entry loses trust and is silently skipped, and the positions of other entries do not shift;
   - `hooks/list` is reconciled before and after installation: the `trustStatus` of other entries must not change;
   - a backup is made;
-  - its own changes are serialized via `.aang-lock`; protection against external writers without this lock is best effort: changes made before the control reconciliation are preserved on retry, but a write between the last reconciliation and `rename` may be lost (known limitation);
-  - aang does not write `hooks.state` to `config.toml`.
+  - its own changes are serialized via `.catacomb-lock`; protection against external writers without this lock is best effort: changes made before the control reconciliation are preserved on retry, but a write between the last reconciliation and `rename` may be lost (known limitation);
+  - catacomb does not write `hooks.state` to `config.toml`.
 
   Trust preservation when the binary is updated in place is known only from documentation and is checked by a contract test.
-- **"hooks inactive" (approved by the owner).** The UI and `aang status` show it per runtime and per session:
+- **"hooks inactive" (approved by the owner).** The UI and `catacomb status` show it per runtime and per session:
   - statically — the plugin is not enabled, or the Codex entry's `trustStatus` is not `trusted` according to `hooks/list`;
   - dynamically — session lines appear in files, but there are no hook events from it;
   - mid-session (approved by the owner 2026-10-07) — the session already had hook events, a human prompt is visible in files, and there are no hook events for this turn for longer than `freshness.hooksInactiveAfterMs` (30 s by default). Details:
     - a prompt is a `prompt` fact of the main agent from the transcript or rollout, from the human; command prompts (`/model` and the like) and runtime service prompts do not open a turn;
     - a hook event of this turn is a session hook fact with the same turn identifier (`prompt_id` for Claude, `turn_id` for Codex) or not earlier than the prompt;
-    - while there are no hook events, the session mode is "files only", freshness is `hooks_inactive`, and `aang status` lists it among `hooks_inactive_sessions`;
+    - while there are no hook events, the session mode is "files only", freshness is `hooks_inactive`, and `catacomb status` lists it among `hooks_inactive_sessions`;
     - each such period is a separate `hooks_inactive` gap of the session. The gap starts at the prompt time; several consecutive turns without hooks give one gap;
     - the next hook event of the session closes the gap at its time, and the mode is full again. Closed gaps remain in the session history;
     - a period shorter than the threshold leaves no gap;
     - prompts before the first hook event of the session are covered by the rule of the previous item.
 - **Delivery and removal:**
-  - `aang install` generates the plugin in `~/.aang/claude-plugin/` and installs it in the user scope via a local marketplace and `claude plugin` commands (decision 1);
+  - `catacomb install` generates the plugin in `~/.catacomb/claude-plugin/` and installs it in the user scope via a local marketplace and `claude plugin` commands (decision 1);
   - the expected plugin coverage is CLI, Desktop Local/worktree and Agent SDK with default `settingSources`. Loading of the marketplace plugin and of the fallback directory in CLI 2.1.288 and Agent SDK 0.3.288 was confirmed by D.5 (`docs/research/d5-plugin-delivery-live.md`); Desktop is checked by the owner's checklist (D.7). Exceptions:
     - resume from `sessionStore`: the SDK strips `enabledPlugins` and runs in a temporary `CLAUDE_CONFIG_DIR`;
     - `persistSession: false`: there is no transcript, the "hooks only" mode remains;
   - isolated SDK applications (`settingSources: []`) are connected with the line `plugins: [{type: 'local', path}]` (spike 5.3-L);
   - `--plugin-dir` is used only by the dev tool for recording reference sessions (ADR-0010);
-  - `aang uninstall` removes the plugin and neutralizes aang entries in `hooks.json`.
+  - `catacomb uninstall` removes the plugin and neutralizes catacomb entries in `hooks.json`.
 
 ### Session support modes
 
@@ -151,11 +151,11 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
 
 ### Codex OpenTelemetry (opt-in)
 
-- `aang otel-config` prints an `[otel]` section with the address `http://127.0.0.1:<port>/otel/<intake token>/v1/logs` and reminds to restart the TUI daemon (`codex app-server daemon restart`) and Desktop.
-  - aang does not change the user's config.
-  - The intake token is separate from the UI token: `aang token rotate` does not change it, `aang otel-config --rotate` changes it and prints a new section.
+- `catacomb otel-config` prints an `[otel]` section with the address `http://127.0.0.1:<port>/otel/<intake token>/v1/logs` and reminds to restart the TUI daemon (`codex app-server daemon restart`) and Desktop.
+  - catacomb does not change the user's config.
+  - The intake token is separate from the UI token: `catacomb token rotate` does not change it, `catacomb otel-config --rotate` changes it and prints a new section.
   - The spike checked the address `…/v1/logs` without a token in the path; the path with the token is checked before use (plan, A.5).
-  - `aang doctor` only reads `config.toml` and warns if `exporter` is already taken by the user's own collector.
+  - `catacomb doctor` only reads `config.toml` and warns if `exporter` is already taken by the user's own collector.
 - The receiver is a separate loopback-only listener. It responds `200` before processing and does not hold the connection.
 - Only `codex.tool_decision` is stored. Other records, including `codex.tool_result`, are discarded before being written to disk.
 - Without OTel, the approval decision in Codex is shown as "unknown".
@@ -187,11 +187,11 @@ RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfac
   - OTel — `(conversation.id, call_id, decision, timeUnixNano)`.
 
   Records copied by a Claude fork are kept as lines of the new stream. They are marked as inherited by `engine` at the object level (ADR-0006, ADR-0009).
-- **Backfill.** Files without a cursor modified within `lookback` (7 days by default) are read from the beginning; files with a cursor, from the cursor. This applies to the first start, to `aang watch` and to new files. Hook events that arrive while the daemon is stopped wait in the spool.
+- **Backfill.** Files without a cursor modified within `lookback` (7 days by default) are read from the beginning; files with a cursor, from the cursor. This applies to the first start, to `catacomb watch` and to new files. Hook events that arrive while the daemon is stopped wait in the spool.
 - **Scope.** Only root sessions whose first `cwd` lies inside a tracked root or in a git worktree of a tracked repository (by the common git directory) are collected. Continuations and agents inherit the root's decision (ADR-0006). Records of other sessions are discarded at intake without being stored.
   - The scope decision is stored per stream next to the cursor, so after a restart lines appended to the stream do not require determining it again.
-  - After `aang watch`, streams previously discarded as external are re-read from the beginning within `lookback`.
-- **Self-exclusion.** Sessions with `entrypoint: aang-observer`, `thread_source: aang-observer` or `originator: aang_observer` are discarded.
+  - After `catacomb watch`, streams previously discarded as external are re-read from the beginning within `lookback`.
+- **Self-exclusion.** Sessions with `entrypoint: catacomb-observer`, `thread_source: catacomb-observer` or `originator: catacomb_observer` are discarded.
 
 ### Claude session process liveness (approved by the owner 2026-10-07)
 
@@ -218,8 +218,8 @@ Q.4 showed (`docs/research/q4-live-resilience.md`, finding Q4-5): a Claude sessi
 - Claude CLI, Desktop Local/worktree and Agent SDK are served by one adapter. The surface is determined by `entrypoint` and the hook environment.
 - Codex TUI, `exec`, Desktop Local/worktree and SDK are served by one adapter. By `originator`/`source` only `exec`, subagents and the guardian are reliably distinguished. The SDK is recognized by `originator: codex_sdk_ts` unless the application has overridden the environment. TUI and Desktop are shown as a guess.
 - Sessions spawned by Desktop (spawn task, Dispatch, scheduled tasks) are linked to the parent only via Desktop metadata (decision 4) or an explicit binding. Until then the link is shown as unknown.
-- SSH modes of both Desktops and one's own VM/Docker: the aang daemon runs on the same host as the solver (ADR-0011), the UI is reachable via an SSH tunnel (ADR-0003). Merging several hosts into one UI is not offered.
-- **Cowork and cloud modes (Claude Cloud, Codex Cloud, Work Cloud) are excluded; the UI shows them as "Not observable" (approved by the owner).** Display method: a persistent notice in the status bar and in `/api/status`. The status-bar notice is superseded by ADR-0015: coverage does not light the health dot, and "Not observable" stays in `/api/status` and `aang status`. aang does not read Cowork and cloud session directories, so individual such sessions are not listed (decision 10).
+- SSH modes of both Desktops and one's own VM/Docker: the catacomb daemon runs on the same host as the solver (ADR-0011), the UI is reachable via an SSH tunnel (ADR-0003). Merging several hosts into one UI is not offered.
+- **Cowork and cloud modes (Claude Cloud, Codex Cloud, Work Cloud) are excluded; the UI shows them as "Not observable" (approved by the owner).** Display method: a persistent notice in the status bar and in `/api/status`. The status-bar notice is superseded by ADR-0015: coverage does not light the health dot, and "Not observable" stays in `/api/status` and `catacomb status`. catacomb does not read Cowork and cloud session directories, so individual such sessions are not listed (decision 10).
 
 ## Consequences
 
@@ -235,13 +235,13 @@ Q.4 showed (`docs/research/q4-live-resilience.md`, finding Q4-5): a Claude sessi
 
 Accepted by the owner 2026-10-01:
 
-1. The Claude plugin is delivered via a local marketplace and `claude plugin install`; the `~/.claude/skills/aang/.claude-plugin/` directory is the fallback. Both are checked in the plan (D.5).
-2. Codex OTel is opt-in by instruction; aang does not change the user's config.
-3. The registry `<claude>/sessions/<pid>.json` is a wait hint via fs watch; `claude agents --json` is used only in `aang doctor`.
+1. The Claude plugin is delivered via a local marketplace and `claude plugin install`; the `~/.claude/skills/catacomb/.claude-plugin/` directory is the fallback. Both are checked in the plan (D.5).
+2. Codex OTel is opt-in by instruction; catacomb does not change the user's config.
+3. The registry `<claude>/sessions/<pid>.json` is a wait hint via fs watch; `claude agents --json` is used only in `catacomb doctor`.
 4. From the Desktop metadata `claude-code-sessions/**/local_*.json`, only `cliSessionId`, `spawnSeed` and `lastSpawnRootDetected` are read, and only after the format is checked by the owner's checklist.
 5. The hook handler is a native Go binary for all OSes (ADR-0013). The former sh variant is cancelled by the decision to support Windows.
-6. Scope is by tracked projects with a 7-day `lookback`; `aang watch --all` is for all sessions.
-7. The RFC §8 exception for the spool is approved. There is no quantitative size limit; there is a 24-hour lease, a 1 GB reaction threshold and discarding of files older than 7 days, and the size and lease expiry are visible in `aang status`. A transport with a quantitative limit — after the MVP, based on measurements.
+6. Scope is by tracked projects with a 7-day `lookback`; `catacomb watch --all` is for all sessions.
+7. The RFC §8 exception for the spool is approved. There is no quantitative size limit; there is a 24-hour lease, a 1 GB reaction threshold and discarding of files older than 7 days, and the size and lease expiry are visible in `catacomb status`. A transport with a quantitative limit — after the MVP, based on measurements.
 8. MVP platforms are macOS, Linux and native Windows, including Claude Desktop and Codex Desktop without WSL (ADR-0013). By the owner's decision of 2026-10-02, Desktop on Windows is not checked in the MVP (ADR-0013, decision 3).
 9. The SDK "no code changes" boundary is recorded in the README and shown by the session mode in the UI.
 10. "Not observable" for Cowork and cloud modes is a persistent notice without reading their directories.

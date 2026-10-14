@@ -11,8 +11,8 @@ import {
   type RunSummary,
   type Session,
   SupportMode,
-} from '@aang/contract'
-import type { InterpretationQueue, ObserverCallProgress } from '@aang/store'
+} from '@catacomb/contract'
+import type { InterpretationQueue, ObserverCallProgress } from '@catacomb/store'
 import { dismissedItems, inZone } from '../view/zone.js'
 import { latest, type ModelParts, origin, type ReadContext } from './context.js'
 

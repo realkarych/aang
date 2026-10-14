@@ -1,5 +1,5 @@
-import type { EpochNs, RunId, SessionId, SnapshotTrigger } from '@aang/contract'
-import type { Store, Transaction } from '@aang/store'
+import type { EpochNs, RunId, SessionId, SnapshotTrigger } from '@catacomb/contract'
+import type { Store, Transaction } from '@catacomb/store'
 import type { ContractCatalog } from '../checks/catalog.js'
 import { type RunChecks, storedRunChecks } from '../checks/history.js'
 import { sessionRun } from '../observations/runs.js'

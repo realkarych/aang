@@ -1,5 +1,5 @@
 {
-  "format": "aang-recording/1",
+  "format": "catacomb-recording/1",
   "runtime": "claude",
   "engine_version": "2.1.289",
   "app_version": null,
@@ -9,9 +9,9 @@
   "model": "stub",
   "recorded_at": "2026-10-05T22:14:18.970Z",
   "expected_facts": [
-    "The session loads the plugin aang-kit with --plugin-dir; the agent listing describes its agent aang-kit:reviewer and the skill listing describes its skill aang-kit:greeting",
-    "The root session invokes the plugin skill aang-kit:greeting with the Skill tool and the skill instructions enter the session",
-    "The root session starts the plugin subagent aang-kit:reviewer, which runs one Bash action that prints reviewed; its meta file and SubagentStart hook carry the type aang-kit:reviewer"
+    "The session loads the plugin catacomb-kit with --plugin-dir; the agent listing describes its agent catacomb-kit:reviewer and the skill listing describes its skill catacomb-kit:greeting",
+    "The root session invokes the plugin skill catacomb-kit:greeting with the Skill tool and the skill instructions enter the session",
+    "The root session starts the plugin subagent catacomb-kit:reviewer, which runs one Bash action that prints reviewed; its meta file and SubagentStart hook carry the type catacomb-kit:reviewer"
   ],
   "control_events": [
     {
@@ -19,7 +19,7 @@
       "step": 4,
       "observed_at": "2026-10-05T22:14:19.273Z",
       "expected_map_change": {
-        "description": "The session invokes the plugin skill aang-kit:greeting; the skill with its description enters the run context"
+        "description": "The session invokes the plugin skill catacomb-kit:greeting; the skill with its description enters the run context"
       }
     },
     {
@@ -27,7 +27,7 @@
       "step": 15,
       "observed_at": "2026-10-05T22:14:19.361Z",
       "expected_map_change": {
-        "description": "The plugin subagent aang-kit:reviewer finishes its Bash action; the child agent is shown with the definition of the plugin agent"
+        "description": "The plugin subagent catacomb-kit:reviewer finishes its Bash action; the child agent is shown with the definition of the plugin agent"
       }
     },
     {

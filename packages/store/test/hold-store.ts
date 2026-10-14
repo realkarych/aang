@@ -1,5 +1,5 @@
 import { writeSync } from 'node:fs'
-import { openStore, type Transaction } from '@aang/store'
+import { openStore, type Transaction } from '@catacomb/store'
 import { mainStream, messageFact, normalizerVersion, transcriptCursor, transcriptRecord } from './records.ts'
 
 const [, , home, mode] = process.argv

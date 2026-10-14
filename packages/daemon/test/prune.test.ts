@@ -1,8 +1,8 @@
 import { appendFile, mkdir, rename, utimes, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { RunId, Runtime } from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
-import { openStore, type Store } from '@aang/store'
+import type { RunId, Runtime } from '@catacomb/contract'
+import { objectId, runId } from '@catacomb/contract/ids'
+import { openStore, type Store } from '@catacomb/store'
 import { describe, test } from 'vitest'
 import { type Home, missingCli, spawnDaemon } from './daemon.js'
 import {
@@ -58,7 +58,7 @@ const appendLines = (path: string, lines: readonly string[]): Promise<void> => a
 const renumbered = (line: string, ordinal: number): string =>
   JSON.stringify({ ...(JSON.parse(line) as Record<string, unknown>), ordinal, timestamp: `2026-10-01T12:30:${String(ordinal).padStart(2, '0')}.000Z` })
 
-describe.concurrent('aang prune deletes runs and keeps the deleted history from coming back', () => {
+describe.concurrent('catacomb prune deletes runs and keeps the deleted history from coming back', () => {
   test(
     'prune, a Claude relocation and a restart: the pruned lines do not return, and the continuation forms the run again marked start pruned',
     { timeout: 60_000 },
