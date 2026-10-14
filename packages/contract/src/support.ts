@@ -35,7 +35,6 @@ export type VersionKey = z.infer<typeof VersionKey>
 
 export const SupportScenarios = z.strictObject({
   during_work: CheckResult,
-  after_iteration: CheckResult,
   resume: CheckResult,
   compaction: CheckResult,
   child_sessions: CheckResult,

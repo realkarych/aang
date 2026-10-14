@@ -27,7 +27,7 @@ export interface MatrixOptions {
   readonly contractScenarios: (manifest: Pick<RecordingManifest, 'runtime' | 'scenario'>) => boolean
 }
 
-type ContractField = Exclude<keyof SupportScenarios, 'during_work' | 'after_iteration'>
+type ContractField = Exclude<keyof SupportScenarios, 'during_work'>
 
 const contractFields: Readonly<Record<ContractField, readonly string[]>> = {
   resume: ['resume', 'resume-compaction'],
@@ -45,7 +45,7 @@ export const supportGaps = {
   noRecordings: 'no reference recordings on this OS',
   failed: (names: readonly string[]) => `the contract run fails on: ${names.join(', ')}`,
   missing: (names: readonly string[]) => `no reference recordings of: ${names.join(', ')}`,
-  userScenarios: 'user scenarios are not verified (E2E 1 and 4)',
+  userScenarios: 'user scenarios are not verified (E2E 1)',
   userScenariosFail: (names: readonly string[]) => `user scenarios fail: ${names.join(', ')}`,
   desktopChecklist: 'the owner checklist of Desktop (spike, section 11) is not passed',
   desktopChecklistFails: 'the owner checklist of Desktop (spike, section 11) fails',
@@ -60,12 +60,10 @@ const checklistGaps: Readonly<Record<OwnerChecklistName, { readonly missing: str
 
 const userScenarios: readonly (readonly [Exclude<keyof SupportScenarios, ContractField>, string])[] = [
   ['during_work', 'E2E 1'],
-  ['after_iteration', 'E2E 4'],
 ]
 
 const notRun: SupportScenarios = {
   during_work: 'not_run',
-  after_iteration: 'not_run',
   resume: 'not_run',
   compaction: 'not_run',
   child_sessions: 'not_run',
@@ -155,7 +153,6 @@ const rowFor = (key: SupportKey, previous: SupportRow | null, options: MatrixOpt
   const userSource = userScenarioSource(key, previous, options)
   const scenarios: SupportScenarios = {
     during_work: userSource?.scenarios.during_work ?? notRun.during_work,
-    after_iteration: userSource?.scenarios.after_iteration ?? notRun.after_iteration,
     resume: fieldResult(own, contractFields.resume),
     compaction: fieldResult(own, contractFields.compaction),
     child_sessions: fieldResult(own, contractFields.child_sessions),

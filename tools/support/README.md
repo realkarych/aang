@@ -72,7 +72,7 @@ The snapshot holds the normalized facts (ordered by raw record), sessions, agent
 `support/matrix.json` follows `SupportMatrix` from `@aang/contract`. Rows come from the recordings (local placement), from the previous matrix, from every key of `support/verification.json`, and, for every Desktop engine version, an explicit Windows row. For each row:
 
 - `resume`, `compaction`, `child_sessions` (`subagents`, `fork`) and `reconnect` are `passed`, `failed` or `not_run` from the recordings of the row's own OS, whatever its placement; recordings of another OS never count;
-- `during_work` and `after_iteration` (E2E 1 and 4) are kept from the previous matrix. A row with a placement other than local takes them from the local row of the same runtime, surface, OS and engine version in the previous matrix, because E2E 1 and 4 run on the reference recordings of the OS (ADR-0010); without such a row it keeps its own values, and a new row starts with `not_run`. `e2e/support-matrix.test.ts` keeps the local columns in line with the E2E variants (`e2e/README.md`);
+- `during_work` (E2E 1) is kept from the previous matrix. A row with a placement other than local takes it from the local row of the same runtime, surface, OS and engine version in the previous matrix, because E2E 1 runs on the reference recordings of the OS (ADR-0010); without such a row it keeps its own value, and a new row starts with `not_run`. `e2e/support-matrix.test.ts` keeps the local column in line with the E2E variants (`e2e/README.md`);
 - `observer` is kept from the previous matrix;
 - the gaps are the reasons below that hold, in the order they are listed, and the status follows from them, whatever the previous matrix claimed (ADR-0010, owner decision 5): the row is `unverified` while a reason of the row itself or of the owner checklist holds, otherwise `full` without gaps and `limited` with them;
 - `verified_on` of a `full` or `limited` row is the latest date of the evidence it rests on: the UTC day of its latest recording, its placement check and the owner checklist it needs; an `unverified` row has none.
@@ -87,8 +87,8 @@ The reasons, in the order they are listed:
 | the OS has no recordings | `no reference recordings on this OS` | `unverified` |
 | a recording fails | `the contract run fails on: <scenarios>` | `limited` |
 | a scenario that the recorder's catalog has for the surface and OS and that the run includes is not recorded | `no reference recordings of: <scenarios>` | `limited` |
-| E2E 1 or 4 has failed | `user scenarios fail: <E2E 1, E2E 4>` | `limited` |
-| E2E 1 or 4 has not run | `user scenarios are not verified (E2E 1 and 4)` | `limited` |
+| E2E 1 has failed | `user scenarios fail: E2E 1` | `limited` |
+| E2E 1 has not run | `user scenarios are not verified (E2E 1)` | `limited` |
 | Claude or Codex Desktop on macOS or Linux has no passed Desktop checklist of the exact key | `the owner checklist of Desktop (spike, section 11) is not passed` | `unverified` |
 | the Desktop checklist of the exact key failed | `the owner checklist of Desktop (spike, section 11) fails` | `unverified` |
 | Claude CLI on macOS or Windows, in every placement, has no passed TUI checklist of the exact key | `the owner checklist of the interactive TUI (spike, section 6, a–h) is not passed` | `unverified` |

@@ -451,7 +451,7 @@ const previousRow = (key: SupportKey, status: SupportRow['status']): SupportRow 
   app_version: null,
   status,
   gaps: status === 'limited' ? ['owner checklist item g'] : [],
-  scenarios: { ...notRunContract, during_work: 'passed', after_iteration: 'passed' },
+  scenarios: { ...notRunContract, during_work: 'passed' },
   observer: { admission: 'passed', cross_session_inbound: 'passed', builtins: { mcp_servers: [], plugins: [], skills: [] } },
   verified_on: '2026-10-04',
 })
@@ -516,7 +516,7 @@ describe('the support matrix generated from the contract run', () => {
 
     expect(row(cliKey(hostOs))).toEqual({
       ...previousRow(cliKey(hostOs), 'full'),
-      scenarios: { during_work: 'passed', after_iteration: 'passed', resume: 'passed', compaction: 'passed', child_sessions: 'passed', reconnect: 'passed' },
+      scenarios: { during_work: 'passed', resume: 'passed', compaction: 'passed', child_sessions: 'passed', reconnect: 'passed' },
       verified_on: [await recordedOn(claudeSubagents, claudeReconnect), ...(hostOs === 'linux' ? [] : ['2026-10-08'])].sort().at(-1),
     })
     expect(row(cliKey(otherOs))).toMatchObject({
@@ -547,7 +547,7 @@ describe('the support matrix generated from the contract run', () => {
     expect(await readdirNames(join(support, 'contract'))).toEqual(['claude', 'codex'])
   }, 240_000)
 
-  test('a non-local row takes E2E 1 and 4 from the local row of its OS and is verified only with a passed placement check of its exact key', async () => {
+  test('a non-local row takes E2E 1 from the local row of its OS and is verified only with a passed placement check of its exact key', async () => {
     const { sessions, support } = await workspace()
     for (const scenario of runScenarios('linux')) {
       await placeRecording(recorded(scenario === 'reconnect' ? claudeReconnect : claudeSubagents), sessions, { os: 'linux', scenario })
@@ -557,17 +557,17 @@ describe('the support matrix generated from the contract run', () => {
     const vm = cliKey('linux', 'vm')
     const newerDocker: SupportKey = { ...docker, engine_version: '2.1.290' }
     const newerVm: SupportKey = { ...vm, engine_version: '2.1.290' }
-    const withUserScenarios = (row: SupportRow, during_work: CheckResult, after_iteration: CheckResult): SupportRow => ({
+    const withUserScenarios = (row: SupportRow, during_work: CheckResult): SupportRow => ({
       ...row,
-      scenarios: { ...row.scenarios, during_work, after_iteration },
+      scenarios: { ...row.scenarios, during_work },
     })
     const previous: SupportMatrix = {
       format: supportMatrixFormat,
       rows: [
         previousRow(local, 'limited'),
-        withUserScenarios(previousRow(docker, 'unverified'), 'failed', 'not_run'),
+        withUserScenarios(previousRow(docker, 'unverified'), 'failed'),
         previousRow(vm, 'full'),
-        withUserScenarios(previousRow(newerVm, 'full'), 'passed', 'failed'),
+        withUserScenarios(previousRow(newerVm, 'full'), 'failed'),
       ],
     }
     await mkdir(support, { recursive: true })
@@ -583,7 +583,7 @@ describe('the support matrix generated from the contract run', () => {
     const recordedDate = await recordedOn(claudeSubagents, claudeReconnect)
     const full = (key: SupportKey): SupportRow => ({
       ...previousRow(key, 'full'),
-      scenarios: { ...contractPassed, during_work: 'passed', after_iteration: 'passed' },
+      scenarios: { ...contractPassed, during_work: 'passed' },
       verified_on: [recordedDate, ...(key.placement === 'local' ? [] : ['2026-10-07'])].sort().at(-1) ?? null,
     })
     expect(supportRowOf(matrix, local)).toEqual(full(local))
@@ -591,29 +591,28 @@ describe('the support matrix generated from the contract run', () => {
     expect(supportRowOf(matrix, vm)).toMatchObject({
       status: 'unverified',
       gaps: [supportGaps.placementFails],
-      scenarios: { ...contractPassed, during_work: 'passed', after_iteration: 'passed' },
+      scenarios: { ...contractPassed, during_work: 'passed' },
       verified_on: null,
     })
     expect(supportRowOf(matrix, newerDocker)).toMatchObject({
       status: 'unverified',
       gaps: [supportGaps.noRecordings, supportGaps.userScenarios],
-      scenarios: { ...notRunContract, during_work: 'not_run', after_iteration: 'not_run' },
+      scenarios: { ...notRunContract, during_work: 'not_run' },
     })
     expect(supportRowOf(matrix, newerVm)).toMatchObject({
       status: 'unverified',
-      gaps: [supportGaps.placement, supportGaps.noRecordings, supportGaps.userScenariosFail(['E2E 4'])],
-      scenarios: { ...notRunContract, during_work: 'passed', after_iteration: 'failed' },
+      gaps: [supportGaps.placement, supportGaps.noRecordings, supportGaps.userScenariosFail(['E2E 1'])],
+      scenarios: { ...notRunContract, during_work: 'failed' },
     })
   }, 180_000)
 
-  test('the status follows the results, not the previous matrix: a failed or missing E2E 1 or 4 makes the row limited, passed ones make it full', async () => {
+  test('the status follows the results, not the previous matrix: a failed or missing E2E 1 makes the row limited, passed ones make it full', async () => {
     const { sessions, support } = await workspace()
     const tuiKey = (engine_version: string): SupportKey => ({ runtime: 'codex', surface: 'codex_tui', os: hostOs, placement: 'local', engine_version })
     const variants = [
       { key: tuiKey('0.200.1'), previous: 'full', user: { during_work: 'failed' }, status: 'limited', gaps: [supportGaps.userScenariosFail(['E2E 1'])] },
-      { key: tuiKey('0.200.2'), previous: 'unverified', user: { after_iteration: 'failed' }, status: 'limited', gaps: [supportGaps.userScenariosFail(['E2E 4'])] },
-      { key: tuiKey('0.200.3'), previous: 'full', user: { after_iteration: 'not_run' }, status: 'limited', gaps: [supportGaps.userScenarios] },
-      { key: tuiKey('0.200.4'), previous: 'unverified', user: {}, status: 'full', gaps: [] },
+      { key: tuiKey('0.200.2'), previous: 'full', user: { during_work: 'not_run' }, status: 'limited', gaps: [supportGaps.userScenarios] },
+      { key: tuiKey('0.200.3'), previous: 'unverified', user: {}, status: 'full', gaps: [] },
     ] as const
     for (const { key } of variants) {
       for (const scenario of ['tools', 'approval', 'interrupt']) {

@@ -39,7 +39,6 @@ describe.concurrent('support matrix', () => {
       gaps: [],
       scenarios: {
         during_work: 'not_run',
-        after_iteration: 'not_run',
         resume: 'not_run',
         compaction: 'not_run',
         child_sessions: 'not_run',
@@ -83,7 +82,6 @@ const limitedRow: SupportRow = {
   gaps: ['compaction'],
   scenarios: {
     during_work: 'passed',
-    after_iteration: 'passed',
     resume: 'passed',
     compaction: 'failed',
     child_sessions: 'passed',

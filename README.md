@@ -156,8 +156,8 @@ Desktop on Windows is not checked in the MVP. aang does not observe Cowork and t
 
 Support is declared per exact engine version for each surface, OS and placement (local, Docker, VM, Desktop SSH mode) in [`support/matrix.json`](support/matrix.json) according to [ADR-0010](docs/adr/0010-format-versions.md). The status follows from check results (owner decision 2026-10-08); the UI shows it for an encountered version in the status bar:
 
-- "supported" (`full`) — no gaps: the contract run of the reference recordings of this OS passes for all scenarios, E2E 1 and 4 run on these recordings, the placement check and, where needed, the owner's checklist have passed;
-- "limited" (`limited`) — the row is checked but has gaps, and the matrix lists them: no recording of a scenario, a scenario does not pass, E2E 1 and 4 do not run or do not pass;
+- "supported" (`full`) — no gaps: the contract run of the reference recordings of this OS passes for all scenarios, E2E 1 runs on these recordings, the placement check and, where needed, the owner's checklist have passed;
+- "limited" (`limited`) — the row is checked but has gaps, and the matrix lists them: no recording of a scenario, a scenario does not pass, E2E 1 does not run or does not pass;
 - "unverified" (`unverified`) — the version is not in the matrix, the row has no recordings of its own OS or no passed placement check, it needs an owner's checklist that has not yet been passed, or it is Desktop on Windows.
 
 An unverified version works in tolerant mode: sessions are collected and shown, unparsed records are stored.
@@ -168,8 +168,8 @@ Matrix for Claude Code 2.1.289, Claude Agent SDK with engine 2.1.289, Codex 0.16
 | --- | --- | --- | --- |
 | Claude Agent SDK, Codex SDK | macOS, Linux (local, Docker, VM), Windows | — | — |
 | `codex exec` | macOS | Linux (local, Docker, VM), Windows: no `resume-compaction` recording with the real model | — |
-| Claude CLI | — | Linux (local, Docker, VM): E2E 1 and 4 do not run on Linux recordings | macOS, Windows: no owner's TUI checklist |
-| Codex TUI | — | macOS, Linux (local, Docker, VM): E2E 1 and 4 do not run on TUI recordings | Windows: no recordings |
+| Claude CLI | — | Linux (local, Docker, VM): E2E 1 does not run on Linux recordings | macOS, Windows: no owner's TUI checklist |
+| Codex TUI | — | macOS, Linux (local, Docker, VM): E2E 1 does not run on TUI recordings | Windows: no recordings |
 | Claude Desktop (engine 2.1.286), Codex Desktop (engine 0.159.2) | — | — | macOS: no owner's Desktop checklist; Windows: not checked in the MVP |
 
 ### Desktop limitations

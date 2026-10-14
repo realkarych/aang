@@ -1,6 +1,6 @@
 # ADR-0015: UI simplification
 
-Status: proposed (owner approval required)
+Status: accepted (owner, 2026-10-14)
 
 ## Context
 
@@ -19,6 +19,7 @@ Basis: the design spec `docs/superpowers/specs/2026-10-12-ui-simplification-desi
 7. Trace, plan history, "Since last review" and the usage page are removed from the UI. `aang usage` stays.
 8. `RunSummary` gains `cwd`: the root session's working directory, shown as the project folder in the chat list.
 9. The backend, API, tables and observer are unchanged. Endpoints used only by removed views stay served.
+10. The support matrix drops the `after_iteration` (E2E 4) column: its E2E variants went with "Since last review". A row's user scenarios are E2E 1 only, and the 18 `passed` marks without a test behind them leave the matrix (owner, 2026-10-14).
 
 | Spec decision | Decision here |
 | --- | --- |

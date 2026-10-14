@@ -29,7 +29,6 @@ const listedRow = (key: SupportKey): SupportRow => ({
   gaps: [],
   scenarios: {
     during_work: 'not_run',
-    after_iteration: 'not_run',
     resume: 'not_run',
     compaction: 'not_run',
     child_sessions: 'not_run',

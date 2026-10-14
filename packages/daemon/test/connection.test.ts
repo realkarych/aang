@@ -203,10 +203,9 @@ const supportRow = (row: Pick<SupportRow, 'runtime' | 'surface' | 'engine_versio
   os: hostOs,
   placement: 'local',
   app_version: null,
-  gaps: row.status === 'full' ? [] : ['E2E 1 and 4 were not run'],
+  gaps: row.status === 'full' ? [] : ['E2E 1 was not run'],
   scenarios: {
     during_work: 'not_run',
-    after_iteration: 'not_run',
     resume: 'passed',
     compaction: 'passed',
     child_sessions: 'passed',
